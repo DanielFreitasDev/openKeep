@@ -1,0 +1,71 @@
+import { create } from 'zustand';
+
+export type ThemePref = 'light' | 'dark' | 'system';
+export type ActiveDialog = 'settings' | 'shortcuts' | 'edit-labels' | 'share' | null;
+
+const THEME_KEY = 'openkeep-theme';
+
+function readThemePref(): ThemePref {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === 'light' || v === 'dark' || v === 'system') return v;
+  } catch {
+    // ignore
+  }
+  return 'system';
+}
+
+export function isDarkEffective(pref: ThemePref): boolean {
+  if (pref === 'system') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  return pref === 'dark';
+}
+
+function applyTheme(pref: ThemePref) {
+  document.documentElement.classList.toggle('dark', isDarkEffective(pref));
+}
+
+interface UiState {
+  theme: ThemePref;
+  /** Persistent (hamburger) sidebar expansion. */
+  sidebarOpen: boolean;
+  activeDialog: ActiveDialog;
+  focusedNoteId: string | null;
+  setTheme: (t: ThemePref) => void;
+  toggleDarkTheme: () => void;
+  toggleSidebar: () => void;
+  setActiveDialog: (d: ActiveDialog) => void;
+  setFocusedNoteId: (id: string | null) => void;
+}
+
+export const useUiStore = create<UiState>((set, get) => ({
+  theme: readThemePref(),
+  sidebarOpen: true,
+  activeDialog: null,
+  focusedNoteId: null,
+  setTheme: (theme) => {
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // ignore
+    }
+    applyTheme(theme);
+    set({ theme });
+  },
+  toggleDarkTheme: () => {
+    const dark = isDarkEffective(get().theme);
+    get().setTheme(dark ? 'light' : 'dark');
+  },
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setActiveDialog: (activeDialog) => set({ activeDialog }),
+  setFocusedNoteId: (focusedNoteId) => set({ focusedNoteId }),
+}));
+
+// Follow OS theme changes while pref is "system".
+if (typeof window !== 'undefined') {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const { theme } = useUiStore.getState();
+    if (theme === 'system') applyTheme(theme);
+  });
+}

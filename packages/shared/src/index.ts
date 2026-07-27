@@ -5,3 +5,4 @@ export * from './constants/shortcuts.js';
 export * from './lib/fractional.js';
 export * from './lib/id.js';
 export * from './schemas/common.js';
+export * from './schemas/settings.js';

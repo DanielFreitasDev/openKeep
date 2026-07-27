@@ -1,0 +1,15 @@
+{
+  "appName": "OpenKeep",
+  "loading": "Carregando…",
+  "retry": "Tentar novamente",
+  "cancel": "Cancelar",
+  "save": "Salvar",
+  "done": "Concluído",
+  "close": "Fechar",
+  "undo": "Desfazer",
+  "delete": "Excluir",
+  "rename": "Renomear",
+  "create": "Criar",
+  "error": "Algo deu errado",
+  "offline": "Você está off-line. Não é possível salvar alterações agora."
+}

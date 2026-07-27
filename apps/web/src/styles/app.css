@@ -1,1 +1,114 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. The semantic layer (surface/on-surface/outline/primary) and
+ * the 12 Keep note colors, each with distinct light and dark values (hexes
+ * mirror packages/shared/src/constants/colors.ts — asserted by a unit test).
+ */
+:root {
+  --surface: #ffffff;
+  --surface-container: #f1f3f4;
+  --surface-hover: rgba(60, 64, 67, 0.08);
+  --on-surface: #202124;
+  --on-surface-variant: #5f6368;
+  --outline: #e0e0e0;
+  --outline-variant: #dadce0;
+  --primary: #1a73e8;
+  --on-primary: #ffffff;
+  --accent-container: #feefc3;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --elevation-2: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --elevation-3: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+
+  --note-default: #ffffff;
+  --note-coral: #faafa8;
+  --note-peach: #f39f76;
+  --note-sand: #fff8b8;
+  --note-mint: #e2f6d3;
+  --note-sage: #b4ddd3;
+  --note-fog: #d4e4ed;
+  --note-storm: #aeccdc;
+  --note-dusk: #d3bfdb;
+  --note-blossom: #f6e2dd;
+  --note-clay: #e9e3d4;
+  --note-chalk: #efeff1;
+
+  --card-w: 240px;
+  --gutter: 16px;
+  --topbar-h: 64px;
+  --sidebar-w: 280px;
+  --rail-w: 72px;
+}
+
+.dark {
+  --surface: #202124;
+  --surface-container: #292a2d;
+  --surface-hover: rgba(232, 234, 237, 0.08);
+  --on-surface: #e8eaed;
+  --on-surface-variant: #9aa0a6;
+  --outline: #5f6368;
+  --outline-variant: #3c4043;
+  --primary: #8ab4f8;
+  --on-primary: #202124;
+  --accent-container: #41331c;
+  --scrim: rgba(0, 0, 0, 0.7);
+
+  --note-default: #202124;
+  --note-coral: #77172e;
+  --note-peach: #692b17;
+  --note-sand: #7c4a03;
+  --note-mint: #264d3b;
+  --note-sage: #0c625d;
+  --note-fog: #256377;
+  --note-storm: #284255;
+  --note-dusk: #472e5b;
+  --note-blossom: #6c394f;
+  --note-clay: #4b443a;
+  --note-chalk: #232427;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-container: var(--surface-container);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-accent-container: var(--accent-container);
+
+  --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Material Symbols inline SVG icons inherit text color. */
+.msym {
+  display: inline-flex;
+  flex: none;
+}
+.msym svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+/* Subtle scrollbars, Keep-like. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline) transparent;
+}

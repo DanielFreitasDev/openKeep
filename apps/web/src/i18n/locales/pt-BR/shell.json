@@ -1,0 +1,23 @@
+{
+  "mainMenu": "Menu principal",
+  "navNotes": "Notas",
+  "navReminders": "Lembretes",
+  "navArchive": "Arquivo",
+  "navTrash": "Lixeira",
+  "editLabels": "Editar marcadores",
+  "searchPlaceholder": "Pesquisar",
+  "clearSearch": "Limpar pesquisa",
+  "refresh": "Atualizar",
+  "gridView": "Visualização em grade",
+  "listView": "Visualização em lista",
+  "settingsMenu": "Configurações",
+  "settings": "Configurações",
+  "enableDarkTheme": "Ativar tema escuro",
+  "disableDarkTheme": "Desativar tema escuro",
+  "keyboardShortcuts": "Atalhos do teclado",
+  "sendFeedback": "Enviar feedback",
+  "account": "Conta do OpenKeep",
+  "signedInAs": "Conectado como",
+  "signOut": "Sair",
+  "emptyView": "Nada por aqui ainda"
+}

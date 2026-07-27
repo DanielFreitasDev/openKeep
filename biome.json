@@ -14,7 +14,8 @@
       "!**/.turbo",
       "!**/routeTree.gen.ts",
       "!**/drizzle/meta",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!apps/web/src/styles/app.css"
     ]
   },
   "formatter": {
@@ -25,8 +26,8 @@
   },
   "linter": {
     "enabled": true,
-    "preset": "recommended",
     "rules": {
+      "preset": "recommended",
       "correctness": {
         "noUnusedImports": "error",
         "noUnusedVariables": "error"

@@ -7,10 +7,10 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Area | Keep web behavior | Status | Milestone |
 |---|---|---|---|
 | Monorepo, CI, dev stack | — (infrastructure) | ✅ | M0 |
-| Email/password auth | Google account | 🔀 self-hosted auth | M1 |
-| Top bar (hamburger, logo, search, refresh, view toggle, gear, account) | ✓ | ⬜ | M1 |
-| Sidebar rail ↔ expanded, hover slide-out | ✓ | ⬜ | M1 |
-| Dark theme + distinct note-color palette | ✓ | ⬜ | M1 |
+| Email/password auth | Google account | ✅ 🔀 self-hosted auth (Better Auth; optional Google/GitHub OAuth) | M1 |
+| Top bar (hamburger, logo, search, refresh, view toggle, gear, account) | ✓ | ✅ (search input active in M4) | M1 |
+| Sidebar rail ↔ expanded, hover slide-out | ✓ | ✅ (labels added M4) | M1 |
+| Dark theme + distinct note-color palette | ✓ | ✅ tokens + toggle + follow-system | M1 |
 | Composer ("Take a note…", New list, New note with image) | ✓ | ⬜ | M2 |
 | "Empty note discarded" | ✓ | ⬜ | M2 |
 | Masonry grid, PINNED/OTHERS sections | ✓ | ⬜ | M2 |

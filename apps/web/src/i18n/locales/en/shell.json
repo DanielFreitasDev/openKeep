@@ -1,0 +1,23 @@
+{
+  "mainMenu": "Main menu",
+  "navNotes": "Notes",
+  "navReminders": "Reminders",
+  "navArchive": "Archive",
+  "navTrash": "Trash",
+  "editLabels": "Edit labels",
+  "searchPlaceholder": "Search",
+  "clearSearch": "Clear search",
+  "refresh": "Refresh",
+  "gridView": "Grid view",
+  "listView": "List view",
+  "settingsMenu": "Settings",
+  "settings": "Settings",
+  "enableDarkTheme": "Enable dark theme",
+  "disableDarkTheme": "Disable dark theme",
+  "keyboardShortcuts": "Keyboard shortcuts",
+  "sendFeedback": "Send feedback",
+  "account": "OpenKeep account",
+  "signedInAs": "Signed in as",
+  "signOut": "Sign out",
+  "emptyView": "Nothing here yet"
+}
