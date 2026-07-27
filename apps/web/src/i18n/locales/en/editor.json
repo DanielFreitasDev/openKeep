@@ -15,5 +15,14 @@
   "versionHistory": "Version history",
   "noVersions": "No previous versions yet",
   "downloadVersion": "Download as .txt",
-  "restoreVersion": "Restore"
+  "restoreVersion": "Restore",
+  "listItemPlaceholder": "List item",
+  "completedItems_one": "{{count}} Completed item",
+  "completedItems_other": "{{count}} Completed items",
+  "deleteItem": "Delete item",
+  "dragItem": "Drag item",
+  "showCheckboxes": "Show checkboxes",
+  "hideCheckboxes": "Hide checkboxes",
+  "uncheckAllItems": "Uncheck all items",
+  "deleteCheckedItems": "Delete checked items"
 }

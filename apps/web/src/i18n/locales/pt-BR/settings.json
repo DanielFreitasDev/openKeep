@@ -1,0 +1,17 @@
+{
+  "title": "Configurações",
+  "notesAndLists": "Notas e listas",
+  "addToBottom": "Adicionar novos itens ao final",
+  "moveChecked": "Mover itens marcados para o fim da lista",
+  "richPreviews": "Exibir visualizações avançadas de links",
+  "themeLabel": "Tema",
+  "themeSystem": "Seguir o sistema",
+  "themeLight": "Claro",
+  "themeDark": "Escuro",
+  "reminderDefaults": "Padrões de lembrete",
+  "morning": "Manhã",
+  "afternoon": "Tarde",
+  "evening": "Noite",
+  "sharing": "Compartilhamento",
+  "enableSharing": "Ativar compartilhamento"
+}

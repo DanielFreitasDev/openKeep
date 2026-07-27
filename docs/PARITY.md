@@ -24,12 +24,12 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ + hourly purge job | M2 |
 | Version history + .txt download | ✓ (+restore 🔀) | ✅ session-boundary snapshots | M2 |
 | Grid ↔ list toggle | ✓ | ✅ synced via settings.viewMode | M2 |
-| Checklists: Enter split, indent 1 level, drag reorder | ✓ | ⬜ | M3 |
-| Completed items section (collapsible, per setting) | ✓ | ⬜ | M3 |
-| Uncheck all / Delete checked | ✓ | ⬜ | M3 |
-| Note ↔ list conversion (Ctrl+Shift+8) | ✓ | ⬜ | M3 |
-| Card summary "+ N completed items" | ✓ | ⬜ | M3 |
-| Settings dialog (6 toggles/fields) | ✓ | ⬜ | M3 |
+| Checklists: Enter split, indent 1 level, drag reorder | ✓ | ✅ (Tab/Ctrl+] too; first item can't indent; parent check cascades) | M3 |
+| Completed items section (collapsible, per setting) | ✓ | ✅ | M3 |
+| Uncheck all / Delete checked | ✓ | ✅ | M3 |
+| Note ↔ list conversion (Ctrl+Shift+8) | ✓ | ✅ card + editor menus + shortcut | M3 |
+| Card summary "+ N completed items" | ✓ | ✅ | M3 |
+| Settings dialog (6 toggles/fields) | ✓ | ✅ instant-apply + theme select | M3 |
 | Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ⬜ | M4 |
 | `#` quick-labeling in body | ✓ | ⬜ | M4 |
 | Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ⬜ | M4 |

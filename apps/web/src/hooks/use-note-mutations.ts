@@ -2,6 +2,7 @@ import type { CreateNote, FullNote, PatchNoteContent, PatchNoteState } from '@op
 import { newId, positionBefore } from '@openkeep/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { deleteCheckedApi, uncheckAllApi } from '../lib/items-api.js';
 import { mergeNote, removeNote, upsertNote } from '../lib/note-selectors.js';
 import * as apiNotes from '../lib/notes-api.js';
 import { notesQuery } from '../lib/notes-api.js';
@@ -110,6 +111,16 @@ export function useNoteMutations() {
     onSuccess: (note) => setNotes((old) => upsertNote(old, note)),
   });
 
+  const uncheckAll = useMutation({
+    mutationFn: (id: string) => uncheckAllApi(id),
+    onSuccess: (res) => setNotes((old) => mergeNote(old, res.noteId, { items: res.items })),
+  });
+
+  const deleteChecked = useMutation({
+    mutationFn: (id: string) => deleteCheckedApi(id),
+    onSuccess: (res) => setNotes((old) => mergeNote(old, res.noteId, { items: res.items })),
+  });
+
   // ------------------------------------------------------------ with undo
 
   const archiveWithUndo = (note: FullNote) => {
@@ -176,6 +187,8 @@ export function useNoteMutations() {
     emptyTrash: emptyTrashMut,
     copy,
     convert,
+    uncheckAll,
+    deleteChecked,
     archiveWithUndo,
     unarchiveWithUndo,
     trashWithUndo,

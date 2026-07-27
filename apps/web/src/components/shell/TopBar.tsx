@@ -22,9 +22,8 @@ export function TopBar() {
   const viewMode = settings?.viewMode ?? 'grid';
   const toggleView = useMutation({
     mutationFn: () => patchSettings({ viewMode: viewMode === 'grid' ? 'list' : 'grid' }),
-    onMutate: async () => {
+    onMutate: () => {
       const next: UserSettings['viewMode'] = viewMode === 'grid' ? 'list' : 'grid';
-      await queryClient.cancelQueries(settingsQuery);
       queryClient.setQueryData(settingsQuery.queryKey, (old): UserSettings | undefined =>
         old ? { ...old, viewMode: next } : undefined,
       );

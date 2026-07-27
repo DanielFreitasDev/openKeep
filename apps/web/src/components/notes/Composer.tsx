@@ -1,5 +1,6 @@
 import { Popover } from '@base-ui/react/popover';
 import checkboxSvg from '@material-symbols/svg-400/outlined/check_box.svg?raw';
+import closeSvg from '@material-symbols/svg-400/outlined/close.svg?raw';
 import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
@@ -24,8 +25,10 @@ export function Composer() {
   const show = useSnackbarStore((s) => s.show);
 
   const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState<'text' | 'list'>('text');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [listRows, setListRows] = useState<{ key: string; text: string }[]>([]);
   const [pinned, setPinned] = useState(false);
   const [color, setColor] = useState<NoteColor>('default');
   const [background, setBackground] = useState<NoteBackground>('none');
@@ -36,22 +39,29 @@ export function Composer() {
 
   const reset = () => {
     setExpanded(false);
+    setMode('text');
     setTitle('');
     setBody('');
+    setListRows([]);
     setPinned(false);
     setColor('default');
     setBackground('none');
   };
 
   const save = () => {
-    const hasContent = title.trim() !== '' || body.trim() !== '';
+    const items = listRows
+      .map((r) => r.text)
+      .filter((x) => x.trim() !== '')
+      .map((text) => ({ text, checked: false, indent: 0 as const }));
+    const hasContent =
+      title.trim() !== '' || (mode === 'text' ? body.trim() !== '' : items.length > 0);
     if (hasContent) {
       m.create.mutate({
         id: m.newNoteId(),
-        type: 'text',
+        type: mode,
         title: title.trim(),
-        bodyHtml: body.trim() === '' ? '' : plainTextToHtml(body),
-        items: [],
+        bodyHtml: mode === 'text' && body.trim() !== '' ? plainTextToHtml(body) : '',
+        items: mode === 'list' ? items : [],
         pinned,
         color,
         background,
@@ -60,6 +70,12 @@ export function Composer() {
       show({ message: t('emptyNoteDiscarded') });
     }
     reset();
+  };
+
+  const startList = () => {
+    setMode('list');
+    setListRows([{ key: crypto.randomUUID(), text: '' }]);
+    setExpanded(true);
   };
 
   // Click-away saves (Keep behavior). Popover portals live outside the root,
@@ -127,7 +143,7 @@ export function Composer() {
               svg={checkboxSvg}
               label={t('newList')}
               className="text-on-surface-variant"
-              disabled
+              onClick={startList}
             />
             <IconButton
               svg={imageSvg}
@@ -159,20 +175,72 @@ export function Composer() {
                 />
               </div>
             </div>
-            <textarea
-              ref={bodyRef}
-              value={body}
-              onChange={(e) => {
-                setBody(e.target.value);
-                const el = e.target;
-                el.style.height = 'auto';
-                el.style.height = `${el.scrollHeight}px`;
-              }}
-              placeholder={t('takeANote')}
-              aria-label={t('takeANote')}
-              rows={1}
-              className="max-h-[60vh] w-full resize-none overflow-y-auto bg-transparent px-4 pb-3 text-[0.875rem] text-on-surface leading-5 outline-none placeholder:text-on-surface-variant"
-            />
+            {mode === 'text' ? (
+              <textarea
+                ref={bodyRef}
+                value={body}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  const el = e.target;
+                  el.style.height = 'auto';
+                  el.style.height = `${el.scrollHeight}px`;
+                }}
+                placeholder={t('takeANote')}
+                aria-label={t('takeANote')}
+                rows={1}
+                className="max-h-[60vh] w-full resize-none overflow-y-auto bg-transparent px-4 pb-3 text-[0.875rem] text-on-surface leading-5 outline-none placeholder:text-on-surface-variant"
+              />
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto px-3 pb-3">
+                {listRows.map((row, i) => (
+                  <div key={row.key} className="group/crow flex items-center gap-2 py-0.5">
+                    <input type="checkbox" disabled className="h-4 w-4 flex-none opacity-60" />
+                    <input
+                      // biome-ignore lint/a11y/noAutofocus: Keep focuses the first list row on entry
+                      autoFocus={i === listRows.length - 1}
+                      type="text"
+                      value={row.text}
+                      placeholder={t('editor:listItemPlaceholder')}
+                      aria-label={t('editor:listItemPlaceholder')}
+                      className="w-full border-transparent border-b bg-transparent px-1 py-1 text-[0.875rem] text-on-surface outline-none focus:border-(--outline)"
+                      onChange={(e) =>
+                        setListRows((rows) =>
+                          rows.map((r) => (r.key === row.key ? { ...r, text: e.target.value } : r)),
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          setListRows((rows) => {
+                            const idx = rows.findIndex((r) => r.key === row.key);
+                            const next = [...rows];
+                            next.splice(idx + 1, 0, { key: crypto.randomUUID(), text: '' });
+                            return next;
+                          });
+                        } else if (
+                          e.key === 'Backspace' &&
+                          row.text === '' &&
+                          listRows.length > 1
+                        ) {
+                          e.preventDefault();
+                          setListRows((rows) => rows.filter((r) => r.key !== row.key));
+                        }
+                      }}
+                    />
+                    {listRows.length > 1 && (
+                      <IconButton
+                        svg={closeSvg}
+                        label={t('editor:deleteItem')}
+                        size={28}
+                        iconSize={16}
+                        className="opacity-0 group-hover/crow:opacity-100"
+                        onClick={() => setListRows((rows) => rows.filter((r) => r.key !== row.key))}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-1 px-2 pb-1.5">
               <Popover.Root>
                 <Popover.Trigger

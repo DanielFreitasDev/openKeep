@@ -1,0 +1,17 @@
+{
+  "title": "Settings",
+  "notesAndLists": "Notes and lists",
+  "addToBottom": "Add new items to the bottom",
+  "moveChecked": "Move checked items to bottom of list",
+  "richPreviews": "Display rich link previews",
+  "themeLabel": "Theme",
+  "themeSystem": "Follow system",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "reminderDefaults": "Reminder defaults",
+  "morning": "Morning",
+  "afternoon": "Afternoon",
+  "evening": "Evening",
+  "sharing": "Sharing",
+  "enableSharing": "Enable sharing"
+}

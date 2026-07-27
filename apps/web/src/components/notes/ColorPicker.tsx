@@ -23,10 +23,10 @@ export function ColorPicker({ color, background, onColor, onBackground }: ColorP
         {NOTE_COLORS.map((c) => {
           const selected = c === color;
           return (
+            // biome-ignore lint/a11y/useSemanticElements: ARIA radio-button pattern (visual swatch, instant apply)
             <button
               key={c}
               type="button"
-              // biome-ignore lint/a11y/useSemanticElements: ARIA radio-button pattern (visual swatch, instant apply)
               role="radio"
               aria-checked={selected}
               aria-label={t(`color_${c}`)}
@@ -54,10 +54,10 @@ export function ColorPicker({ color, background, onColor, onBackground }: ColorP
         {NOTE_BACKGROUNDS.map((b) => {
           const selected = b === background;
           return (
+            // biome-ignore lint/a11y/useSemanticElements: ARIA radio-button pattern (visual swatch, instant apply)
             <button
               key={b}
               type="button"
-              // biome-ignore lint/a11y/useSemanticElements: ARIA radio-button pattern (visual swatch, instant apply)
               role="radio"
               aria-checked={selected}
               aria-label={t(`background_${b}`)}

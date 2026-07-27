@@ -12,7 +12,6 @@ import {
   versionDownloadUrl,
 } from '../../lib/notes-api.js';
 import { Icon } from '../Icon.js';
-import { IconButton } from '../IconButton.js';
 
 interface VersionHistoryDialogProps {
   noteId: string;

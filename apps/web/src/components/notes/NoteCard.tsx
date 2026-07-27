@@ -164,6 +164,19 @@ export function NoteCard({ note }: { note: FullNote }) {
                     <Menu.Item className={menuItemClass} onClick={() => m.copy.mutate(note.id)}>
                       {t('makeACopy')}
                     </Menu.Item>
+                    <Menu.Item
+                      className={menuItemClass}
+                      onClick={() =>
+                        m.convert.mutate({
+                          id: note.id,
+                          to: note.type === 'list' ? 'text' : 'list',
+                        })
+                      }
+                    >
+                      {note.type === 'list'
+                        ? t('editor:hideCheckboxes')
+                        : t('editor:showCheckboxes')}
+                    </Menu.Item>
                   </Menu.Popup>
                 </Menu.Positioner>
               </Menu.Portal>

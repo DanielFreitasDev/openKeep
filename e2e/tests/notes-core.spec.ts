@@ -58,7 +58,7 @@ test('archive with undo snackbar', async ({ page }) => {
   await cardRootByTitle(page, 'Undo archive')
     .getByRole('button', { name: 'Archive', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(cardByTitle(page, 'Undo archive')).toBeVisible();
 });
 

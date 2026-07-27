@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 import { EditorModal } from '../components/notes/EditorModal.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
+import { SettingsDialog } from '../components/shell/SettingsDialog.js';
 import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
 import { sessionQuery } from '../lib/queries.js';
@@ -39,6 +40,7 @@ function ShellLayout() {
         <Outlet />
       </main>
       <EditorModal />
+      <SettingsDialog />
       <SnackbarHost />
     </div>
   );

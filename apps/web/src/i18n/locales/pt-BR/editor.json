@@ -15,5 +15,14 @@
   "versionHistory": "Histórico de versões",
   "noVersions": "Ainda não há versões anteriores",
   "downloadVersion": "Baixar como .txt",
-  "restoreVersion": "Restaurar"
+  "restoreVersion": "Restaurar",
+  "listItemPlaceholder": "Item da lista",
+  "completedItems_one": "{{count}} item concluído",
+  "completedItems_other": "{{count}} itens concluídos",
+  "deleteItem": "Excluir item",
+  "dragItem": "Arrastar item",
+  "showCheckboxes": "Mostrar caixas de seleção",
+  "hideCheckboxes": "Ocultar caixas de seleção",
+  "uncheckAllItems": "Desmarcar todos os itens",
+  "deleteCheckedItems": "Excluir itens marcados"
 }

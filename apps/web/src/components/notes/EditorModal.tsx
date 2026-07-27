@@ -21,8 +21,11 @@ import { useAutosave } from '../../hooks/use-autosave.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { notesQuery } from '../../lib/notes-api.js';
+import { settingsQuery } from '../../lib/queries.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
+import type { ChecklistHandle } from './ChecklistEditor.js';
+import { ChecklistEditor } from './ChecklistEditor.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
@@ -77,10 +80,13 @@ function EditorBody({
   m: ReturnType<typeof useNoteMutations>;
 }) {
   const trashed = note.trashedAt !== null;
+  const isList = note.type === 'list';
+  const { data: settings } = useQuery(settingsQuery);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
+  const checklistRef = useRef<ChecklistHandle | null>(null);
 
   const noteIdRef = useRef(note.id);
   const autosave = useAutosave((patch) => {
@@ -110,6 +116,20 @@ function EditorBody({
     },
   });
 
+  // After list→text conversion the (previously hidden) TipTap instance holds
+  // stale content — sync it when the note flips to text and the editor is empty.
+  useEffect(() => {
+    if (
+      !isList &&
+      editor &&
+      editor.isEmpty &&
+      note.bodyHtml !== '' &&
+      !autosave.isDirty('bodyHtml')
+    ) {
+      editor.commands.setContent(note.bodyHtml);
+    }
+  }, [isList, editor, note.bodyHtml, autosave]);
+
   const flushAndClose = () => {
     autosave.flush();
     onClose();
@@ -138,6 +158,9 @@ function EditorBody({
               e.preventDefault();
               e.stopPropagation();
               flushAndClose();
+            } else if (e.ctrlKey && e.shiftKey && e.key === '8' && !trashed) {
+              e.preventDefault();
+              m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' });
             }
           }}
         >
@@ -174,7 +197,17 @@ function EditorBody({
           </div>
 
           <div className="min-h-[46px] flex-1 overflow-y-auto px-4 pb-3">
-            <EditorContent editor={editor} className="note-editor" />
+            {isList ? (
+              <ChecklistEditor
+                note={note}
+                readOnly={trashed}
+                moveCheckedToBottom={settings?.moveCheckedToBottom ?? true}
+                addItemsToBottom={settings?.addItemsToBottom ?? true}
+                handleRef={checklistRef}
+              />
+            ) : (
+              <EditorContent editor={editor} className="note-editor" />
+            )}
           </div>
 
           <div className="px-4 pb-1 text-right">
@@ -267,14 +300,16 @@ function EditorBody({
               </>
             ) : (
               <>
-                <IconButton
-                  svg={formatSvg}
-                  label={t('formattingOptions')}
-                  size={38}
-                  iconSize={19}
-                  className={`text-on-surface-variant ${showFormatBar ? 'bg-(--surface-hover)' : ''}`}
-                  onClick={() => setShowFormatBar((v) => !v)}
-                />
+                {!isList && (
+                  <IconButton
+                    svg={formatSvg}
+                    label={t('formattingOptions')}
+                    size={38}
+                    iconSize={19}
+                    className={`text-on-surface-variant ${showFormatBar ? 'bg-(--surface-hover)' : ''}`}
+                    onClick={() => setShowFormatBar((v) => !v)}
+                  />
+                )}
                 <Popover.Root>
                   <Popover.Trigger
                     aria-label={t('notes:backgroundOptions')}
@@ -350,6 +385,30 @@ function EditorBody({
                         <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                           {t('versionHistory')}
                         </Menu.Item>
+                        <Menu.Item
+                          className={menuItemClass}
+                          onClick={() =>
+                            m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' })
+                          }
+                        >
+                          {isList ? t('hideCheckboxes') : t('showCheckboxes')}
+                        </Menu.Item>
+                        {isList && note.items.some((i) => i.checked) && (
+                          <>
+                            <Menu.Item
+                              className={menuItemClass}
+                              onClick={() => checklistRef.current?.uncheckAll()}
+                            >
+                              {t('uncheckAllItems')}
+                            </Menu.Item>
+                            <Menu.Item
+                              className={menuItemClass}
+                              onClick={() => checklistRef.current?.deleteChecked()}
+                            >
+                              {t('deleteCheckedItems')}
+                            </Menu.Item>
+                          </>
+                        )}
                       </Menu.Popup>
                     </Menu.Positioner>
                   </Menu.Portal>

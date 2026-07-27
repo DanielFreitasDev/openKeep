@@ -14,6 +14,7 @@ export function SettingsMenu() {
   const { t } = useTranslation('shell');
   const theme = useUiStore((s) => s.theme);
   const toggleDarkTheme = useUiStore((s) => s.toggleDarkTheme);
+  const setActiveDialog = useUiStore((s) => s.setActiveDialog);
   const dark = isDarkEffective(theme);
 
   return (
@@ -29,6 +30,9 @@ export function SettingsMenu() {
       <Menu.Portal>
         <Menu.Positioner className="z-50" sideOffset={4} align="end">
           <Menu.Popup className="z-50 min-w-52 rounded-lg border border-(--outline-variant) bg-surface py-2 shadow-(--elevation-3)">
+            <Menu.Item className={itemClass} onClick={() => setActiveDialog('settings')}>
+              {t('settings')}
+            </Menu.Item>
             <Menu.Item className={itemClass} onClick={toggleDarkTheme}>
               {dark ? t('disableDarkTheme') : t('enableDarkTheme')}
             </Menu.Item>
