@@ -34,7 +34,12 @@ describe('loadConfig', () => {
   });
 
   it('treats empty-string env vars as unset', () => {
-    const cfg = loadConfig({ ...valid, GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '', SMTP_URL: '' });
+    const cfg = loadConfig({
+      ...valid,
+      GOOGLE_CLIENT_ID: '',
+      GOOGLE_CLIENT_SECRET: '',
+      SMTP_URL: '',
+    });
     expect(cfg.GOOGLE_CLIENT_ID).toBeUndefined();
     expect(cfg.SMTP_URL).toBeUndefined();
   });

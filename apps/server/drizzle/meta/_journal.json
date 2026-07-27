@@ -15,6 +15,13 @@
       "when": 1785158993510,
       "tag": "0001_auth-and-settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785160495365,
+      "tag": "0002_notes-core",
+      "breakpoints": true
     }
   ]
 }
