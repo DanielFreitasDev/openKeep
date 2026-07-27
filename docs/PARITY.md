@@ -32,7 +32,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Settings dialog (6 toggles/fields) | ✓ | ✅ instant-apply + theme select | M3 |
 | Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ✅ per-user; case-insensitive uniqueness | M4 |
 | `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
-| Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ✅ client-side instant + server FTS endpoint; People M7, media types M5 | M4 |
+| Search: instant, filter tiles (Types/Labels/Colors) | ✓ | ✅ client-side instant + server FTS endpoint; media types M5. People filter deferred (see below) | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
 | Audio attachment playback | ✓ | ✅ player (recording post-1.0; files arrive via import) | M5 |
@@ -42,10 +42,50 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Sharing: invite by email, single permission level | ✓ | ✅ registered users; both-side sharing setting; 20 cap | M7 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
-| Keyboard shortcuts (full map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant | M8 |
+| Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
 | Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ (hover check, x, Ctrl+A, bulk pin/color/archive/trash/copy; marquee deferred) | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ | M8 |
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
 | Takeout import | — (adoption feature) | ✅ 🔀 | M9 |
 | JSON export | Takeout equivalent | ✅ | M9 |
+
+## Known deferrals in v1.0
+
+Planned (or Keep-parity) items consciously not shipped in v1.0 — tracked here so
+the table above stays honest. Roughly in order of user impact:
+
+- **Search "People" filter** — no client tile/param and no `collaborator` filter
+  on `/api/search`. The corpus carries collaborator data, so this is client
+  selector + one SQL EXISTS away.
+- **Marquee (rubber-band) multi-select** — hover check, `x`, `Ctrl+A` and the
+  selection bar shipped; drag-to-select did not.
+- **Bulk "Remind" and "Change labels"** in the selection bar — per-note flows
+  exist; the bulk variants don't.
+- **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing
+  "selected item" editor focus state our native-textarea checklist doesn't
+  have; removed from the "?" dialog rather than advertised dead.
+- **Grid virtualization >400 cards/section** — every card renders; the ~5k-note
+  ceiling documented in ARCHITECTURE.md still applies.
+- **Offline banner + Retry snackbars** — the PWA serves cached reads offline,
+  but no explicit offline indicator is shown (translated strings exist).
+- **Client-side WS heartbeat** — the server pings every 30s and reaps dead
+  sockets; the client relies on that plus visibility/online reconnect checks.
+- **Roving tabindex in the grid** — all cards are tab stops (`tabIndex=0`);
+  j/k navigation and focus restore work, but Tab order is not virtualized.
+- **Autosave blur flush** — flushes cover debounce timeout, close, Esc,
+  `visibilitychange`, pagehide and unmount; plain field blur does not flush.
+- **Session undo/redo for title/list items** — TipTap history covers the body;
+  the title/items snapshot ring buffer was not built.
+- **Takeout `sharees`** — imported notes are never re-shared and no warning is
+  surfaced; `annotations` (WEBLINK) are typed but unused (links are re-detected
+  from text).
+- **`/metrics` endpoint** — `METRICS_ENABLED` is validated in config but no
+  Prometheus route exists; Sentry is likewise absent.
+- **CSP on API responses** — the strict CSP ships on SPA/static responses in
+  production; JSON API responses rely on `nosniff` + same-origin checks.
+- **WS auth timing** — the session cookie is checked immediately after the
+  upgrade completes (socket closed 4401 before any registry add), not during
+  the handshake itself.
+- **E2E flows** — login/signup through the UI (specs seed via API) and the PWA
+  offline-reload flow are not covered by Playwright.

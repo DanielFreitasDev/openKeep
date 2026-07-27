@@ -12,7 +12,7 @@ const zQuery = z.object({ url: z.url().max(2000) });
 export function registerLinkPreviewRoutes(
   app: App,
   db: Db,
-  enqueueFetch: (url: string) => Promise<void>,
+  enqueueFetch: (url: string, requestedBy: string) => Promise<void>,
 ): void {
   app.get(
     '/api/link-previews',
@@ -39,7 +39,9 @@ export function registerLinkPreviewRoutes(
       }
 
       const { preview, enqueue } = await getOrQueue(db, req.query.url);
-      if (enqueue) await enqueueFetch(enqueue);
+      // Pass the URL as the client asked it — it is their cache key, and the
+      // worker re-normalizes anyway. requestedBy targets the resolved event.
+      if (enqueue) await enqueueFetch(req.query.url, req.user.id);
       return preview;
     },
   );

@@ -9,12 +9,15 @@ import type { NoteBackground, NoteColor } from '@openkeep/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
+import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { plainTextToHtml } from '../../lib/html.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
 import { ColorPicker } from './ColorPicker.js';
+
+const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
 /**
  * The Keep composer: collapsed "Take a note…" row that expands in place;
@@ -33,6 +36,10 @@ export function Composer() {
   const [pinned, setPinned] = useState(false);
   const [color, setColor] = useState<NoteColor>('default');
   const [background, setBackground] = useState<NoteBackground>('none');
+
+  // While composing, block grid/base shortcuts entirely (same as the editor
+  // modal) — an open composer is an editing surface, not the board.
+  useKeyScope('editor', EMPTY_BINDINGS, expanded);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);

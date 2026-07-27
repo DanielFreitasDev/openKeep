@@ -88,6 +88,29 @@ describe('KeyboardManager scope stack', () => {
     expect(gridToggle).toHaveBeenCalledOnce();
   });
 
+  it('text-producing combos stay quiet in editable targets: shift+char and mod+a', () => {
+    const reorder = vi.fn();
+    const selectAll = vi.fn();
+    km.push('grid', { 'shift+j': reorder, 'mod+a': selectAll });
+
+    const input = document.createElement('input');
+    const capitalJ = keyEvent('J', { shiftKey: true }, input);
+    km.handle(capitalJ);
+    expect(reorder).not.toHaveBeenCalled();
+    expect(capitalJ.defaultPrevented).toBe(false); // "J" reaches the field
+
+    const nativeSelectAll = keyEvent('a', { ctrlKey: true }, input);
+    km.handle(nativeSelectAll);
+    expect(selectAll).not.toHaveBeenCalled();
+    expect(nativeSelectAll.defaultPrevented).toBe(false);
+
+    // Outside editables both fire normally.
+    km.handle(keyEvent('J', { shiftKey: true }));
+    expect(reorder).toHaveBeenCalledOnce();
+    km.handle(keyEvent('a', { ctrlKey: true }));
+    expect(selectAll).toHaveBeenCalledOnce();
+  });
+
   it('editable detection covers inputs and contenteditable', () => {
     const input = document.createElement('textarea');
     expect(isEditableTarget(input)).toBe(true);

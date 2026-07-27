@@ -133,6 +133,29 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
     );
     return true;
   },
+  'job.progress': (qc, p) => {
+    qc.setQueryData<{ status: string; progress: number; total: number }>(['job', p.jobId], (old) =>
+      old ? { ...old, status: 'running', progress: p.progress, total: p.total } : old,
+    );
+    return true;
+  },
+  'job.completed': (qc, p) => {
+    void qc.invalidateQueries({ queryKey: ['job', p.jobId] });
+    if (p.kind === 'import') {
+      // Imported notes/labels should appear without waiting for the dialog poll.
+      void qc.invalidateQueries({ queryKey: notesQuery.queryKey });
+      void qc.invalidateQueries({ queryKey: labelsQuery.queryKey });
+    }
+    return true;
+  },
+  'job.failed': (qc, p) => {
+    void qc.invalidateQueries({ queryKey: ['job', p.jobId] });
+    return true;
+  },
+  'link_preview.resolved': (qc, p) => {
+    void qc.invalidateQueries({ queryKey: ['linkPreview', p.url] });
+    return true;
+  },
 };
 
 /** Returns true when fully applied; false → the caller should refetch the corpus. */

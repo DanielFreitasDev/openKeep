@@ -16,7 +16,7 @@
     "lint:fix": "biome check --write .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:e2e": "pnpm --filter @openkeep/e2e test",
+    "test:e2e": "pnpm --filter @openkeep/e2e test:e2e",
     "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
     "db:down": "docker compose -f docker/compose.dev.yml down",
     "db:migrate": "pnpm --filter @openkeep/server db:migrate",

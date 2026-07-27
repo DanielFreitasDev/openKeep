@@ -37,7 +37,7 @@ export interface AppDeps {
   auth: Auth;
   storage: Storage;
   /** Enqueue a link-preview fetch (pg-boss in prod; direct in tests). */
-  enqueueLinkPreview?: (url: string) => Promise<void>;
+  enqueueLinkPreview?: (url: string, requestedBy: string) => Promise<void>;
   /** Enqueue an import/export job (pg-boss in prod; direct in tests). */
   enqueueJob?: (queue: 'import-takeout' | 'export-user-data', jobId: string) => Promise<void>;
   /** In-process realtime registry (created here when absent). */

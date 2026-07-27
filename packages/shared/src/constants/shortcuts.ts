@@ -52,38 +52,9 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'moveNoteUp',
     group: 'navigation',
   },
-  {
-    id: 'nav-next-item',
-    keys: ['n'],
-    display: 'n',
-    scope: 'editor',
-    labelKey: 'navNextItem',
-    group: 'navigation',
-  },
-  {
-    id: 'nav-prev-item',
-    keys: ['p'],
-    display: 'p',
-    scope: 'editor',
-    labelKey: 'navPrevItem',
-    group: 'navigation',
-  },
-  {
-    id: 'move-item-down',
-    keys: ['shift+n'],
-    display: 'Shift + n',
-    scope: 'editor',
-    labelKey: 'moveItemDown',
-    group: 'navigation',
-  },
-  {
-    id: 'move-item-up',
-    keys: ['shift+p'],
-    display: 'Shift + p',
-    scope: 'editor',
-    labelKey: 'moveItemUp',
-    group: 'navigation',
-  },
+  // Keep also lists n/p + Shift+N/P for list-item navigation, but those only
+  // work in an editor with a non-typing "selected item" focus state, which our
+  // native-textarea checklist doesn't have — deferred (see docs/PARITY.md).
   // Application
   {
     id: 'compose-note',

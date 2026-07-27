@@ -45,6 +45,10 @@ export type WsEvent =
   | { type: 'attachment.removed'; payload: { noteId: string; attachmentId: string } }
   | { type: 'collaborator.added'; payload: { noteId: string; collaborator: Collaborator } }
   | { type: 'collaborator.removed'; payload: { noteId: string; userId: string } }
-  | { type: 'settings.updated'; payload: Partial<UserSettings> };
+  | { type: 'settings.updated'; payload: Partial<UserSettings> }
+  | { type: 'job.progress'; payload: { jobId: string; progress: number; total: number } }
+  | { type: 'job.completed'; payload: { jobId: string; kind: 'import' | 'export' } }
+  | { type: 'job.failed'; payload: { jobId: string; kind: 'import' | 'export' } }
+  | { type: 'link_preview.resolved'; payload: { url: string } };
 
 export type WsEventType = WsEvent['type'];

@@ -1,10 +1,11 @@
 import { once } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { FullNote } from '@openkeep/shared';
+import type { FullNote, WsEvent } from '@openkeep/shared';
 import { ZipArchive } from 'archiver';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { exportUserDataJob, importTakeoutJob, linkPreviewFetchJob } from '../../src/jobs/index.js';
 import { runExport, runTakeoutImport } from '../../src/modules/import-export/service.js';
 import type { TestApp } from './harness.js';
 import { createTestApp } from './harness.js';
@@ -173,6 +174,69 @@ describe('takeout import & export', () => {
     expect(download.headers['content-type']).toBe('application/zip');
     expect(download.rawPayload.readUInt32LE(0)).toBe(0x04034b50); // zip magic
     expect(download.rawPayload.length).toBeGreaterThan(500);
+  });
+
+  it('emits job.* and link_preview.resolved events to the owner only', async () => {
+    const events: { userIds: string[]; event: WsEvent }[] = [];
+    const realtime = {
+      publishToUsers: (userIds: string[], event: WsEvent) => {
+        events.push({ userIds: [...userIds], event });
+      },
+    };
+
+    // Fresh single-note zip → unique fingerprint per run.
+    const zipDir = `${process.env.TMPDIR ?? '/tmp'}/openkeep-test-takeout`;
+    fs.mkdirSync(zipDir, { recursive: true });
+    const zipPath = path.join(zipDir, `takeout-events-${Date.now()}.zip`);
+    const out = fs.createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 1 } });
+    archive.pipe(out);
+    archive.append(
+      JSON.stringify({
+        title: `Events ${Date.now()}`,
+        textContent: 'hello',
+        createdTimestampUsec: Date.now() * 1000,
+      }),
+      { name: 'Takeout/Keep/events.json' },
+    );
+    await archive.finalize();
+    await once(out, 'close');
+
+    const key = t.storage.newKey('zip');
+    await t.storage.write('exports', key, fs.readFileSync(zipPath));
+    const { createJob } = await import('../../src/modules/import-export/service.js');
+    const job = await createJob(t.db, userId, 'import', key);
+
+    await importTakeoutJob(t.db, t.storage, job.id, realtime);
+
+    const progress = events.filter((e) => e.event.type === 'job.progress');
+    expect(progress.length).toBeGreaterThan(0);
+    expect(progress.at(-1)?.event.payload).toMatchObject({ jobId: job.id, progress: 1, total: 1 });
+    expect(events.at(-1)?.event).toMatchObject({
+      type: 'job.completed',
+      payload: { jobId: job.id, kind: 'import' },
+    });
+    for (const e of events) expect(e.userIds).toEqual([userId]);
+
+    // Export path publishes a completion event too.
+    events.length = 0;
+    const exp = await createJob(t.db, userId, 'export');
+    await exportUserDataJob(t.db, t.storage, exp.id, realtime);
+    expect(events.at(-1)?.event).toMatchObject({
+      type: 'job.completed',
+      payload: { jobId: exp.id, kind: 'export' },
+    });
+
+    // Link preview: even an SSRF-blocked fetch stores a result and notifies
+    // the requester with the URL exactly as requested (their cache key).
+    events.length = 0;
+    await linkPreviewFetchJob(t.db, { url: 'http://10.0.0.1/x', requestedBy: userId }, realtime);
+    expect(events).toEqual([
+      {
+        userIds: [userId],
+        event: { type: 'link_preview.resolved', payload: { url: 'http://10.0.0.1/x' } },
+      },
+    ]);
   });
 
   it('rejects non-zip uploads and foreign job access', async () => {

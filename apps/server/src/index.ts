@@ -19,7 +19,7 @@ const auth = createAuth(config, db);
 const storage = new Storage(config.storageDirAbs);
 await storage.init();
 
-let enqueueLinkPreview: (url: string) => Promise<void> = async () => {};
+let enqueueLinkPreview: (url: string, requestedBy: string) => Promise<void> = async () => {};
 let enqueueJob: (queue: 'import-takeout' | 'export-user-data', jobId: string) => Promise<void> =
   async () => {};
 const realtime = new Realtime();
@@ -29,7 +29,7 @@ const app = await buildApp(config, {
   auth,
   storage,
   realtime,
-  enqueueLinkPreview: (url) => enqueueLinkPreview(url),
+  enqueueLinkPreview: (url, requestedBy) => enqueueLinkPreview(url, requestedBy),
   enqueueJob: (queue, jobId) => enqueueJob(queue, jobId),
 });
 
@@ -50,9 +50,13 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
   boss = await startJobs(config, pool, db, app.log, storage, realtime);
-  enqueueLinkPreview = async (url) => {
+  enqueueLinkPreview = async (url, requestedBy) => {
     const { urlHashOf, normalizeUrl } = await import('./modules/link-preview/service.js');
-    await boss?.send('link-preview-fetch', { url }, { singletonKey: urlHashOf(normalizeUrl(url)) });
+    await boss?.send(
+      'link-preview-fetch',
+      { url, requestedBy },
+      { singletonKey: urlHashOf(normalizeUrl(url)) },
+    );
   };
   enqueueJob = async (queue, jobId) => {
     await boss?.send(queue, { jobId }, { singletonKey: jobId });
