@@ -1,5 +1,6 @@
 export * from './attachments.js';
 export * from './auth.js';
+export * from './jobs.js';
 export * from './labels.js';
 export * from './notes.js';
 export * from './reminders.js';

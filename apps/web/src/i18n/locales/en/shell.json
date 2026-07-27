@@ -19,5 +19,6 @@
   "account": "OpenKeep account",
   "signedInAs": "Signed in as",
   "signOut": "Sign out",
-  "emptyView": "Nothing here yet"
+  "emptyView": "Nothing here yet",
+  "importExport": "Import / Export"
 }

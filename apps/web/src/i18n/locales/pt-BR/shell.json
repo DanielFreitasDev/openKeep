@@ -19,5 +19,6 @@
   "account": "Conta do OpenKeep",
   "signedInAs": "Conectado como",
   "signOut": "Sair",
-  "emptyView": "Nada por aqui ainda"
+  "emptyView": "Nada por aqui ainda",
+  "importExport": "Importar / Exportar"
 }

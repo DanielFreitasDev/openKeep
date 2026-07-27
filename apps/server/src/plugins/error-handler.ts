@@ -15,7 +15,15 @@ function send(reply: FastifyReply, problem: ProblemDetails) {
     .send(JSON.stringify(problem));
 }
 
-export function registerErrorHandler(app: FastifyInstance): void {
+export interface ErrorHandlerOptions {
+  /**
+   * Serves the SPA shell for unmatched GETs outside /api/ (production only).
+   * Injected here because Fastify allows one not-found handler per prefix.
+   */
+  spaFallback?: (req: FastifyRequest, reply: FastifyReply) => unknown;
+}
+
+export function registerErrorHandler(app: FastifyInstance, opts: ErrorHandlerOptions = {}): void {
   app.setErrorHandler((err: unknown, req: FastifyRequest, reply: FastifyReply) => {
     const requestId = req.id;
 
@@ -89,13 +97,16 @@ export function registerErrorHandler(app: FastifyInstance): void {
     });
   });
 
-  app.setNotFoundHandler((req, reply) =>
-    send(reply, {
+  app.setNotFoundHandler((req, reply) => {
+    if (opts.spaFallback && req.method === 'GET' && !req.url.startsWith('/api/')) {
+      return opts.spaFallback(req, reply);
+    }
+    return send(reply, {
       type: `${PROBLEM_TYPE_BASE}/not_found`,
       title: 'Not Found',
       status: 404,
       code: 'not_found',
       requestId: req.id,
-    }),
-  );
+    });
+  });
 }

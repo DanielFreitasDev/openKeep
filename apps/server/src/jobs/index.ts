@@ -3,8 +3,17 @@ import { PgBoss } from 'pg-boss';
 import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
 import type { Storage } from '../lib/storage.js';
+import {
+  cleanupExpiredExports,
+  runExport,
+  runTakeoutImport,
+} from '../modules/import-export/service.js';
 import { fetchLinkPreview } from '../modules/link-preview/fetcher.js';
-import { normalizeUrl, storeFetched } from '../modules/link-preview/service.js';
+import {
+  normalizeUrl,
+  pruneExpiredPreviews,
+  storeFetched,
+} from '../modules/link-preview/service.js';
 import { purgeExpiredTrash } from '../modules/notes/service.js';
 import { configureWebPush, pushFiredReminders } from '../modules/reminders/push.js';
 import { fireDueReminders } from '../modules/reminders/service.js';
@@ -66,6 +75,34 @@ export async function startJobs(
     const result = await fetchLinkPreview(normalized).catch(() => ({ ok: false as const }));
     await storeFetched(db, normalized, result);
   });
+
+  if (storage) {
+    await boss.createQueue('import-takeout');
+    await boss.work<{ jobId: string }>('import-takeout', async ([job]) => {
+      if (!job) return;
+      await runTakeoutImport(db, storage, job.data.jobId, (done, total) => {
+        realtime?.publishToUsers([], { type: 'settings.updated', payload: {} });
+        void done;
+        void total;
+      });
+    });
+
+    await boss.createQueue('export-user-data');
+    await boss.work<{ jobId: string }>('export-user-data', async ([job]) => {
+      if (!job) return;
+      await runExport(db, storage, job.data.jobId);
+    });
+
+    await boss.createQueue('cleanup-storage');
+    await boss.schedule('cleanup-storage', '30 3 * * *');
+    await boss.work('cleanup-storage', async () => {
+      const exportsRemoved = await cleanupExpiredExports(db, storage);
+      const previewsRemoved = await pruneExpiredPreviews(db);
+      if (exportsRemoved + previewsRemoved > 0) {
+        log.info({ exportsRemoved, previewsRemoved }, 'storage cleanup');
+      }
+    });
+  }
 
   return boss;
 }

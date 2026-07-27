@@ -47,5 +47,5 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ | M8 |
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
-| Takeout import | — (adoption feature) | ⬜ 🔀 | M9 |
-| JSON export | Takeout equivalent | ⬜ | M9 |
+| Takeout import | — (adoption feature) | ✅ 🔀 | M9 |
+| JSON export | Takeout equivalent | ✅ | M9 |

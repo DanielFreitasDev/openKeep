@@ -50,6 +50,7 @@ export function Sidebar() {
     <>
       {drawerOpen && (
         // biome-ignore lint/a11y/noStaticElementInteractions: scrim dismiss is a pointer affordance; Esc handled by the drawer
+        // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users dismiss the drawer with Esc, not the scrim
         <div
           className="fixed inset-0 z-20 bg-(--scrim) md:hidden"
           onClick={() => setDrawerOpen(false)}

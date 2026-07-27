@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
+import { AxeBuilder } from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { cardByTitle, composeNote, signUpFreshUser } from './helpers.js';
 
@@ -8,11 +8,11 @@ async function expectNoSeriousViolations(page: Page, context: string) {
     .exclude('.tiptap') // contenteditable internals are ProseMirror-managed
     .analyze();
   const serious = results.violations.filter(
-    (v) => v.impact === 'serious' || v.impact === 'critical',
+    (v: { impact?: string | null }) => v.impact === 'serious' || v.impact === 'critical',
   );
   expect(
     serious,
-    `${context}: ${serious.map((v) => `${v.id} (${v.nodes.length})`).join(', ')}`,
+    `${context}: ${serious.map((v: { id: string; nodes: unknown[] }) => `${v.id} (${v.nodes.length})`).join(', ')}`,
   ).toEqual([]);
 }
 

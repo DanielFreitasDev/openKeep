@@ -14,6 +14,7 @@ import type { Db } from './db/client.js';
 import { buildLogger } from './lib/logger.js';
 import type { Storage } from './lib/storage.js';
 import { registerAttachmentRoutes } from './modules/attachments/routes.js';
+import { registerImportExportRoutes } from './modules/import-export/routes.js';
 import { registerItemRoutes } from './modules/items/routes.js';
 import { registerLabelRoutes } from './modules/labels/routes.js';
 import { registerLinkPreviewRoutes } from './modules/link-preview/routes.js';
@@ -25,6 +26,7 @@ import { registerSharingRoutes } from './modules/sharing/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerOriginCheck } from './plugins/security.js';
+import { findWebDist, registerSpa, spaFallback } from './plugins/static.js';
 import { registerSwagger } from './plugins/swagger.js';
 import { Realtime } from './realtime/registry.js';
 import { registerWs } from './realtime/ws.js';
@@ -36,6 +38,8 @@ export interface AppDeps {
   storage: Storage;
   /** Enqueue a link-preview fetch (pg-boss in prod; direct in tests). */
   enqueueLinkPreview?: (url: string) => Promise<void>;
+  /** Enqueue an import/export job (pg-boss in prod; direct in tests). */
+  enqueueJob?: (queue: 'import-takeout' | 'export-user-data', jobId: string) => Promise<void>;
   /** In-process realtime registry (created here when absent). */
   realtime?: Realtime;
 }
@@ -51,7 +55,10 @@ export async function buildApp(config: Config, deps: AppDeps) {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
-  registerErrorHandler(app);
+  // Resolved before the error handler because the single not-found handler
+  // (one per prefix in Fastify) must know whether to fall back to the SPA.
+  const spaDist = config.isProd ? findWebDist() : null;
+  registerErrorHandler(app, spaDist ? { spaFallback } : {});
 
   await app.register(helmet, {
     // The strict CSP is applied when the built SPA is served (production);
@@ -116,6 +123,11 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
   registerReminderRoutes(app, deps.db, config, realtime);
   registerSharingRoutes(app, deps.db, realtime);
+  registerImportExportRoutes(app, deps.db, deps.storage, deps.enqueueJob ?? (async () => {}));
+
+  // Production: serve the built SPA same-origin with the strict CSP.
+  if (spaDist) await registerSpa(app, spaDist);
+  else if (config.isProd) app.log.warn('web dist not found — API-only mode');
 
   return app;
 }

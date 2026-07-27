@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import enAuth from './locales/en/auth.json';
 import enCommon from './locales/en/common.json';
 import enEditor from './locales/en/editor.json';
+import enImportExport from './locales/en/importExport.json';
 import enLabels from './locales/en/labels.json';
 import enNotes from './locales/en/notes.json';
 import enReminders from './locales/en/reminders.json';
@@ -15,6 +16,7 @@ import enTrash from './locales/en/trash.json';
 import ptAuth from './locales/pt-BR/auth.json';
 import ptCommon from './locales/pt-BR/common.json';
 import ptEditor from './locales/pt-BR/editor.json';
+import ptImportExport from './locales/pt-BR/importExport.json';
 import ptLabels from './locales/pt-BR/labels.json';
 import ptNotes from './locales/pt-BR/notes.json';
 import ptReminders from './locales/pt-BR/reminders.json';
@@ -39,6 +41,7 @@ export const resources = {
     reminders: enReminders,
     sharing: enSharing,
     shortcuts: enShortcuts,
+    importExport: enImportExport,
   },
   'pt-BR': {
     common: ptCommon,
@@ -53,6 +56,7 @@ export const resources = {
     reminders: ptReminders,
     sharing: ptSharing,
     shortcuts: ptShortcuts,
+    importExport: ptImportExport,
   },
 } as const;
 

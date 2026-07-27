@@ -15,6 +15,7 @@ export interface TestApp {
   app: App;
   db: Db;
   config: Config;
+  storage: Storage;
   close: () => Promise<void>;
   /** Sign up a user and return their session cookie header value. */
   signUp: (email: string, name?: string, password?: string) => Promise<string>;
@@ -59,6 +60,7 @@ export async function createTestApp(
     app,
     db,
     config,
+    storage,
     signUp,
     close: async () => {
       await app.close();

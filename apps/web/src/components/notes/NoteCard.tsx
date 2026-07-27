@@ -155,17 +155,17 @@ export function NoteCard({ note }: { note: FullNote }) {
       <ReminderChip note={note} />
       <LabelChips note={note} />
       {note.collaborators.length > 1 && (
-        <div className="flex gap-1 px-3 pb-1.5" aria-label={t('sharing:sharedWith')}>
+        <ul className="flex gap-1 px-3 pb-1.5" aria-label={t('sharing:sharedWith')}>
           {note.collaborators.slice(0, 4).map((c) => (
-            <span
+            <li
               key={c.userId}
               title={`${c.name} <${c.email}>`}
               className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-medium text-[0.625rem] text-on-primary"
             >
               {(c.name || c.email).charAt(0).toUpperCase()}
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">

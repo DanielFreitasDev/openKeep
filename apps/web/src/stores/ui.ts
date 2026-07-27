@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 
 export type ThemePref = 'light' | 'dark' | 'system';
-export type ActiveDialog = 'settings' | 'shortcuts' | 'edit-labels' | 'share' | null;
+export type ActiveDialog =
+  | 'settings'
+  | 'shortcuts'
+  | 'edit-labels'
+  | 'share'
+  | 'import-export'
+  | null;
 
 const THEME_KEY = 'openkeep-theme';
 

@@ -20,6 +20,8 @@ const storage = new Storage(config.storageDirAbs);
 await storage.init();
 
 let enqueueLinkPreview: (url: string) => Promise<void> = async () => {};
+let enqueueJob: (queue: 'import-takeout' | 'export-user-data', jobId: string) => Promise<void> =
+  async () => {};
 const realtime = new Realtime();
 const app = await buildApp(config, {
   db,
@@ -28,6 +30,7 @@ const app = await buildApp(config, {
   storage,
   realtime,
   enqueueLinkPreview: (url) => enqueueLinkPreview(url),
+  enqueueJob: (queue, jobId) => enqueueJob(queue, jobId),
 });
 
 let boss: PgBoss | undefined;
@@ -50,6 +53,9 @@ try {
   enqueueLinkPreview = async (url) => {
     const { urlHashOf, normalizeUrl } = await import('./modules/link-preview/service.js');
     await boss?.send('link-preview-fetch', { url }, { singletonKey: urlHashOf(normalizeUrl(url)) });
+  };
+  enqueueJob = async (queue, jobId) => {
+    await boss?.send(queue, { jobId }, { singletonKey: jobId });
   };
   app.log.info(`OpenKeep API ready on :${config.PORT} (${config.NODE_ENV})`);
 } catch (err) {

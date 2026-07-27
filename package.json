@@ -1,7 +1,7 @@
 {
   "name": "openkeep",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Open-source, self-hostable notes app faithfully reproducing the Google Keep web experience",
   "license": "MIT",
   "packageManager": "pnpm@11.17.0",

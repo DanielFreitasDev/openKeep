@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+!.env.example
+storage
+apps/server/storage
+e2e/playwright-report
+e2e/test-results
+docs
+*.md
+.turbo
+**/.turbo

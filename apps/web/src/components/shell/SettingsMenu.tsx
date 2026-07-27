@@ -36,6 +36,12 @@ export function SettingsMenu() {
             <Menu.Item className={itemClass} onClick={toggleDarkTheme}>
               {dark ? t('disableDarkTheme') : t('enableDarkTheme')}
             </Menu.Item>
+            <Menu.Item className={itemClass} onClick={() => setActiveDialog('shortcuts')}>
+              {t('keyboardShortcuts')}
+            </Menu.Item>
+            <Menu.Item className={itemClass} onClick={() => setActiveDialog('import-export')}>
+              {t('importExport')}
+            </Menu.Item>
             <Menu.Item
               className={itemClass}
               render={<a href={FEEDBACK_URL} target="_blank" rel="noreferrer" />}

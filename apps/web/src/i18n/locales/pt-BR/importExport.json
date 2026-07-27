@@ -1,0 +1,14 @@
+{
+  "title": "Importar / Exportar",
+  "importTitle": "Importar do Google Keep",
+  "importHint": "Envie o zip do Google Takeout (pasta do Keep). Reimportar pula notas que já existem.",
+  "chooseZip": "Escolher zip do Takeout",
+  "exportTitle": "Exportar seus dados",
+  "exportHint": "Baixe todas as notas, marcadores, configurações e anexos em um zip. O link expira em 24 horas.",
+  "startExport": "Preparar exportação",
+  "download": "Baixar zip",
+  "working": "Processando…",
+  "importDone": "{{imported}} notas importadas ({{skipped}} já existiam).",
+  "exportDone": "Exportação pronta — {{notes}} notas incluídas.",
+  "failed": "Algo deu errado. Tente novamente."
+}
