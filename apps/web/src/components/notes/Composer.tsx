@@ -100,6 +100,21 @@ export function Composer() {
     collapsedRef.current?.focus({ preventScroll: true });
   }, []);
 
+  // Keyboard shortcuts: c → compose note, l → compose list.
+  useEffect(() => {
+    const onCompose = (e: Event) => {
+      const kind = (e as CustomEvent<string>).detail;
+      if (kind === 'list') startList();
+      else {
+        setMode('text');
+        setExpanded(true);
+      }
+      window.scrollTo({ top: 0 });
+    };
+    document.addEventListener('openkeep:compose', onCompose);
+    return () => document.removeEventListener('openkeep:compose', onCompose);
+  });
+
   useEffect(() => {
     if (expanded) bodyRef.current?.focus();
   }, [expanded]);

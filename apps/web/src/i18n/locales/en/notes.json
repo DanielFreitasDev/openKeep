@@ -49,5 +49,9 @@
   "background_celebration": "Celebration",
   "addImage": "Add image",
   "removeImage": "Remove image",
-  "uploadFailed": "Couldn't upload the image"
+  "uploadFailed": "Couldn't upload the image",
+  "selectNote": "Select note",
+  "deselectNote": "Deselect note",
+  "clearSelection": "Clear selection",
+  "selectedCount": "{{count}} selected"
 }

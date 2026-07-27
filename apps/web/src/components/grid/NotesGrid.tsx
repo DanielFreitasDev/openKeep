@@ -1,5 +1,12 @@
+import {
+  draggable,
+  dropTargetForElements,
+  monitorForElements,
+} from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import type { FullNote } from '@openkeep/shared';
+import { positionBetween } from '@openkeep/shared';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { NoteCard } from '../notes/NoteCard.js';
 import { CARD_W, columnsForWidth, GUTTER, gridWidth, layoutMasonry } from './masonry.js';
 
@@ -7,6 +14,8 @@ interface NotesGridProps {
   notes: FullNote[];
   /** 'grid' measures columns from width; 'list' forces one 600px column. */
   viewMode: 'grid' | 'list';
+  /** Enables manual drag-reorder; 'pinned'/'others' also patches pin state. */
+  dndSection?: 'pinned' | 'others';
 }
 
 /**
@@ -14,7 +23,11 @@ interface NotesGridProps {
  * pure layout engine. Cards report their height through one shared
  * ResizeObserver; unmeasured cards stay invisible for their first frame.
  */
-export function NotesGrid({ notes, viewMode }: NotesGridProps) {
+export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
+  const m = useNoteMutations();
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerW, setContainerW] = useState(0);
   const heightsRef = useRef(new Map<string, number>());
@@ -52,6 +65,41 @@ export function NotesGrid({ notes, viewMode }: NotesGridProps) {
     [],
   );
   useEffect(() => () => cardObserver?.disconnect(), [cardObserver]);
+
+  // Manual drag-reorder (per-user fractional positions). Dropping a card from
+  // the other section also flips its pin (Keep behavior).
+  useEffect(() => {
+    if (!dndSection) return;
+    return monitorForElements({
+      canMonitor: ({ source }) => typeof source.data.gridNoteId === 'string',
+      onDrop: ({ source, location }) => {
+        setDraggingId(null);
+        const target = location.current.dropTargets.find(
+          (dt) => dt.data.gridSection === dndSection,
+        );
+        if (!target) return;
+        const dragId = source.data.gridNoteId as string;
+        const overId = target.data.gridNoteId as string;
+        if (dragId === overId) return;
+
+        const ordered = notesRef.current.filter((n) => n.id !== dragId);
+        const overIdx = ordered.findIndex((n) => n.id === overId);
+        if (overIdx === -1) return;
+        const rect = (target.element as HTMLElement).getBoundingClientRect();
+        const pointerY = location.current.input.clientY;
+        const before = pointerY < rect.top + rect.height / 2;
+        const insertAt = before ? overIdx : overIdx + 1;
+        const prev = ordered[insertAt - 1];
+        const next = ordered[insertAt];
+        const position = positionBetween(prev?.position ?? null, next?.position ?? null);
+
+        const sourceSection = source.data.gridSection as string | undefined;
+        const patch: { position: string; pinned?: boolean } = { position };
+        if (sourceSection !== dndSection) patch.pinned = dndSection === 'pinned';
+        m.patchState.mutate({ id: dragId, patch });
+      },
+    });
+  }, [dndSection, m.patchState]);
 
   // Enable FLIP-ish transform transitions only after the first laid-out paint.
   useEffect(() => {
@@ -94,16 +142,37 @@ export function NotesGrid({ notes, viewMode }: NotesGridProps) {
               ref={(el) => {
                 if (el && cardObserver) {
                   cardObserver.observe(el);
+                  const cleanups = [
+                    () => {
+                      cardObserver.unobserve(el);
+                      heightsRef.current.delete(note.id);
+                    },
+                  ];
+                  if (dndSection) {
+                    cleanups.push(
+                      draggable({
+                        element: el,
+                        getInitialData: () => ({ gridNoteId: note.id, gridSection: dndSection }),
+                        onDragStart: () => setDraggingId(note.id),
+                        onDrop: () => setDraggingId(null),
+                      }),
+                      dropTargetForElements({
+                        element: el,
+                        getData: () => ({ gridNoteId: note.id, gridSection: dndSection }),
+                      }),
+                    );
+                  }
                   return () => {
-                    cardObserver.unobserve(el);
-                    heightsRef.current.delete(note.id);
+                    for (const c of cleanups) c();
                   };
                 }
                 return undefined;
               }}
-              className={
-                animate ? 'transition-transform duration-[180ms] motion-reduce:transition-none' : ''
-              }
+              className={`${
+                animate && draggingId === null
+                  ? 'transition-transform duration-[180ms] motion-reduce:transition-none'
+                  : ''
+              } ${draggingId === note.id ? 'opacity-40' : ''}`}
               style={{
                 position: 'absolute',
                 width: cardW,

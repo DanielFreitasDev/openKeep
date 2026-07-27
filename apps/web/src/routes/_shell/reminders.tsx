@@ -1,9 +1,11 @@
 import notificationsSvg from '@material-symbols/svg-400/outlined/notifications.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
+import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { selectReminders } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
@@ -19,6 +21,7 @@ function RemindersView() {
     select: selectReminders,
   });
   const { data: settings } = useQuery(settingsQuery);
+  usePublishViewOrder(useMemo(() => (withReminders ?? []).map((n) => n.id), [withReminders]));
 
   if (isSuccess && (withReminders?.length ?? 0) === 0) {
     return <EmptyView svg={notificationsSvg} text={t('emptyState')} />;

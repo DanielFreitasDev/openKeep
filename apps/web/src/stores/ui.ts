@@ -32,6 +32,12 @@ interface UiState {
   sidebarOpen: boolean;
   activeDialog: ActiveDialog;
   focusedNoteId: string | null;
+  /** Small-screen overlay drawer (hamburger on mobile). */
+  mobileDrawerOpen: boolean;
+  setMobileDrawerOpen: (open: boolean) => void;
+  /** Ordered ids of the notes visible in the current view (for j/k). */
+  viewNoteIds: string[];
+  setViewNoteIds: (ids: string[]) => void;
   setTheme: (t: ThemePref) => void;
   toggleDarkTheme: () => void;
   toggleSidebar: () => void;
@@ -44,6 +50,16 @@ export const useUiStore = create<UiState>((set, get) => ({
   sidebarOpen: true,
   activeDialog: null,
   focusedNoteId: null,
+  mobileDrawerOpen: false,
+  setMobileDrawerOpen: (mobileDrawerOpen) => set({ mobileDrawerOpen }),
+  viewNoteIds: [],
+  setViewNoteIds: (viewNoteIds) =>
+    set((s) => {
+      const same =
+        s.viewNoteIds.length === viewNoteIds.length &&
+        s.viewNoteIds.every((id, i) => id === viewNoteIds[i]);
+      return same ? {} : { viewNoteIds };
+    }),
   setTheme: (theme) => {
     try {
       localStorage.setItem(THEME_KEY, theme);

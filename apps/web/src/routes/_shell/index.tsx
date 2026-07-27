@@ -1,10 +1,12 @@
 import lightbulbSvg from '@material-symbols/svg-400/outlined/lightbulb.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Composer } from '../../components/notes/Composer.js';
+import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { selectMain } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
@@ -22,6 +24,7 @@ function NotesView() {
   const pinned = notes?.pinned ?? [];
   const others = notes?.others ?? [];
   const isEmpty = isSuccess && pinned.length === 0 && others.length === 0;
+  usePublishViewOrder(useMemo(() => [...pinned, ...others].map((n) => n.id), [pinned, others]));
 
   return (
     <div className="px-6 pb-16">
@@ -33,11 +36,11 @@ function NotesView() {
           {pinned.length > 0 && (
             <>
               <SectionHeader label={t('pinnedSection')} />
-              <NotesGrid notes={pinned} viewMode={viewMode} />
+              <NotesGrid notes={pinned} viewMode={viewMode} dndSection="pinned" />
               {others.length > 0 && <SectionHeader label={t('othersSection')} />}
             </>
           )}
-          <NotesGrid notes={others} viewMode={viewMode} />
+          <NotesGrid notes={others} viewMode={viewMode} dndSection="others" />
         </div>
       )}
     </div>

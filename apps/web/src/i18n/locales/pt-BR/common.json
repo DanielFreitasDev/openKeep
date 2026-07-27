@@ -11,5 +11,7 @@
   "rename": "Renomear",
   "create": "Criar",
   "error": "Algo deu errado",
-  "offline": "Você está off-line. Não é possível salvar alterações agora."
+  "offline": "Você está off-line. Não é possível salvar alterações agora.",
+  "updateAvailable": "Uma nova versão está disponível",
+  "reload": "Recarregar"
 }

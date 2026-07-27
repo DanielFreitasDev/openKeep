@@ -2,6 +2,7 @@ import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
 import addAlertSvg from '@material-symbols/svg-400/outlined/add_alert.svg?raw';
 import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
+import checkCircleSvg from '@material-symbols/svg-400/outlined/check_circle.svg?raw';
 import deleteForeverSvg from '@material-symbols/svg-400/outlined/delete_forever.svg?raw';
 import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
@@ -15,6 +16,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { useSelectionStore } from '../../stores/selection.js';
+import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
 import { LabelChips } from '../labels/LabelChips.js';
@@ -47,6 +50,12 @@ export function NoteCard({ note }: { note: FullNote }) {
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useNoteMutations();
+  const selectedSet = useSelectionStore((s) => s.selected);
+  const toggleSelect = useSelectionStore((s) => s.toggle);
+  const focusedNoteId = useUiStore((s) => s.focusedNoteId);
+  const isSelected = selectedSet.has(note.id);
+  const selectionActive = selectedSet.size > 0;
+  const isFocused = focusedNoteId === note.id;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -54,6 +63,10 @@ export function NoteCard({ note }: { note: FullNote }) {
   const trashed = note.trashedAt !== null;
 
   const openEditor = () => {
+    if (selectionActive) {
+      toggleSelect(note.id);
+      return;
+    }
     void navigate({
       to: '.',
       search: (old: Record<string, unknown>) => ({ ...old, note: note.id }),
@@ -66,12 +79,34 @@ export function NoteCard({ note }: { note: FullNote }) {
 
   return (
     <div
-      className="group relative flex flex-col rounded-lg border transition-shadow duration-100 hover:shadow-(--elevation-2)"
+      data-selected={isSelected || undefined}
+      className={`group relative flex flex-col rounded-lg border transition-shadow duration-100 hover:shadow-(--elevation-2) ${
+        isSelected ? 'ring-2 ring-(--on-surface)' : isFocused ? 'ring-2 ring-(--primary)' : ''
+      }`}
       style={{
         background: `var(--note-${note.color})`,
         borderColor: isDefaultColor ? 'var(--outline)' : 'transparent',
       }}
     >
+      {!trashed && (
+        <div
+          className={`absolute -top-2 -left-2 z-20 transition-opacity duration-100 ${
+            isSelected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <IconButton
+            svg={checkCircleSvg}
+            label={isSelected ? t('deselectNote') : t('selectNote')}
+            size={28}
+            iconSize={22}
+            className={`rounded-full bg-surface ${isSelected ? 'text-on-surface' : 'text-on-surface-variant'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSelect(note.id);
+            }}
+          />
+        </div>
+      )}
       <NoteBackgroundArt background={note.background} />
 
       {!trashed && (

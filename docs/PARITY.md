@@ -42,10 +42,10 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Sharing: invite by email, single permission level | ✓ | ✅ registered users; both-side sharing setting; 20 cap | M7 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
-| Keyboard shortcuts (full map + ? dialog) | ✓ | ⬜ | M8 |
-| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ⬜ | M8 |
-| Drag reorder notes (per-user, synced) | ✓ | ⬜ | M8 |
-| Responsive: drawer sidebar, 1-col ≤600px | ✓ | ⬜ | M8 |
-| PWA installable + cached reads | Keep has none | ⬜ 🔀 bonus | M8 |
+| Keyboard shortcuts (full map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant | M8 |
+| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ (hover check, x, Ctrl+A, bulk pin/color/archive/trash/copy; marquee deferred) | M8 |
+| Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
+| Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ | M8 |
+| PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
 | Takeout import | — (adoption feature) | ⬜ 🔀 | M9 |
 | JSON export | Takeout equivalent | ⬜ | M9 |

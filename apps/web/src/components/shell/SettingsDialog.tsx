@@ -2,8 +2,11 @@ import { Dialog } from '@base-ui/react/dialog';
 import type { UserSettings } from '@openkeep/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { patchSettings, settingsQuery } from '../../lib/queries.js';
 import { useUiStore } from '../../stores/ui.js';
+
+const EMPTY_DIALOG_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
 /** Keep's Settings dialog: toggles apply immediately. */
 export function SettingsDialog() {
@@ -28,6 +31,7 @@ export function SettingsDialog() {
   });
 
   const open = activeDialog === 'settings';
+  useKeyScope('dialog', EMPTY_DIALOG_BINDINGS, open);
   if (!open || !settings) return null;
 
   const toggle = (key: keyof UserSettings) => (e: React.ChangeEvent<HTMLInputElement>) =>

@@ -6,11 +6,13 @@ import searchSvg from '@material-symbols/svg-400/outlined/search.svg?raw';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Icon } from '../../components/Icon.js';
+import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { labelsQuery } from '../../lib/labels-api.js';
 import type { SearchFilters } from '../../lib/note-selectors.js';
 import { selectSearch } from '../../lib/note-selectors.js';
@@ -62,6 +64,7 @@ function SearchView() {
   const viewMode = settings?.viewMode ?? 'grid';
   const active = results?.active ?? [];
   const archived = results?.archived ?? [];
+  usePublishViewOrder(useMemo(() => [...active, ...archived].map((n) => n.id), [active, archived]));
   const nothing = hasAny && active.length === 0 && archived.length === 0;
 
   return (

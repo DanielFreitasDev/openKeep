@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
+import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { notesQuery } from '../../lib/notes-api.js';
@@ -44,6 +45,8 @@ import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
+
+const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
 function EditorReminderPop({ note }: { note: FullNote }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -102,6 +105,8 @@ function EditorBody({
 }) {
   const trashed = note.trashedAt !== null;
   const isList = note.type === 'list';
+  // Block grid/base single-char shortcuts while the editor is open.
+  useKeyScope('editor', EMPTY_BINDINGS);
   const { data: settings } = useQuery(settingsQuery);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);

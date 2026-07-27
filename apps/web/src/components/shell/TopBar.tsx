@@ -17,6 +17,12 @@ import { SettingsMenu } from './SettingsMenu.js';
 export function TopBar() {
   const { t } = useTranslation('shell');
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const setDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
+  const drawerOpen = useUiStore((s) => s.mobileDrawerOpen);
+  const onHamburger = () => {
+    if (window.matchMedia('(max-width: 767px)').matches) setDrawerOpen(!drawerOpen);
+    else toggleSidebar();
+  };
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (st) => st.location.pathname });
@@ -47,7 +53,7 @@ export function TopBar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-30 flex h-(--topbar-h) items-center gap-1 border-b border-(--outline-variant) bg-surface px-2">
-      <IconButton svg={menuSvg} label={t('mainMenu')} onClick={toggleSidebar} />
+      <IconButton svg={menuSvg} label={t('mainMenu')} onClick={onHamburger} />
 
       <Link to="/" className="flex shrink-0 items-center gap-1 rounded px-1 outline-(--primary)">
         <img src="/favicon.svg" alt="" className="h-10 w-10 p-1" />

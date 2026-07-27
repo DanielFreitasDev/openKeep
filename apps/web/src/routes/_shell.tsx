@@ -3,9 +3,12 @@ import { z } from 'zod';
 import { EditLabelsDialog } from '../components/labels/EditLabelsDialog.js';
 import { EditorModal } from '../components/notes/EditorModal.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
+import { SelectionBar } from '../components/shell/SelectionBar.js';
 import { SettingsDialog } from '../components/shell/SettingsDialog.js';
+import { ShortcutsDialog } from '../components/shell/ShortcutsDialog.js';
 import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
+import { useAppKeys } from '../hooks/use-app-keys.jsx';
 import { usePushRegistration } from '../hooks/use-push.js';
 import { useRealtime } from '../hooks/use-realtime.js';
 import { useReminderToasts } from '../hooks/use-reminder-toasts.js';
@@ -35,13 +38,14 @@ function ShellLayout() {
   useRealtime();
   useReminderToasts();
   usePushRegistration();
+  useAppKeys();
   return (
     <div className="min-h-full">
       <TopBar />
       <Sidebar />
       <main
         className={`pt-(--topbar-h) transition-[margin] duration-150 ${
-          sidebarOpen ? 'ml-(--sidebar-w)' : 'ml-(--rail-w)'
+          sidebarOpen ? 'md:ml-(--sidebar-w)' : 'md:ml-(--rail-w)'
         }`}
       >
         <Outlet />
@@ -49,6 +53,8 @@ function ShellLayout() {
       <EditorModal />
       <SettingsDialog />
       <EditLabelsDialog />
+      <ShortcutsDialog />
+      <SelectionBar />
       <SnackbarHost />
     </div>
   );

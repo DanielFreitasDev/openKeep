@@ -1,9 +1,11 @@
 import labelSvg from '@material-symbols/svg-400/outlined/label.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
+import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { selectByLabel } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
@@ -28,6 +30,7 @@ function LabelView() {
   const pinned = sections?.pinned ?? [];
   const others = sections?.others ?? [];
   const viewMode = settings?.viewMode ?? 'grid';
+  usePublishViewOrder(useMemo(() => [...pinned, ...others].map((n) => n.id), [pinned, others]));
 
   if (pinned.length === 0 && others.length === 0) {
     return <EmptyView svg={labelSvg} text={t('emptyLabelView')} />;

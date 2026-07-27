@@ -32,11 +32,13 @@ const NAV_ITEMS: NavItem[] = [
 export function Sidebar() {
   const { t } = useTranslation('shell');
   const open = useUiStore((s) => s.sidebarOpen);
+  const drawerOpen = useUiStore((s) => s.mobileDrawerOpen);
+  const setDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
   const setActiveDialog = useUiStore((s) => s.setActiveDialog);
   const { data: labels } = useQuery(labelsQuery);
   const [hovered, setHovered] = useState(false);
 
-  const expanded = open || hovered;
+  const expanded = open || hovered || drawerOpen;
   const overlay = !open && hovered;
 
   const itemClass = (isExpanded: boolean) =>
@@ -45,70 +47,79 @@ export function Sidebar() {
     } hover:bg-(--surface-hover) focus-visible:bg-(--surface-hover)`;
 
   return (
-    <nav
-      aria-label={t('mainMenu')}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`fixed top-(--topbar-h) bottom-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-surface pt-2 transition-[width] duration-150 ${
-        expanded ? 'w-(--sidebar-w)' : 'w-(--rail-w)'
-      } ${overlay ? 'shadow-(--elevation-2)' : ''}`}
-    >
-      {NAV_ITEMS.slice(0, 2).map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          activeOptions={{ exact: item.to === '/' }}
-          className={itemClass(expanded)}
-          activeProps={{
-            className: 'bg-accent-container hover:bg-accent-container',
-            'aria-current': 'page',
-          }}
-        >
-          <Icon svg={item.svg} size={24} />
-          {expanded && <span className="truncate">{t(item.labelKey)}</span>}
-        </Link>
-      ))}
-
-      {labels?.map((label) => (
-        <Link
-          key={label.id}
-          to="/label/$labelName"
-          params={{ labelName: label.name }}
-          className={itemClass(expanded)}
-          activeProps={{
-            className: 'bg-accent-container hover:bg-accent-container',
-            'aria-current': 'page',
-          }}
-        >
-          <Icon svg={labelSvg} size={24} />
-          {expanded && <span className="truncate">{label.name}</span>}
-        </Link>
-      ))}
-
-      <button
-        type="button"
-        onClick={() => setActiveDialog('edit-labels')}
-        className={`w-full ${itemClass(expanded)}`}
+    <>
+      {drawerOpen && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: scrim dismiss is a pointer affordance; Esc handled by the drawer
+        <div
+          className="fixed inset-0 z-20 bg-(--scrim) md:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+      <nav
+        aria-label={t('mainMenu')}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`fixed top-(--topbar-h) bottom-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-surface pt-2 transition-[width] duration-150 ${
+          drawerOpen ? 'block w-(--sidebar-w) shadow-(--elevation-3)' : 'hidden md:block'
+        } ${expanded ? 'md:w-(--sidebar-w)' : 'md:w-(--rail-w)'} ${overlay ? 'md:shadow-(--elevation-2)' : ''}`}
       >
-        <Icon svg={editSvg} size={24} />
-        {expanded && <span className="truncate">{t('editLabels')}</span>}
-      </button>
+        {NAV_ITEMS.slice(0, 2).map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            activeOptions={{ exact: item.to === '/' }}
+            className={itemClass(expanded)}
+            activeProps={{
+              className: 'bg-accent-container hover:bg-accent-container',
+              'aria-current': 'page',
+            }}
+          >
+            <Icon svg={item.svg} size={24} />
+            {expanded && <span className="truncate">{t(item.labelKey)}</span>}
+          </Link>
+        ))}
 
-      {NAV_ITEMS.slice(2).map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          activeOptions={{ exact: item.to === '/' }}
-          className={itemClass(expanded)}
-          activeProps={{
-            className: 'bg-accent-container hover:bg-accent-container',
-            'aria-current': 'page',
-          }}
+        {labels?.map((label) => (
+          <Link
+            key={label.id}
+            to="/label/$labelName"
+            params={{ labelName: label.name }}
+            className={itemClass(expanded)}
+            activeProps={{
+              className: 'bg-accent-container hover:bg-accent-container',
+              'aria-current': 'page',
+            }}
+          >
+            <Icon svg={labelSvg} size={24} />
+            {expanded && <span className="truncate">{label.name}</span>}
+          </Link>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => setActiveDialog('edit-labels')}
+          className={`w-full ${itemClass(expanded)}`}
         >
-          <Icon svg={item.svg} size={24} />
-          {expanded && <span className="truncate">{t(item.labelKey)}</span>}
-        </Link>
-      ))}
-    </nav>
+          <Icon svg={editSvg} size={24} />
+          {expanded && <span className="truncate">{t('editLabels')}</span>}
+        </button>
+
+        {NAV_ITEMS.slice(2).map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            activeOptions={{ exact: item.to === '/' }}
+            className={itemClass(expanded)}
+            activeProps={{
+              className: 'bg-accent-container hover:bg-accent-container',
+              'aria-current': 'page',
+            }}
+          >
+            <Icon svg={item.svg} size={24} />
+            {expanded && <span className="truncate">{t(item.labelKey)}</span>}
+          </Link>
+        ))}
+      </nav>
+    </>
   );
 }

@@ -10,6 +10,7 @@ import enSearch from './locales/en/search.json';
 import enSettings from './locales/en/settings.json';
 import enSharing from './locales/en/sharing.json';
 import enShell from './locales/en/shell.json';
+import enShortcuts from './locales/en/shortcuts.json';
 import enTrash from './locales/en/trash.json';
 import ptAuth from './locales/pt-BR/auth.json';
 import ptCommon from './locales/pt-BR/common.json';
@@ -21,6 +22,7 @@ import ptSearch from './locales/pt-BR/search.json';
 import ptSettings from './locales/pt-BR/settings.json';
 import ptSharing from './locales/pt-BR/sharing.json';
 import ptShell from './locales/pt-BR/shell.json';
+import ptShortcuts from './locales/pt-BR/shortcuts.json';
 import ptTrash from './locales/pt-BR/trash.json';
 
 export const resources = {
@@ -36,6 +38,7 @@ export const resources = {
     search: enSearch,
     reminders: enReminders,
     sharing: enSharing,
+    shortcuts: enShortcuts,
   },
   'pt-BR': {
     common: ptCommon,
@@ -49,6 +52,7 @@ export const resources = {
     search: ptSearch,
     reminders: ptReminders,
     sharing: ptSharing,
+    shortcuts: ptShortcuts,
   },
 } as const;
 

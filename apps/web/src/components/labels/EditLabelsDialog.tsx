@@ -9,11 +9,14 @@ import type { Label } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { IconButton } from '../IconButton.js';
+
+const EMPTY_DIALOG_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
 /** Keep's "Edit labels" modal: create, rename inline, delete. */
 export function EditLabelsDialog() {
@@ -24,6 +27,7 @@ export function EditLabelsDialog() {
   const m = useLabelMutations();
   const [newName, setNewName] = useState('');
 
+  useKeyScope('dialog', EMPTY_DIALOG_BINDINGS, activeDialog === 'edit-labels');
   if (activeDialog !== 'edit-labels') return null;
 
   const createIfValid = () => {

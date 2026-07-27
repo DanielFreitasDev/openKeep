@@ -1,11 +1,12 @@
 import deleteSvg from '@material-symbols/svg-400/outlined/delete.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { ConfirmDialog } from '../../components/notes/ConfirmDialog.js';
+import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { selectTrashed } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
@@ -21,6 +22,7 @@ function TrashView() {
   const { data: settings } = useQuery(settingsQuery);
   const m = useNoteMutations();
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  usePublishViewOrder(useMemo(() => (trashed ?? []).map((n) => n.id), [trashed]));
 
   const isEmpty = isSuccess && (trashed?.length ?? 0) === 0;
 
