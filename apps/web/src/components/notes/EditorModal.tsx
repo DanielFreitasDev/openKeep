@@ -24,6 +24,8 @@ import { notesQuery } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
+import { LabelChips } from '../labels/LabelChips.js';
+import { LabelPicker } from '../labels/LabelPicker.js';
 import type { ChecklistHandle } from './ChecklistEditor.js';
 import { ChecklistEditor } from './ChecklistEditor.js';
 import { ColorPicker } from './ColorPicker.js';
@@ -85,6 +87,10 @@ function EditorBody({
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [labelPicker, setLabelPicker] = useState<{ open: boolean; seed: string }>({
+    open: false,
+    seed: '',
+  });
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
   const checklistRef = useRef<ChecklistHandle | null>(null);
 
@@ -111,6 +117,17 @@ function EditorBody({
     ],
     content: note.bodyHtml,
     editable: !trashed,
+    editorProps: {
+      handleKeyDown: (_view, event) => {
+        // Keep's `#` quick-labeling: opens the label picker.
+        if (event.key === '#' && !event.ctrlKey && !event.metaKey) {
+          event.preventDefault();
+          setLabelPicker({ open: true, seed: '' });
+          return true;
+        }
+        return false;
+      },
+    },
     onUpdate: ({ editor: ed }) => {
       autosave.markDirty('bodyHtml', ed.getHTML());
     },
@@ -209,6 +226,8 @@ function EditorBody({
               <EditorContent editor={editor} className="note-editor" />
             )}
           </div>
+
+          <LabelChips note={note} removable />
 
           <div className="px-4 pb-1 text-right">
             <span
@@ -382,6 +401,14 @@ function EditorBody({
                         >
                           {t('notes:makeACopy')}
                         </Menu.Item>
+                        <Menu.Item
+                          className={menuItemClass}
+                          onClick={() => setLabelPicker({ open: true, seed: '' })}
+                        >
+                          {note.labelIds.length > 0
+                            ? t('labels:changeLabels')
+                            : t('labels:addLabel')}
+                        </Menu.Item>
                         <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                           {t('versionHistory')}
                         </Menu.Item>
@@ -458,6 +485,25 @@ function EditorBody({
               open={showVersions}
               onOpenChange={setShowVersions}
             />
+          )}
+          {labelPicker.open && (
+            <Popover.Root
+              open
+              onOpenChange={(o) => !o && setLabelPicker({ open: false, seed: '' })}
+            >
+              <Popover.Trigger
+                className="absolute bottom-12 left-4 h-px w-px opacity-0"
+                aria-hidden
+                tabIndex={-1}
+              />
+              <Popover.Portal>
+                <Popover.Positioner className="z-50" sideOffset={2}>
+                  <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
+                    <LabelPicker note={note} initialFilter={labelPicker.seed} />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
           )}
         </Dialog.Popup>
       </Dialog.Portal>

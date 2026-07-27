@@ -13,7 +13,9 @@ import type { Config } from './config.js';
 import type { Db } from './db/client.js';
 import { buildLogger } from './lib/logger.js';
 import { registerItemRoutes } from './modules/items/routes.js';
+import { registerLabelRoutes } from './modules/labels/routes.js';
 import { registerNotesRoutes } from './modules/notes/routes.js';
+import { registerSearchRoutes } from './modules/search/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -93,6 +95,8 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerSettingsRoutes(app, deps.db);
   registerNotesRoutes(app, deps.db);
   registerItemRoutes(app, deps.db);
+  registerLabelRoutes(app, deps.db);
+  registerSearchRoutes(app, deps.db);
 
   return app;
 }

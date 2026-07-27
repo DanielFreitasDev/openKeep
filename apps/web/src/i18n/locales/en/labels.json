@@ -1,0 +1,14 @@
+{
+  "editLabelsTitle": "Edit labels",
+  "createLabel": "Create new label",
+  "clearName": "Clear",
+  "deleteLabel": "Delete label",
+  "renameLabel": "Rename label",
+  "labelNote": "Label note",
+  "enterLabelName": "Enter label name",
+  "createNamed": "Create “{{name}}”",
+  "addLabel": "Add label",
+  "changeLabels": "Change labels",
+  "removeLabel": "Remove label {{name}}",
+  "emptyLabelView": "No notes with this label yet"
+}

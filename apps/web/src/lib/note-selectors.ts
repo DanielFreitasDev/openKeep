@@ -37,6 +37,72 @@ export function selectById(notes: FullNote[], id: string): FullNote | undefined 
   return notes.find((n) => n.id === id);
 }
 
+/** Label view: non-trashed notes carrying the label, pinned split like main. */
+export function selectByLabel(notes: FullNote[], labelId: string): MainSections {
+  return selectMain(notes.filter((n) => n.labelIds.includes(labelId)));
+}
+
+// ---------------------------------------------------------------- search
+
+export interface SearchFilters {
+  q: string;
+  type?: 'list' | 'url' | 'image' | 'audio' | 'drawing' | 'reminder' | undefined;
+  labelId?: string | undefined;
+  color?: string | undefined;
+}
+
+/** Accent-fold + lowercase (client twin of the server's unaccent config). */
+export function normalizeForSearch(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function noteSearchText(n: FullNote): string {
+  const body = n.bodyHtml.replace(/<[^>]+>/g, ' ');
+  const items = n.items.map((i) => i.text).join(' ');
+  return normalizeForSearch(`${n.title} ${body} ${items}`);
+}
+
+/** Word-prefix match: every query word must prefix some text word. */
+export function matchesQuery(n: FullNote, q: string): boolean {
+  const words = normalizeForSearch(q)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  if (words.length === 0) return true;
+  const textWords = noteSearchText(n).split(/[^\p{L}\p{N}]+/u);
+  return words.every((w) => textWords.some((tw) => tw.startsWith(w)));
+}
+
+export interface SearchResults {
+  active: FullNote[];
+  archived: FullNote[];
+}
+
+/** Instant client-side search over the corpus (Keep behavior). */
+export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults {
+  const hasAny = f.q.trim() !== '' || f.type || f.labelId || f.color;
+  if (!hasAny) return { active: [], archived: [] };
+
+  const matched = notes.filter((n) => {
+    if (n.trashedAt !== null) return false;
+    if (f.type === 'list' && n.type !== 'list') return false;
+    if (f.type === 'url' && !n.hasLinks) return false;
+    // image/audio/drawing/reminder types gain data in M5/M6.
+    if (f.type === 'image' || f.type === 'audio' || f.type === 'drawing' || f.type === 'reminder')
+      return false;
+    if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
+    if (f.color && n.color !== f.color) return false;
+    return matchesQuery(n, f.q);
+  });
+
+  return {
+    active: matched.filter((n) => !n.archived).sort(byPosition),
+    archived: matched.filter((n) => n.archived).sort(byPosition),
+  };
+}
+
 // ---------------------------------------------------------------- cache ops
 
 export function upsertNote(list: FullNote[] | undefined, note: FullNote): FullNote[] {

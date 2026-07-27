@@ -1,0 +1,14 @@
+{
+  "editLabelsTitle": "Editar marcadores",
+  "createLabel": "Criar novo marcador",
+  "clearName": "Limpar",
+  "deleteLabel": "Excluir marcador",
+  "renameLabel": "Renomear marcador",
+  "labelNote": "Marcar nota",
+  "enterLabelName": "Digite o nome do marcador",
+  "createNamed": "Criar “{{name}}”",
+  "addLabel": "Adicionar marcador",
+  "changeLabels": "Alterar marcadores",
+  "removeLabel": "Remover marcador {{name}}",
+  "emptyLabelView": "Ainda não há notas com este marcador"
+}

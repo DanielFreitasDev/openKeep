@@ -23,6 +23,8 @@ export const zFullNote = z.object({
   bodyHtml: z.string(),
   hasLinks: z.boolean(),
   items: z.array(zNoteItem),
+  /** Per-user label assignment. */
+  labelIds: z.array(zId),
   role: zNoteRole,
   pinned: z.boolean(),
   archived: z.boolean(),

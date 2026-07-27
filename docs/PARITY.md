@@ -30,10 +30,10 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Note ↔ list conversion (Ctrl+Shift+8) | ✓ | ✅ card + editor menus + shortcut | M3 |
 | Card summary "+ N completed items" | ✓ | ✅ | M3 |
 | Settings dialog (6 toggles/fields) | ✓ | ✅ instant-apply + theme select | M3 |
-| Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ⬜ | M4 |
-| `#` quick-labeling in body | ✓ | ⬜ | M4 |
-| Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ⬜ | M4 |
-| Search: archive grouping, "No matching results." | ✓ | ⬜ | M4 |
+| Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ✅ per-user; case-insensitive uniqueness | M4 |
+| `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
+| Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ✅ client-side instant + server FTS endpoint; People M7, media types M5 | M4 |
+| Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
 | Images: multi-upload, stack above title, delete | ✓ | ⬜ | M5 |
 | Audio attachment playback | ✓ | ⬜ | M5 |
 | Link preview chips + setting | ✓ | ⬜ | M5 |

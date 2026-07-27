@@ -19,6 +19,7 @@ function note(over: Partial<FullNote>): FullNote {
     bodyHtml: '',
     hasLinks: false,
     items: [],
+    labelIds: [],
     role: 'owner',
     pinned: false,
     archived: false,

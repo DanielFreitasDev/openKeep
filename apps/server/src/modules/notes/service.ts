@@ -10,6 +10,7 @@ import type {
 import { comparePositions, LIMITS, positionBefore, positionsBetween } from '@openkeep/shared';
 import { and, asc, desc, eq, inArray, isNotNull, lt, min } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
+import { noteLabels } from '../../db/schema/labels.js';
 import type { VersionItem } from '../../db/schema/notes.js';
 import { noteItems, noteMembers, notes, noteVersions } from '../../db/schema/notes.js';
 import { errors } from '../../lib/errors.js';
@@ -40,7 +41,12 @@ function isUniqueViolation(err: unknown): boolean {
 
 // ---------------------------------------------------------------- assembly
 
-function toFullNote(note: NoteRow, member: MembershipRow, items: ItemRow[]): FullNote {
+function toFullNote(
+  note: NoteRow,
+  member: MembershipRow,
+  items: ItemRow[],
+  labelIds: string[] = [],
+): FullNote {
   return {
     id: note.id,
     type: note.type as FullNote['type'],
@@ -54,6 +60,7 @@ function toFullNote(note: NoteRow, member: MembershipRow, items: ItemRow[]): Ful
       indent: (i.indent === 1 ? 1 : 0) as 0 | 1,
       position: i.position,
     })),
+    labelIds,
     role: member.role as FullNote['role'],
     pinned: member.pinned,
     archived: member.archived,
@@ -82,10 +89,44 @@ async function loadItems(db: Db | Tx, noteIds: string[]): Promise<Map<string, It
   return map;
 }
 
+async function loadLabelIds(
+  db: Db | Tx,
+  userId: string,
+  noteIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (noteIds.length === 0) return map;
+  const rows = await db
+    .select({ noteId: noteLabels.noteId, labelId: noteLabels.labelId })
+    .from(noteLabels)
+    .where(and(eq(noteLabels.userId, userId), inArray(noteLabels.noteId, noteIds)));
+  for (const row of rows) {
+    const list = map.get(row.noteId);
+    if (list) list.push(row.labelId);
+    else map.set(row.noteId, [row.labelId]);
+  }
+  return map;
+}
+
 async function loadFullNote(db: Db | Tx, userId: string, noteId: string): Promise<FullNote> {
   const { member, note } = await assertNoteAccess(db as Db, userId, noteId);
   const items = (await loadItems(db, [noteId])).get(noteId) ?? [];
-  return toFullNote(note, member, items);
+  const labelIds = (await loadLabelIds(db, userId, [noteId])).get(noteId) ?? [];
+  return toFullNote(note, member, items, labelIds);
+}
+
+/** Shared assembly for search & list: FullNotes for a set of note ids. */
+export async function assembleFullNotes(
+  db: Db,
+  userId: string,
+  rows: { member: MembershipRow; note: NoteRow }[],
+): Promise<FullNote[]> {
+  const ids = rows.map((r) => r.note.id);
+  const itemsByNote = await loadItems(db, ids);
+  const labelsByNote = await loadLabelIds(db, userId, ids);
+  return rows.map(({ member, note }) =>
+    toFullNote(note, member, itemsByNote.get(note.id) ?? [], labelsByNote.get(note.id) ?? []),
+  );
 }
 
 /** The whole corpus (active + archived + trashed) — one batched select per table. */
@@ -108,13 +149,7 @@ export async function listNotes(
     return true;
   });
 
-  const itemsByNote = await loadItems(
-    db,
-    filtered.map((r) => r.note.id),
-  );
-  return filtered
-    .map(({ member, note }) => toFullNote(note, member, itemsByNote.get(note.id) ?? []))
-    .sort(comparePositions);
+  return (await assembleFullNotes(db, userId, filtered)).sort(comparePositions);
 }
 
 // ---------------------------------------------------------------- helpers
@@ -251,7 +286,7 @@ export async function createNote(db: Db, userId: string, input: CreateNote): Pro
         .returning();
     }
 
-    return toFullNote(noteRow, memberRow!, itemRows);
+    return toFullNote(noteRow, memberRow!, itemRows, []);
   });
 }
 
@@ -396,7 +431,15 @@ export async function copyNote(db: Db, userId: string, noteId: string): Promise<
         .returning();
     }
 
-    return toFullNote(newNote!, newMember!, newItems);
+    // "Make a copy" clones MY labels (not collaborators/reminders/pin).
+    const myLabels = (await loadLabelIds(tx, userId, [noteId])).get(noteId) ?? [];
+    if (myLabels.length > 0) {
+      await tx
+        .insert(noteLabels)
+        .values(myLabels.map((labelId) => ({ noteId: newNote!.id, userId, labelId })));
+    }
+
+    return toFullNote(newNote!, newMember!, newItems, myLabels);
   });
 }
 

@@ -37,6 +37,7 @@ export function useNoteMutations() {
         bodyHtml: input.bodyHtml ?? '',
         hasLinks: false,
         items: [],
+        labelIds: [],
         role: 'owner',
         pinned: input.pinned ?? false,
         archived: false,

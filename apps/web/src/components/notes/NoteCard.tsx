@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
+import { LabelChips } from '../labels/LabelChips.js';
+import { LabelPicker } from '../labels/LabelPicker.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
@@ -28,6 +30,7 @@ export function NoteCard({ note }: { note: FullNote }) {
   const navigate = useNavigate();
   const m = useNoteMutations();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showLabelPicker, setShowLabelPicker] = useState(false);
 
   const trashed = note.trashedAt !== null;
 
@@ -89,6 +92,8 @@ export function NoteCard({ note }: { note: FullNote }) {
           <NoteBody note={note} />
         )}
       </div>
+
+      <LabelChips note={note} />
 
       <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">
         {trashed ? (
@@ -161,6 +166,9 @@ export function NoteCard({ note }: { note: FullNote }) {
                     <Menu.Item className={menuItemClass} onClick={() => m.trashWithUndo(note)}>
                       {t('deleteNote')}
                     </Menu.Item>
+                    <Menu.Item className={menuItemClass} onClick={() => setShowLabelPicker(true)}>
+                      {note.labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
+                    </Menu.Item>
                     <Menu.Item className={menuItemClass} onClick={() => m.copy.mutate(note.id)}>
                       {t('makeACopy')}
                     </Menu.Item>
@@ -192,6 +200,23 @@ export function NoteCard({ note }: { note: FullNote }) {
         confirmLabel={t('common:delete')}
         onConfirm={() => m.deleteForever.mutate(note.id)}
       />
+
+      {showLabelPicker && (
+        <Popover.Root open onOpenChange={(o) => !o && setShowLabelPicker(false)}>
+          <Popover.Trigger
+            className="absolute bottom-2 left-2 h-px w-px opacity-0"
+            aria-hidden
+            tabIndex={-1}
+          />
+          <Popover.Portal>
+            <Popover.Positioner className="z-40" sideOffset={2}>
+              <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
+                <LabelPicker note={note} />
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      )}
     </div>
   );
 }
