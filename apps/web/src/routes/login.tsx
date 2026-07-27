@@ -37,7 +37,9 @@ function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   const finishAuth = async () => {
-    await queryClient.invalidateQueries({ queryKey: sessionQuery.queryKey });
+    // Hard-remove the cached null session; the shell guard's ensureQueryData
+    // returns any cached value (even null) without refetching.
+    queryClient.removeQueries({ queryKey: sessionQuery.queryKey });
     const target = search.redirect?.startsWith('/') ? search.redirect : '/';
     await navigate({ to: target, replace: true });
   };

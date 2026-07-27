@@ -46,7 +46,11 @@ export function loadDotenv(): void {
 
 /** Parse and validate configuration; throws a readable error listing every problem. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = EnvSchema.safeParse(env);
+  // `FOO=` in a .env file must behave like an unset variable.
+  const cleaned = Object.fromEntries(
+    Object.entries(env).filter(([, v]) => v !== undefined && v !== ''),
+  );
+  const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
     const lines = parsed.error.issues.map(
       (i) => `  - ${i.path.join('.') || '(env)'}: ${i.message}`,

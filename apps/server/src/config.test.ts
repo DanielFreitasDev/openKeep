@@ -32,4 +32,10 @@ describe('loadConfig', () => {
   it('requires OAuth id+secret pairs to be set together', () => {
     expect(() => loadConfig({ ...valid, GOOGLE_CLIENT_ID: 'id-only' })).toThrow(/together/);
   });
+
+  it('treats empty-string env vars as unset', () => {
+    const cfg = loadConfig({ ...valid, GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '', SMTP_URL: '' });
+    expect(cfg.GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(cfg.SMTP_URL).toBeUndefined();
+  });
 });
