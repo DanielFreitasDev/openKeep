@@ -1,0 +1,19 @@
+{
+  "titlePlaceholder": "Title",
+  "notePlaceholder": "Note",
+  "edited": "Edited {{time}}",
+  "formattingOptions": "Formatting options",
+  "formatH1": "Heading 1",
+  "formatH2": "Heading 2",
+  "formatNormal": "Normal text",
+  "formatBold": "Bold",
+  "formatItalic": "Italic",
+  "formatUnderline": "Underline",
+  "formatClear": "Clear formatting",
+  "undo": "Undo",
+  "redo": "Redo",
+  "versionHistory": "Version history",
+  "noVersions": "No previous versions yet",
+  "downloadVersion": "Download as .txt",
+  "restoreVersion": "Restore"
+}

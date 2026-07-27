@@ -2,7 +2,8 @@ import { Menu } from '@base-ui/react/menu';
 import settingsSvg from '@material-symbols/svg-400/outlined/settings.svg?raw';
 import { useTranslation } from 'react-i18next';
 import { isDarkEffective, useUiStore } from '../../stores/ui.js';
-import { IconButton } from '../IconButton.js';
+import { Icon } from '../Icon.js';
+import { iconButtonClass } from '../IconButton.js';
 
 const FEEDBACK_URL = 'https://github.com/openkeep/openkeep/issues/new/choose';
 
@@ -17,9 +18,16 @@ export function SettingsMenu() {
 
   return (
     <Menu.Root>
-      <Menu.Trigger render={<IconButton svg={settingsSvg} label={t('settingsMenu')} />} />
+      <Menu.Trigger
+        aria-label={t('settingsMenu')}
+        title={t('settingsMenu')}
+        className={iconButtonClass}
+        style={{ width: 48, height: 48 }}
+      >
+        <Icon svg={settingsSvg} size={24} />
+      </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={4} align="end">
+        <Menu.Positioner className="z-50" sideOffset={4} align="end">
           <Menu.Popup className="z-50 min-w-52 rounded-lg border border-(--outline-variant) bg-surface py-2 shadow-(--elevation-3)">
             <Menu.Item className={itemClass} onClick={toggleDarkTheme}>
               {dark ? t('disableDarkTheme') : t('enableDarkTheme')}

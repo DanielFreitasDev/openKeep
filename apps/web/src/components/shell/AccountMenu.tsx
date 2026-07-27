@@ -31,7 +31,7 @@ export function AccountMenu() {
         {initial}
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={6} align="end">
+        <Menu.Positioner className="z-50" sideOffset={6} align="end">
           <Menu.Popup className="z-50 min-w-64 rounded-lg border border-(--outline-variant) bg-surface py-2 shadow-(--elevation-3)">
             <div className="border-(--outline-variant) border-b px-4 pt-1 pb-3">
               <div className="font-medium text-on-surface text-sm">{user?.name}</div>

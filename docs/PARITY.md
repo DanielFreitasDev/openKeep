@@ -11,19 +11,19 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Top bar (hamburger, logo, search, refresh, view toggle, gear, account) | ✓ | ✅ (search input active in M4) | M1 |
 | Sidebar rail ↔ expanded, hover slide-out | ✓ | ✅ (labels added M4) | M1 |
 | Dark theme + distinct note-color palette | ✓ | ✅ tokens + toggle + follow-system | M1 |
-| Composer ("Take a note…", New list, New note with image) | ✓ | ⬜ | M2 |
-| "Empty note discarded" | ✓ | ⬜ | M2 |
-| Masonry grid, PINNED/OTHERS sections | ✓ | ⬜ | M2 |
-| Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ⬜ | M2 |
-| 12 colors, light+dark | ✓ | ⬜ | M2 |
-| 9 background illustrations | ✓ themes, original art | ⬜ 🔀 | M2 |
-| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ⬜ | M2 |
-| Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ⬜ | M2 |
-| Autosave + limits (title ~999, body 19,999) | ✓ | ⬜ | M2 |
-| Archive view + undo snackbar | ✓ | ⬜ | M2 |
-| Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ⬜ | M2 |
-| Version history + .txt download | ✓ (+restore 🔀) | ⬜ | M2 |
-| Grid ↔ list toggle | ✓ | ⬜ | M2 |
+| Composer ("Take a note…", New list, New note with image) | ✓ | ✅ (list M3, image M5; expand on click/type; click-away saves) | M2 |
+| "Empty note discarded" | ✓ | ✅ snackbar | M2 |
+| Masonry grid, PINNED/OTHERS sections | ✓ | ✅ shortest-column flow, 240px cards, FLIP moves | M2 |
+| Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ✅ color/archive/more (+pin); remind M6, collaborator M7, image M5 | M2 |
+| 12 colors, light+dark | ✓ | ✅ verified via e2e in both themes | M2 |
+| 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
+| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; Esc/Ctrl+Enter close | M2 |
+| Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
+| Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 500ms debounce, dirty-field patches | M2 |
+| Archive view + undo snackbar | ✓ | ✅ inverse-mutation undo | M2 |
+| Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ + hourly purge job | M2 |
+| Version history + .txt download | ✓ (+restore 🔀) | ✅ session-boundary snapshots | M2 |
+| Grid ↔ list toggle | ✓ | ✅ synced via settings.viewMode | M2 |
 | Checklists: Enter split, indent 1 level, drag reorder | ✓ | ⬜ | M3 |
 | Completed items section (collapsible, per setting) | ✓ | ⬜ | M3 |
 | Uncheck all / Delete checked | ✓ | ⬜ | M3 |

@@ -1,0 +1,10 @@
+{
+  "banner": "As notas na Lixeira são excluídas após 7 dias.",
+  "emptyTrashAction": "Esvaziar Lixeira",
+  "noteInTrash": "Nota na Lixeira",
+  "restore": "Restaurar",
+  "deleteForever": "Excluir definitivamente",
+  "confirmDeleteForever": "Excluir a nota definitivamente? Isso não pode ser desfeito.",
+  "confirmEmptyTrash": "Esvaziar a Lixeira? Todas as notas na Lixeira serão excluídas permanentemente.",
+  "emptyStateTrash": "Nenhuma nota na Lixeira."
+}

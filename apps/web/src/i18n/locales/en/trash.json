@@ -1,0 +1,10 @@
+{
+  "banner": "Notes in Trash are deleted after 7 days.",
+  "emptyTrashAction": "Empty Trash",
+  "noteInTrash": "Note in Trash",
+  "restore": "Restore",
+  "deleteForever": "Delete forever",
+  "confirmDeleteForever": "Delete note forever? This can't be undone.",
+  "confirmEmptyTrash": "Empty Trash? All notes in Trash will be permanently deleted.",
+  "emptyStateTrash": "No notes in Trash."
+}

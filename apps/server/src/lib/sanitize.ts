@@ -51,9 +51,9 @@ export function detectLinks(text: string): boolean {
 
 /** Plain text → minimal allowlist html (one <p> per line; used by convert/import). */
 export function plainTextToHtml(text: string): string {
-  const escape = (s: string) =>
+  const escapeHtml = (s: string) =>
     s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const lines = text.split('\n');
   if (lines.length === 0) return '';
-  return lines.map((line) => `<p>${escape(line)}</p>`).join('');
+  return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('');
 }

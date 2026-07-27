@@ -1,10 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E suite. Runs against the dev stack:
- *   - API on :3000 (started with a dedicated test database)
- *   - Vite dev server on :5173 proxying /api
- * CI starts both via the webServer entries below.
+ * Runs against the dev stack: Postgres (compose), API :3000, Vite :5173.
+ * Locally, running servers are reused; CI boots them via the webServer
+ * commands (the db must already be up + migrated — see ci.yml).
  */
 export default defineConfig({
   testDir: './tests',
@@ -12,6 +11,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
+  timeout: 30_000,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:5173',
@@ -23,6 +23,22 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: [
+    {
+      command: 'pnpm --filter @openkeep/server dev',
+      url: 'http://localhost:3000/api/healthz',
+      reuseExistingServer: !process.env.CI,
+      cwd: '..',
+      timeout: 60_000,
+    },
+    {
+      command: 'pnpm --filter @openkeep/web dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      cwd: '..',
+      timeout: 60_000,
     },
   ],
 });

@@ -1,14 +1,28 @@
 import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
+import { NotesGrid } from '../../components/grid/NotesGrid.js';
+import { selectArchived } from '../../lib/note-selectors.js';
+import { notesQuery } from '../../lib/notes-api.js';
+import { settingsQuery } from '../../lib/queries.js';
 
 export const Route = createFileRoute('/_shell/archive')({
   component: ArchiveView,
 });
 
 function ArchiveView() {
-  const { t } = useTranslation('shell');
-  // Archive grid lands in M2.
-  return <EmptyView svg={archiveSvg} text={t('navArchive')} />;
+  const { t } = useTranslation('notes');
+  const { data: archived, isSuccess } = useQuery({ ...notesQuery, select: selectArchived });
+  const { data: settings } = useQuery(settingsQuery);
+
+  if (isSuccess && archived.length === 0) {
+    return <EmptyView svg={archiveSvg} text={t('emptyStateArchive')} />;
+  }
+  return (
+    <div className="px-6 py-8">
+      <NotesGrid notes={archived ?? []} viewMode={settings?.viewMode ?? 'grid'} />
+    </div>
+  );
 }

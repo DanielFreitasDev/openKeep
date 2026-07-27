@@ -1,0 +1,19 @@
+{
+  "titlePlaceholder": "Título",
+  "notePlaceholder": "Nota",
+  "edited": "Editada {{time}}",
+  "formattingOptions": "Opções de formatação",
+  "formatH1": "Título 1",
+  "formatH2": "Título 2",
+  "formatNormal": "Texto normal",
+  "formatBold": "Negrito",
+  "formatItalic": "Itálico",
+  "formatUnderline": "Sublinhado",
+  "formatClear": "Limpar formatação",
+  "undo": "Desfazer",
+  "redo": "Refazer",
+  "versionHistory": "Histórico de versões",
+  "noVersions": "Ainda não há versões anteriores",
+  "downloadVersion": "Baixar como .txt",
+  "restoreVersion": "Restaurar"
+}
