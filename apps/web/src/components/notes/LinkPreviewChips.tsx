@@ -34,7 +34,7 @@ function PreviewChip({ url }: { url: string }) {
     refetchInterval: (q) => (q.state.data?.status === 'pending' ? 2500 : false),
   });
 
-  if (!data || data.status !== 'ok') return null;
+  if (data?.status !== 'ok') return null;
   const domain = new URL(url).hostname.replace(/^www\./, '');
 
   return (
