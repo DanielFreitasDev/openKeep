@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.log
+.env
+.env.local
+.env.*.local
+storage/
+apps/server/storage/
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+.DS_Store
+*.tsbuildinfo
+.vite/

@@ -1,0 +1,20 @@
+{
+  "name": "@openkeep/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OpenKeep end-to-end suite (Playwright)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@openkeep/config": "workspace:*",
+    "@openkeep/shared": "workspace:*",
+    "@playwright/test": "1.62.0",
+    "@types/node": "^24.10.1",
+    "typescript": "7.0.2"
+  }
+}

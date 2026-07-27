@@ -1,0 +1,41 @@
+packages:
+  - apps/*
+  - packages/*
+  - e2e
+# Build-script policy (pnpm supply-chain guard): only esbuild needs its
+# install script; cpu-features/ssh2 are optional native accelerators for
+# testcontainers' ssh tunnel (unused), protobufjs' postinstall is a no-op.
+allowBuilds:
+  cpu-features: false
+  esbuild: true
+  protobufjs: false
+  ssh2: false
+minimumReleaseAgeExclude:
+  - '@tiptap/core@3.29.1'
+  - '@tiptap/extension-blockquote@3.29.1'
+  - '@tiptap/extension-bold@3.29.1'
+  - '@tiptap/extension-bubble-menu@3.29.1'
+  - '@tiptap/extension-bullet-list@3.29.1'
+  - '@tiptap/extension-code-block@3.29.1'
+  - '@tiptap/extension-code@3.29.1'
+  - '@tiptap/extension-document@3.29.1'
+  - '@tiptap/extension-dropcursor@3.29.1'
+  - '@tiptap/extension-floating-menu@3.29.1'
+  - '@tiptap/extension-gapcursor@3.29.1'
+  - '@tiptap/extension-hard-break@3.29.1'
+  - '@tiptap/extension-heading@3.29.1'
+  - '@tiptap/extension-horizontal-rule@3.29.1'
+  - '@tiptap/extension-italic@3.29.1'
+  - '@tiptap/extension-link@3.29.1'
+  - '@tiptap/extension-list-item@3.29.1'
+  - '@tiptap/extension-list-keymap@3.29.1'
+  - '@tiptap/extension-list@3.29.1'
+  - '@tiptap/extension-ordered-list@3.29.1'
+  - '@tiptap/extension-paragraph@3.29.1'
+  - '@tiptap/extension-strike@3.29.1'
+  - '@tiptap/extension-text@3.29.1'
+  - '@tiptap/extension-underline@3.29.1'
+  - '@tiptap/extensions@3.29.1'
+  - '@tiptap/pm@3.29.1'
+  - '@tiptap/react@3.29.1'
+  - '@tiptap/starter-kit@3.29.1'

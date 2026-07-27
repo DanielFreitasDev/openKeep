@@ -1,0 +1,22 @@
+name: openkeep-dev
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: openkeep
+      POSTGRES_PASSWORD: openkeep
+      POSTGRES_DB: openkeep
+    ports:
+      - '55432:5432'
+    volumes:
+      # postgres:18 images mount the parent dir (PGDATA lives in a versioned subdir)
+      - openkeep-dev-pg:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openkeep -d openkeep']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  openkeep-dev-pg:

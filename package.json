@@ -1,0 +1,30 @@
+{
+  "name": "openkeep",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Open-source, self-hostable notes app faithfully reproducing the Google Keep web experience",
+  "license": "MIT",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "docker compose -f docker/compose.dev.yml up -d --wait && turbo run dev",
+    "build": "turbo run build",
+    "check": "biome check . && turbo run typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @openkeep/e2e test",
+    "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.dev.yml down",
+    "db:migrate": "pnpm --filter @openkeep/server db:migrate",
+    "db:seed": "pnpm --filter @openkeep/server db:seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.5",
+    "turbo": "2.10.7",
+    "typescript": "7.0.2"
+  }
+}
