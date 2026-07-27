@@ -7,6 +7,7 @@ import { SettingsDialog } from '../components/shell/SettingsDialog.js';
 import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
 import { usePushRegistration } from '../hooks/use-push.js';
+import { useRealtime } from '../hooks/use-realtime.js';
 import { useReminderToasts } from '../hooks/use-reminder-toasts.js';
 import { sessionQuery } from '../lib/queries.js';
 import { useUiStore } from '../stores/ui.js';
@@ -31,6 +32,7 @@ export const Route = createFileRoute('/_shell')({
 
 function ShellLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
+  useRealtime();
   useReminderToasts();
   usePushRegistration();
   return (

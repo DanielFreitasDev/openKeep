@@ -9,6 +9,7 @@ import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
 import moreSvg from '@material-symbols/svg-400/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-400/outlined/palette.svg?raw';
+import personAddSvg from '@material-symbols/svg-400/outlined/person_add.svg?raw';
 import redoSvg from '@material-symbols/svg-400/outlined/redo.svg?raw';
 import undoSvg from '@material-symbols/svg-400/outlined/undo.svg?raw';
 import type { FullNote } from '@openkeep/shared';
@@ -38,6 +39,7 @@ import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteImages } from './NoteImages.js';
 import { ReminderChip } from './ReminderChip.js';
 import { ReminderPicker } from './ReminderPicker.js';
+import { ShareDialog } from './ShareDialog.js';
 import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
@@ -108,6 +110,7 @@ function EditorBody({
     open: false,
     seed: '',
   });
+  const [showShare, setShowShare] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
   const checklistRef = useRef<ChecklistHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -344,6 +347,14 @@ function EditorBody({
               </>
             ) : (
               <>
+                <IconButton
+                  svg={personAddSvg}
+                  label={t('sharing:collaborator')}
+                  size={38}
+                  iconSize={19}
+                  className="text-on-surface-variant"
+                  onClick={() => setShowShare(true)}
+                />
                 <Popover.Root>
                   <Popover.Trigger
                     aria-label={t('reminders:addReminder')}
@@ -547,6 +558,7 @@ function EditorBody({
               onOpenChange={setShowVersions}
             />
           )}
+          {showShare && <ShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
           {labelPicker.open && (
             <Popover.Root
               open

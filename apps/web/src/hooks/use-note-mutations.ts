@@ -40,6 +40,7 @@ export function useNoteMutations() {
         labelIds: [],
         attachments: [],
         reminder: null,
+        collaborators: [],
         role: 'owner',
         pinned: input.pinned ?? false,
         archived: false,

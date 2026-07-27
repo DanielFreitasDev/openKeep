@@ -7,6 +7,7 @@ import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
 import moreSvg from '@material-symbols/svg-400/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-400/outlined/palette.svg?raw';
+import personAddSvg from '@material-symbols/svg-400/outlined/person_add.svg?raw';
 import restoreSvg from '@material-symbols/svg-400/outlined/restore_from_trash.svg?raw';
 import unarchiveSvg from '@material-symbols/svg-400/outlined/unarchive.svg?raw';
 import type { FullNote } from '@openkeep/shared';
@@ -26,6 +27,7 @@ import { NoteBody } from './NoteBody.js';
 import { NoteImages } from './NoteImages.js';
 import { ReminderChip } from './ReminderChip.js';
 import { ReminderPicker } from './ReminderPicker.js';
+import { ShareDialog } from './ShareDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
@@ -47,6 +49,7 @@ export function NoteCard({ note }: { note: FullNote }) {
   const m = useNoteMutations();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   const trashed = note.trashedAt !== null;
 
@@ -116,6 +119,19 @@ export function NoteCard({ note }: { note: FullNote }) {
       <LinkPreviewChips note={note} />
       <ReminderChip note={note} />
       <LabelChips note={note} />
+      {note.collaborators.length > 1 && (
+        <div className="flex gap-1 px-3 pb-1.5" aria-label={t('sharing:sharedWith')}>
+          {note.collaborators.slice(0, 4).map((c) => (
+            <span
+              key={c.userId}
+              title={`${c.name} <${c.email}>`}
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-medium text-[0.625rem] text-on-primary"
+            >
+              {(c.name || c.email).charAt(0).toUpperCase()}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">
         {trashed ? (
@@ -157,6 +173,14 @@ export function NoteCard({ note }: { note: FullNote }) {
               </Popover.Portal>
             </Popover.Root>
 
+            <IconButton
+              svg={personAddSvg}
+              label={t('sharing:collaborator')}
+              size={34}
+              iconSize={18}
+              className="text-on-surface-variant"
+              onClick={() => setShowShare(true)}
+            />
             <Popover.Root>
               <Popover.Trigger
                 aria-label={t('backgroundOptions')}
@@ -240,6 +264,8 @@ export function NoteCard({ note }: { note: FullNote }) {
         confirmLabel={t('common:delete')}
         onConfirm={() => m.deleteForever.mutate(note.id)}
       />
+
+      {showShare && <ShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
 
       {showLabelPicker && (
         <Popover.Root open onOpenChange={(o) => !o && setShowLabelPicker(false)}>

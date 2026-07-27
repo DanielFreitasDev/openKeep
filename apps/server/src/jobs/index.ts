@@ -8,6 +8,7 @@ import { normalizeUrl, storeFetched } from '../modules/link-preview/service.js';
 import { purgeExpiredTrash } from '../modules/notes/service.js';
 import { configureWebPush, pushFiredReminders } from '../modules/reminders/push.js';
 import { fireDueReminders } from '../modules/reminders/service.js';
+import type { Realtime } from '../realtime/registry.js';
 
 interface QueryablePool {
   query: (text: string, values?: unknown[]) => Promise<unknown>;
@@ -22,6 +23,7 @@ export async function startJobs(
   db: Db,
   log: FastifyBaseLogger,
   storage?: Storage,
+  realtime?: Realtime,
 ): Promise<PgBoss> {
   const boss = new PgBoss({
     db: {
@@ -47,6 +49,12 @@ export async function startJobs(
     const fired = await fireDueReminders(db);
     if (fired.length > 0) {
       log.info({ count: fired.length }, 'reminders fired');
+      for (const f of fired) {
+        realtime?.publishToUsers([f.userId], {
+          type: 'reminder.fired',
+          payload: { noteId: f.noteId, title: f.noteTitle, remindAt: f.remindAt.toISOString() },
+        });
+      }
       if (pushEnabled) await pushFiredReminders(db, fired);
     }
   });

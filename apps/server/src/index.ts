@@ -6,6 +6,7 @@ import { createDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { startJobs } from './jobs/index.js';
 import { Storage } from './lib/storage.js';
+import { Realtime } from './realtime/registry.js';
 
 loadDotenv();
 
@@ -19,11 +20,13 @@ const storage = new Storage(config.storageDirAbs);
 await storage.init();
 
 let enqueueLinkPreview: (url: string) => Promise<void> = async () => {};
+const realtime = new Realtime();
 const app = await buildApp(config, {
   db,
   pool,
   auth,
   storage,
+  realtime,
   enqueueLinkPreview: (url) => enqueueLinkPreview(url),
 });
 
@@ -43,7 +46,7 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
-  boss = await startJobs(config, pool, db, app.log, storage);
+  boss = await startJobs(config, pool, db, app.log, storage, realtime);
   enqueueLinkPreview = async (url) => {
     const { urlHashOf, normalizeUrl } = await import('./modules/link-preview/service.js');
     await boss?.send('link-preview-fetch', { url }, { singletonKey: urlHashOf(normalizeUrl(url)) });

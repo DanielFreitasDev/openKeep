@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LIMITS } from '../constants/limits.js';
 import { zAttachment } from './attachments.js';
 import { zId, zNoteBackground, zNoteColor } from './common.js';
+import { zCollaborator } from './realtime.js';
 import { zReminder } from './reminders.js';
 
 export const zNoteType = z.enum(['text', 'list']);
@@ -30,6 +31,8 @@ export const zFullNote = z.object({
   attachments: z.array(zAttachment),
   /** My reminder on this note (per-user). */
   reminder: zReminder.nullable(),
+  /** All members incl. the owner (shown as avatars when shared). */
+  collaborators: z.array(zCollaborator),
   role: zNoteRole,
   pinned: z.boolean(),
   archived: z.boolean(),

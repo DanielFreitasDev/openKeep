@@ -10,6 +10,7 @@ declare module 'fastify' {
   }
   interface FastifyInstance {
     requireAuth: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    realtime: import('../realtime/registry.js').Realtime;
   }
 }
 

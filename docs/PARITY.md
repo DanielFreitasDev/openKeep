@@ -39,9 +39,9 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Link preview chips + setting | ✓ | ✅ SSRF-safe pinned-IP fetch; browser loads images | M5 |
 | Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ✅ 🔀 native (per-user; DST-correct wall-clock recurrence) | M6 |
 | Web push + in-app notifications | classic Keep UX | ✅ 🔀 VAPID push (opt-in on first reminder) + in-app toasts | M6 |
-| Sharing: invite by email, single permission level | ✓ | ⬜ | M7 |
-| Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ⬜ | M7 |
-| ~1s realtime propagation | ✓ | ⬜ | M7 |
+| Sharing: invite by email, single permission level | ✓ | ✅ registered users; both-side sharing setting; 20 cap | M7 |
+| Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
+| ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (full map + ? dialog) | ✓ | ⬜ | M8 |
 | Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ⬜ | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ⬜ | M8 |

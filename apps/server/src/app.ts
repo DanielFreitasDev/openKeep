@@ -21,18 +21,23 @@ import { registerNotesRoutes } from './modules/notes/routes.js';
 import { registerReminderRoutes } from './modules/reminders/routes.js';
 import { registerSearchRoutes } from './modules/search/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
+import { registerSharingRoutes } from './modules/sharing/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerOriginCheck } from './plugins/security.js';
 import { registerSwagger } from './plugins/swagger.js';
+import { Realtime } from './realtime/registry.js';
+import { registerWs } from './realtime/ws.js';
 
 export interface AppDeps {
   db: Db;
   pool: { query: (sql: string) => Promise<unknown> };
   auth: Auth;
   storage: Storage;
-  /** Enqueue a link-preview fetch (pg-boss in prod;直接 in tests). */
+  /** Enqueue a link-preview fetch (pg-boss in prod; direct in tests). */
   enqueueLinkPreview?: (url: string) => Promise<void>;
+  /** In-process realtime registry (created here when absent). */
+  realtime?: Realtime;
 }
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
@@ -57,6 +62,9 @@ export async function buildApp(config: Config, deps: AppDeps) {
 
   registerOriginCheck(app, config);
   await app.register(rateLimit, { global: false });
+  const realtime = deps.realtime ?? new Realtime();
+  app.decorate('realtime', realtime);
+  await registerWs(app, config, deps.auth, realtime);
   await registerSwagger(app, config.isDev);
   await registerAuth(app, config, deps.auth);
 
@@ -99,14 +107,15 @@ export async function buildApp(config: Config, deps: AppDeps) {
     }),
   );
 
-  registerSettingsRoutes(app, deps.db);
-  registerNotesRoutes(app, deps.db, deps.storage);
-  registerItemRoutes(app, deps.db);
-  registerLabelRoutes(app, deps.db);
+  registerSettingsRoutes(app, deps.db, realtime);
+  registerNotesRoutes(app, deps.db, realtime, deps.storage);
+  registerItemRoutes(app, deps.db, realtime);
+  registerLabelRoutes(app, deps.db, realtime);
   registerSearchRoutes(app, deps.db);
-  await registerAttachmentRoutes(app, deps.db, deps.storage);
+  await registerAttachmentRoutes(app, deps.db, deps.storage, realtime);
   registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
-  registerReminderRoutes(app, deps.db, config);
+  registerReminderRoutes(app, deps.db, config, realtime);
+  registerSharingRoutes(app, deps.db, realtime);
 
   return app;
 }

@@ -8,6 +8,7 @@ import enNotes from './locales/en/notes.json';
 import enReminders from './locales/en/reminders.json';
 import enSearch from './locales/en/search.json';
 import enSettings from './locales/en/settings.json';
+import enSharing from './locales/en/sharing.json';
 import enShell from './locales/en/shell.json';
 import enTrash from './locales/en/trash.json';
 import ptAuth from './locales/pt-BR/auth.json';
@@ -18,6 +19,7 @@ import ptNotes from './locales/pt-BR/notes.json';
 import ptReminders from './locales/pt-BR/reminders.json';
 import ptSearch from './locales/pt-BR/search.json';
 import ptSettings from './locales/pt-BR/settings.json';
+import ptSharing from './locales/pt-BR/sharing.json';
 import ptShell from './locales/pt-BR/shell.json';
 import ptTrash from './locales/pt-BR/trash.json';
 
@@ -33,6 +35,7 @@ export const resources = {
     labels: enLabels,
     search: enSearch,
     reminders: enReminders,
+    sharing: enSharing,
   },
   'pt-BR': {
     common: ptCommon,
@@ -45,6 +48,7 @@ export const resources = {
     labels: ptLabels,
     search: ptSearch,
     reminders: ptReminders,
+    sharing: ptSharing,
   },
 } as const;
 

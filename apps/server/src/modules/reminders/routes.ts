@@ -6,11 +6,14 @@ import type { Config } from '../../config.js';
 import type { Db } from '../../db/client.js';
 import { pushSubscriptions } from '../../db/schema/reminders.js';
 import { errors } from '../../lib/errors.js';
+import type { Realtime } from '../../realtime/registry.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
 
-export function registerReminderRoutes(app: App, db: Db, config: Config): void {
+export function registerReminderRoutes(app: App, db: Db, config: Config, realtime: Realtime): void {
+  const originOf = (req: { headers: Record<string, unknown> }) =>
+    req.headers['x-client-id'] as string | undefined;
   const auth = { preHandler: [app.requireAuth] };
 
   app.put(
@@ -24,7 +27,15 @@ export function registerReminderRoutes(app: App, db: Db, config: Config): void {
         response: { 200: zReminder },
       },
     },
-    async (req) => svc.setReminder(db, req.user.id, req.params.id, req.body),
+    async (req) => {
+      const reminder = await svc.setReminder(db, req.user.id, req.params.id, req.body);
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'reminder.set', payload: { noteId: req.params.id, reminder } },
+        originOf(req),
+      );
+      return reminder;
+    },
   );
 
   app.delete(
@@ -32,6 +43,11 @@ export function registerReminderRoutes(app: App, db: Db, config: Config): void {
     { ...auth, schema: { tags: ['reminders'], params: zNoteParams, response: { 204: z.null() } } },
     async (req, reply) => {
       await svc.deleteReminder(db, req.user.id, req.params.id);
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'reminder.deleted', payload: { noteId: req.params.id } },
+        originOf(req),
+      );
       return reply.status(204).send(null);
     },
   );
@@ -47,7 +63,20 @@ export function registerReminderRoutes(app: App, db: Db, config: Config): void {
         response: { 200: zReminder },
       },
     },
-    async (req) => svc.snoozeReminder(db, req.user.id, req.params.id, new Date(req.body.until)),
+    async (req) => {
+      const reminder = await svc.snoozeReminder(
+        db,
+        req.user.id,
+        req.params.id,
+        new Date(req.body.until),
+      );
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'reminder.set', payload: { noteId: req.params.id, reminder } },
+        originOf(req),
+      );
+      return reminder;
+    },
   );
 
   app.post(
@@ -55,6 +84,11 @@ export function registerReminderRoutes(app: App, db: Db, config: Config): void {
     { ...auth, schema: { tags: ['reminders'], params: zNoteParams, response: { 204: z.null() } } },
     async (req, reply) => {
       await svc.dismissReminder(db, req.user.id, req.params.id);
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'reminder.dismissed', payload: { noteId: req.params.id } },
+        originOf(req),
+      );
       return reply.status(204).send(null);
     },
   );

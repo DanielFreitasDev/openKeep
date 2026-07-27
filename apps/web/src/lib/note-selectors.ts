@@ -29,7 +29,7 @@ export function selectArchived(notes: FullNote[]): FullNote[] {
 /** Trash view: most recently trashed first. */
 export function selectTrashed(notes: FullNote[]): FullNote[] {
   return notes
-    .filter((n) => n.trashedAt !== null)
+    .filter((n) => n.trashedAt !== null && n.role === 'owner')
     .sort((a, b) => (b.trashedAt ?? '').localeCompare(a.trashedAt ?? '') || byPosition(a, b));
 }
 

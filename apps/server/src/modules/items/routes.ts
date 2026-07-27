@@ -9,12 +9,16 @@ import {
 import { z } from 'zod';
 import type { App } from '../../app.js';
 import type { Db } from '../../db/client.js';
+import type { Realtime } from '../../realtime/registry.js';
+import { memberIds } from '../../realtime/registry.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
 const zItemParams = z.object({ id: zId, itemId: zId });
 
-export function registerItemRoutes(app: App, db: Db): void {
+export function registerItemRoutes(app: App, db: Db, realtime: Realtime): void {
+  const originOf = (req: { headers: Record<string, unknown> }) =>
+    req.headers['x-client-id'] as string | undefined;
   const auth = { preHandler: [app.requireAuth] };
 
   app.post(
@@ -28,8 +32,15 @@ export function registerItemRoutes(app: App, db: Db): void {
         response: { 201: zNoteItem },
       },
     },
-    async (req, reply) =>
-      reply.status(201).send(await svc.createItem(db, req.user.id, req.params.id, req.body)),
+    async (req, reply) => {
+      const item = await svc.createItem(db, req.user.id, req.params.id, req.body);
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        { type: 'item.added', payload: { noteId: req.params.id, item } },
+        originOf(req),
+      );
+      return reply.status(201).send(item);
+    },
   );
 
   app.patch(
@@ -43,7 +54,24 @@ export function registerItemRoutes(app: App, db: Db): void {
         response: { 200: zItemPatchResult },
       },
     },
-    async (req) => svc.patchItem(db, req.user.id, req.params.id, req.params.itemId, req.body),
+    async (req) => {
+      const result = await svc.patchItem(
+        db,
+        req.user.id,
+        req.params.id,
+        req.params.itemId,
+        req.body,
+      );
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        {
+          type: 'item.updated',
+          payload: { noteId: req.params.id, item: result.item, cascaded: result.cascaded },
+        },
+        originOf(req),
+      );
+      return result;
+    },
   );
 
   app.delete(
@@ -51,6 +79,11 @@ export function registerItemRoutes(app: App, db: Db): void {
     { ...auth, schema: { tags: ['items'], params: zItemParams, response: { 204: z.null() } } },
     async (req, reply) => {
       await svc.deleteItem(db, req.user.id, req.params.id, req.params.itemId);
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        { type: 'item.removed', payload: { noteId: req.params.id, itemId: req.params.itemId } },
+        originOf(req),
+      );
       return reply.status(204).send(null);
     },
   );
@@ -61,7 +94,15 @@ export function registerItemRoutes(app: App, db: Db): void {
       ...auth,
       schema: { tags: ['items'], params: zNoteParams, response: { 200: zItemsReplacedResult } },
     },
-    async (req) => svc.uncheckAll(db, req.user.id, req.params.id),
+    async (req) => {
+      const result = await svc.uncheckAll(db, req.user.id, req.params.id);
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        { type: 'items.replaced', payload: result },
+        originOf(req),
+      );
+      return result;
+    },
   );
 
   app.post(
@@ -70,6 +111,14 @@ export function registerItemRoutes(app: App, db: Db): void {
       ...auth,
       schema: { tags: ['items'], params: zNoteParams, response: { 200: zItemsReplacedResult } },
     },
-    async (req) => svc.deleteChecked(db, req.user.id, req.params.id),
+    async (req) => {
+      const result = await svc.deleteChecked(db, req.user.id, req.params.id);
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        { type: 'items.replaced', payload: result },
+        originOf(req),
+      );
+      return result;
+    },
   );
 }

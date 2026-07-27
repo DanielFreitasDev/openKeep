@@ -153,6 +153,19 @@ export async function openAttachment(
   };
 }
 
+export async function noteIdOfAttachment(
+  db: Db,
+  userId: string,
+  attachmentId: string,
+): Promise<string | null> {
+  try {
+    const att = await findForUser(db, userId, attachmentId);
+    return att.noteId;
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteAttachment(
   db: Db,
   storage: Storage,

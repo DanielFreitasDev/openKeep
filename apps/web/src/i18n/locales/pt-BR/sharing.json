@@ -1,0 +1,12 @@
+{
+  "title": "Colaboradores",
+  "collaborator": "Colaborador",
+  "sharedWith": "Compartilhada com",
+  "you": "você",
+  "ownerBadge": "Proprietário",
+  "emailPlaceholder": "Pessoa ou e-mail para compartilhar",
+  "invite": "Compartilhar",
+  "remove": "Remover",
+  "leave": "Sair",
+  "inviteFailed": "Não foi possível compartilhar a nota"
+}

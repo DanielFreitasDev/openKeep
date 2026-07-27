@@ -22,6 +22,7 @@ function note(over: Partial<FullNote>): FullNote {
     labelIds: [],
     attachments: [],
     reminder: null,
+    collaborators: [],
     role: 'owner',
     pinned: false,
     archived: false,

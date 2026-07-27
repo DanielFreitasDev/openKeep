@@ -1,4 +1,5 @@
 import type {
+  Collaborator,
   CreateNote,
   FullNote,
   NoteContentResult,
@@ -11,6 +12,7 @@ import { comparePositions, LIMITS, positionBefore, positionsBetween } from '@ope
 import { and, asc, desc, eq, inArray, isNotNull, lt, min } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
+import { user as userTable } from '../../db/schema/auth.js';
 import { noteLabels } from '../../db/schema/labels.js';
 import type { VersionItem } from '../../db/schema/notes.js';
 import { noteItems, noteMembers, notes, noteVersions } from '../../db/schema/notes.js';
@@ -61,6 +63,7 @@ function toFullNote(
   labelIds: string[] = [],
   attachmentRows: AttachmentRow[] = [],
   reminder: ReminderRow | null = null,
+  collaborators: Collaborator[] = [],
 ): FullNote {
   return {
     id: note.id,
@@ -78,6 +81,7 @@ function toFullNote(
     labelIds,
     attachments: attachmentRows.map(toAttachmentDto),
     reminder: reminder ? toReminderDto(reminder) : null,
+    collaborators,
     role: member.role as FullNote['role'],
     pinned: member.pinned,
     archived: member.archived,
@@ -144,6 +148,37 @@ async function loadAttachments(
   return map;
 }
 
+async function loadCollaborators(
+  db: Db | Tx,
+  noteIds: string[],
+): Promise<Map<string, Collaborator[]>> {
+  const map = new Map<string, Collaborator[]>();
+  if (noteIds.length === 0) return map;
+  const rows = await db
+    .select({
+      noteId: noteMembers.noteId,
+      userId: noteMembers.userId,
+      role: noteMembers.role,
+      email: userTable.email,
+      name: userTable.name,
+    })
+    .from(noteMembers)
+    .innerJoin(userTable, eq(userTable.id, noteMembers.userId))
+    .where(inArray(noteMembers.noteId, noteIds));
+  for (const row of rows) {
+    const c: Collaborator = {
+      userId: row.userId,
+      email: row.email,
+      name: row.name,
+      role: row.role as Collaborator['role'],
+    };
+    const list = map.get(row.noteId);
+    if (list) list.push(c);
+    else map.set(row.noteId, [c]);
+  }
+  return map;
+}
+
 async function loadReminders(
   db: Db | Tx,
   userId: string,
@@ -165,7 +200,21 @@ async function loadFullNote(db: Db | Tx, userId: string, noteId: string): Promis
   const labelIds = (await loadLabelIds(db, userId, [noteId])).get(noteId) ?? [];
   const atts = (await loadAttachments(db, [noteId])).get(noteId) ?? [];
   const rem = (await loadReminders(db, userId, [noteId])).get(noteId) ?? null;
-  return toFullNote(note, member, items, labelIds, atts, rem);
+  const collabs = (await loadCollaborators(db, [noteId])).get(noteId) ?? [];
+  return toFullNote(note, member, items, labelIds, atts, rem, collabs);
+}
+
+/** Single FullNote for a user, or null when they have no membership. */
+export async function assembleForUser(
+  db: Db,
+  userId: string,
+  noteId: string,
+): Promise<FullNote | null> {
+  try {
+    return await loadFullNote(db, userId, noteId);
+  } catch {
+    return null;
+  }
 }
 
 /** Shared assembly for search & list: FullNotes for a set of note ids. */
@@ -179,6 +228,7 @@ export async function assembleFullNotes(
   const labelsByNote = await loadLabelIds(db, userId, ids);
   const attsByNote = await loadAttachments(db, ids);
   const remByNote = await loadReminders(db, userId, ids);
+  const collabsByNote = await loadCollaborators(db, ids);
   return rows.map(({ member, note }) =>
     toFullNote(
       note,
@@ -187,6 +237,7 @@ export async function assembleFullNotes(
       labelsByNote.get(note.id) ?? [],
       attsByNote.get(note.id) ?? [],
       remByNote.get(note.id) ?? null,
+      collabsByNote.get(note.id) ?? [],
     ),
   );
 }
@@ -205,6 +256,8 @@ export async function listNotes(
 
   const filtered = rows.filter(({ member, note }) => {
     const trashed = note.trashedAt !== null;
+    // Keep parity: only the owner sees a trashed shared note (in their trash).
+    if (trashed && member.role !== 'owner') return false;
     if (view === 'trash') return trashed;
     if (view === 'archived') return !trashed && member.archived;
     if (view === 'active') return !trashed && !member.archived;
@@ -348,7 +401,8 @@ export async function createNote(db: Db, userId: string, input: CreateNote): Pro
         .returning();
     }
 
-    return toFullNote(noteRow, memberRow!, itemRows, []);
+    const selfCollabs = (await loadCollaborators(tx, [noteRow.id])).get(noteRow.id) ?? [];
+    return toFullNote(noteRow, memberRow!, itemRows, [], [], null, selfCollabs);
   });
 }
 
@@ -527,8 +581,9 @@ export async function copyNote(
       await copyAttachments(tx as unknown as Db, storage, noteId, newNote!.id);
     }
     const newAtts = (await loadAttachments(tx, [newNote!.id])).get(newNote!.id) ?? [];
+    const selfCollabs = (await loadCollaborators(tx, [newNote!.id])).get(newNote!.id) ?? [];
 
-    return toFullNote(newNote!, newMember!, newItems, myLabels, newAtts);
+    return toFullNote(newNote!, newMember!, newItems, myLabels, newAtts, null, selfCollabs);
   });
 }
 
