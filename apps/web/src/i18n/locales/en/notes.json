@@ -46,5 +46,8 @@
   "background_places": "Places",
   "background_travel": "Travel",
   "background_video": "Video",
-  "background_celebration": "Celebration"
+  "background_celebration": "Celebration",
+  "addImage": "Add image",
+  "removeImage": "Remove image",
+  "uploadFailed": "Couldn't upload the image"
 }

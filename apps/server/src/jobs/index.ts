@@ -2,6 +2,9 @@ import type { FastifyBaseLogger } from 'fastify';
 import { PgBoss } from 'pg-boss';
 import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
+import type { Storage } from '../lib/storage.js';
+import { fetchLinkPreview } from '../modules/link-preview/fetcher.js';
+import { normalizeUrl, storeFetched } from '../modules/link-preview/service.js';
 import { purgeExpiredTrash } from '../modules/notes/service.js';
 
 interface QueryablePool {
@@ -16,6 +19,7 @@ export async function startJobs(
   pool: QueryablePool,
   db: Db,
   log: FastifyBaseLogger,
+  storage?: Storage,
 ): Promise<PgBoss> {
   const boss = new PgBoss({
     db: {
@@ -30,8 +34,16 @@ export async function startJobs(
   await boss.createQueue('purge-trash');
   await boss.schedule('purge-trash', '0 * * * *');
   await boss.work('purge-trash', async () => {
-    const purged = await purgeExpiredTrash(db);
+    const purged = await purgeExpiredTrash(db, new Date(), storage);
     if (purged > 0) log.info({ purged }, 'purged expired trash');
+  });
+
+  await boss.createQueue('link-preview-fetch');
+  await boss.work<{ url: string }>('link-preview-fetch', async ([job]) => {
+    if (!job) return;
+    const normalized = normalizeUrl(job.data.url);
+    const result = await fetchLinkPreview(normalized).catch(() => ({ ok: false as const }));
+    await storeFetched(db, normalized, result);
   });
 
   return boss;

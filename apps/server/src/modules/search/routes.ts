@@ -3,6 +3,7 @@ import { and, eq, exists, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { App } from '../../app.js';
 import type { Db } from '../../db/client.js';
+import { attachments } from '../../db/schema/attachments.js';
 import { labels, noteLabels } from '../../db/schema/labels.js';
 import { noteItems, noteMembers, notes } from '../../db/schema/notes.js';
 import { buildPrefixTsquery } from '../../lib/tsquery.js';
@@ -50,8 +51,17 @@ export function registerSearchRoutes(app: App, db: Db): void {
 
       if (type === 'list') conditions.push(eq(notes.type, 'list'));
       else if (type === 'url') conditions.push(eq(notes.hasLinks, true));
-      else if (type !== undefined) {
-        // image/audio/drawing arrive with attachments (M5), reminder with M6.
+      else if (type === 'image' || type === 'audio' || type === 'drawing') {
+        conditions.push(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(attachments)
+              .where(and(eq(attachments.noteId, notes.id), eq(attachments.kind, type))),
+          ),
+        );
+      } else if (type !== undefined) {
+        // reminder arrives with M6.
         return [];
       }
 

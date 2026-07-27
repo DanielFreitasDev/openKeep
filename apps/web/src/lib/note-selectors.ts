@@ -89,9 +89,13 @@ export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults
     if (n.trashedAt !== null) return false;
     if (f.type === 'list' && n.type !== 'list') return false;
     if (f.type === 'url' && !n.hasLinks) return false;
-    // image/audio/drawing/reminder types gain data in M5/M6.
-    if (f.type === 'image' || f.type === 'audio' || f.type === 'drawing' || f.type === 'reminder')
+    if (
+      (f.type === 'image' || f.type === 'audio' || f.type === 'drawing') &&
+      !n.attachments.some((a) => a.kind === f.type)
+    )
       return false;
+    // reminder filter gains data in M6.
+    if (f.type === 'reminder') return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;
     return matchesQuery(n, f.q);

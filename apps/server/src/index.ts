@@ -5,6 +5,7 @@ import { loadConfig, loadDotenv } from './config.js';
 import { createDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { startJobs } from './jobs/index.js';
+import { Storage } from './lib/storage.js';
 
 loadDotenv();
 
@@ -14,7 +15,17 @@ await runMigrations(config.DATABASE_URL);
 
 const { pool, db } = createDb(config.DATABASE_URL);
 const auth = createAuth(config, db);
-const app = await buildApp(config, { db, pool, auth });
+const storage = new Storage(config.storageDirAbs);
+await storage.init();
+
+let enqueueLinkPreview: (url: string) => Promise<void> = async () => {};
+const app = await buildApp(config, {
+  db,
+  pool,
+  auth,
+  storage,
+  enqueueLinkPreview: (url) => enqueueLinkPreview(url),
+});
 
 let boss: PgBoss | undefined;
 let shuttingDown = false;
@@ -32,7 +43,11 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
-  boss = await startJobs(config, pool, db, app.log);
+  boss = await startJobs(config, pool, db, app.log, storage);
+  enqueueLinkPreview = async (url) => {
+    const { urlHashOf, normalizeUrl } = await import('./modules/link-preview/service.js');
+    await boss?.send('link-preview-fetch', { url }, { singletonKey: urlHashOf(normalizeUrl(url)) });
+  };
   app.log.info(`OpenKeep API ready on :${config.PORT} (${config.NODE_ENV})`);
 } catch (err) {
   app.log.error(err);

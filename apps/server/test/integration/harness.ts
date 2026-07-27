@@ -7,6 +7,7 @@ import { createAuth } from '../../src/auth/auth.js';
 import type { Config } from '../../src/config.js';
 import type { Db } from '../../src/db/client.js';
 import { createDb } from '../../src/db/client.js';
+import { Storage } from '../../src/lib/storage.js';
 import { testConfig } from '../helpers.js';
 import { TEMPLATE_DB } from './global-setup.js';
 
@@ -36,7 +37,9 @@ export async function createTestApp(
   const config = testConfig({ DATABASE_URL: dbUrl.toString(), ...envOverrides });
   const { pool, db } = createDb(config.DATABASE_URL);
   const auth = createAuth(config, db);
-  const app = await buildApp(config, { db, pool, auth });
+  const storage = new Storage(`${process.env.TMPDIR ?? '/tmp'}/openkeep-test-storage-${dbName}`);
+  await storage.init();
+  const app = await buildApp(config, { db, pool, auth, storage });
 
   const signUp = async (email: string, name = 'Test User', password = 'password-123') => {
     const res = await app.inject({

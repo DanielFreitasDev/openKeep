@@ -13,12 +13,13 @@ import {
 import { z } from 'zod';
 import type { App } from '../../app.js';
 import type { Db } from '../../db/client.js';
+import type { Storage } from '../../lib/storage.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
 const zVersionParams = z.object({ id: zId, versionId: zId });
 
-export function registerNotesRoutes(app: App, db: Db): void {
+export function registerNotesRoutes(app: App, db: Db, storage?: Storage): void {
   const auth = { preHandler: [app.requireAuth] };
 
   app.get(
@@ -87,7 +88,7 @@ export function registerNotesRoutes(app: App, db: Db): void {
     '/api/notes/:id',
     { ...auth, schema: { tags: ['notes'], params: zNoteParams, response: { 204: z.null() } } },
     async (req, reply) => {
-      await svc.deleteNoteForever(db, req.user.id, req.params.id);
+      await svc.deleteNoteForever(db, req.user.id, req.params.id, storage);
       return reply.status(204).send(null);
     },
   );
@@ -95,14 +96,14 @@ export function registerNotesRoutes(app: App, db: Db): void {
   app.post(
     '/api/notes/trash/empty',
     { ...auth, schema: { tags: ['notes'], response: { 200: z.object({ deleted: z.number() }) } } },
-    async (req) => ({ deleted: await svc.emptyTrash(db, req.user.id) }),
+    async (req) => ({ deleted: await svc.emptyTrash(db, req.user.id, storage) }),
   );
 
   app.post(
     '/api/notes/:id/copy',
     { ...auth, schema: { tags: ['notes'], params: zNoteParams, response: { 201: zFullNote } } },
     async (req, reply) => {
-      const copy = await svc.copyNote(db, req.user.id, req.params.id);
+      const copy = await svc.copyNote(db, req.user.id, req.params.id, storage);
       return reply.status(201).send(copy);
     },
   );

@@ -38,6 +38,7 @@ export function useNoteMutations() {
         hasLinks: false,
         items: [],
         labelIds: [],
+        attachments: [],
         role: 'owner',
         pinned: input.pinned ?? false,
         archived: false,

@@ -1,0 +1,63 @@
+import { sql } from 'drizzle-orm';
+import {
+  bigint,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
+import { notes } from './notes.js';
+
+/** Files on notes. Display order = created_at (Keep parity). */
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: uuid().primaryKey().default(sql`uuidv7()`),
+    noteId: uuid()
+      .notNull()
+      .references(() => notes.id, { onDelete: 'cascade' }),
+    kind: text().notNull(),
+    /** Opaque UUID storage keys (never user-controlled names). */
+    storageKey: text().notNull(),
+    thumbKey: text(),
+    mime: text().notNull(),
+    size: bigint({ mode: 'number' }).notNull(),
+    width: integer(),
+    height: integer(),
+    /** Reserved for post-1.0 drawings. */
+    drawingData: jsonb(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('attachments_kind_check', sql`${t.kind} in ('image', 'audio', 'drawing')`),
+    index('attachments_note_idx').on(t.noteId, t.createdAt),
+  ],
+);
+
+/**
+ * Global link-preview cache keyed by sha256(normalized url). Image/favicon are
+ * stored as URL strings — the browser loads them; the server never proxies.
+ */
+export const linkPreviews = pgTable(
+  'link_previews',
+  {
+    urlHash: text().primaryKey(),
+    url: text().notNull(),
+    status: text().notNull().default('pending'),
+    title: text(),
+    description: text(),
+    siteName: text(),
+    faviconUrl: text(),
+    imageUrl: text(),
+    fetchedAt: timestamp({ withTimezone: true }),
+    expiresAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    check('link_previews_status_check', sql`${t.status} in ('pending', 'ok', 'failed')`),
+    index('link_previews_expires_idx').on(t.expiresAt),
+  ],
+);

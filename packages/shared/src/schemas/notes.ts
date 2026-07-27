@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LIMITS } from '../constants/limits.js';
+import { zAttachment } from './attachments.js';
 import { zId, zNoteBackground, zNoteColor } from './common.js';
 
 export const zNoteType = z.enum(['text', 'list']);
@@ -25,6 +26,7 @@ export const zFullNote = z.object({
   items: z.array(zNoteItem),
   /** Per-user label assignment. */
   labelIds: z.array(zId),
+  attachments: z.array(zAttachment),
   role: zNoteRole,
   pinned: z.boolean(),
   archived: z.boolean(),

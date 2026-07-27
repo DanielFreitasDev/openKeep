@@ -10,6 +10,7 @@ import type {
 import { comparePositions, LIMITS, positionBefore, positionsBetween } from '@openkeep/shared';
 import { and, asc, desc, eq, inArray, isNotNull, lt, min } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
+import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
 import { noteLabels } from '../../db/schema/labels.js';
 import type { VersionItem } from '../../db/schema/notes.js';
 import { noteItems, noteMembers, notes, noteVersions } from '../../db/schema/notes.js';
@@ -20,6 +21,13 @@ import {
   plainTextToHtml,
   sanitizeNoteHtml,
 } from '../../lib/sanitize.js';
+import type { Storage } from '../../lib/storage.js';
+import {
+  attachmentKeysForNotes,
+  copyAttachments,
+  toAttachmentDto,
+  unlinkAttachmentFiles,
+} from '../attachments/service.js';
 import type { MembershipRow, NoteRow } from './access.js';
 import { assertNoteAccess, assertNotTrashed } from './access.js';
 
@@ -41,11 +49,14 @@ function isUniqueViolation(err: unknown): boolean {
 
 // ---------------------------------------------------------------- assembly
 
+type AttachmentRow = typeof attachmentsTable.$inferSelect;
+
 function toFullNote(
   note: NoteRow,
   member: MembershipRow,
   items: ItemRow[],
   labelIds: string[] = [],
+  attachmentRows: AttachmentRow[] = [],
 ): FullNote {
   return {
     id: note.id,
@@ -61,6 +72,7 @@ function toFullNote(
       position: i.position,
     })),
     labelIds,
+    attachments: attachmentRows.map(toAttachmentDto),
     role: member.role as FullNote['role'],
     pinned: member.pinned,
     archived: member.archived,
@@ -108,11 +120,31 @@ async function loadLabelIds(
   return map;
 }
 
+async function loadAttachments(
+  db: Db | Tx,
+  noteIds: string[],
+): Promise<Map<string, AttachmentRow[]>> {
+  const map = new Map<string, AttachmentRow[]>();
+  if (noteIds.length === 0) return map;
+  const rows = await db
+    .select()
+    .from(attachmentsTable)
+    .where(inArray(attachmentsTable.noteId, noteIds))
+    .orderBy(asc(attachmentsTable.createdAt), asc(attachmentsTable.id));
+  for (const row of rows) {
+    const list = map.get(row.noteId);
+    if (list) list.push(row);
+    else map.set(row.noteId, [row]);
+  }
+  return map;
+}
+
 async function loadFullNote(db: Db | Tx, userId: string, noteId: string): Promise<FullNote> {
   const { member, note } = await assertNoteAccess(db as Db, userId, noteId);
   const items = (await loadItems(db, [noteId])).get(noteId) ?? [];
   const labelIds = (await loadLabelIds(db, userId, [noteId])).get(noteId) ?? [];
-  return toFullNote(note, member, items, labelIds);
+  const atts = (await loadAttachments(db, [noteId])).get(noteId) ?? [];
+  return toFullNote(note, member, items, labelIds, atts);
 }
 
 /** Shared assembly for search & list: FullNotes for a set of note ids. */
@@ -124,8 +156,15 @@ export async function assembleFullNotes(
   const ids = rows.map((r) => r.note.id);
   const itemsByNote = await loadItems(db, ids);
   const labelsByNote = await loadLabelIds(db, userId, ids);
+  const attsByNote = await loadAttachments(db, ids);
   return rows.map(({ member, note }) =>
-    toFullNote(note, member, itemsByNote.get(note.id) ?? [], labelsByNote.get(note.id) ?? []),
+    toFullNote(
+      note,
+      member,
+      itemsByNote.get(note.id) ?? [],
+      labelsByNote.get(note.id) ?? [],
+      attsByNote.get(note.id) ?? [],
+    ),
   );
 }
 
@@ -366,23 +405,44 @@ export async function restoreNote(db: Db, userId: string, noteId: string): Promi
   });
 }
 
-export async function deleteNoteForever(db: Db, userId: string, noteId: string): Promise<void> {
+export async function deleteNoteForever(
+  db: Db,
+  userId: string,
+  noteId: string,
+  storage?: Storage,
+): Promise<void> {
   const { note } = await assertNoteAccess(db, userId, noteId, 'owner');
   if (note.trashedAt === null) {
     throw errors.conflict('conflict', 'Only trashed notes can be deleted forever');
   }
+  const keys = await attachmentKeysForNotes(db, [noteId]);
   await db.delete(notes).where(eq(notes.id, noteId));
+  if (storage) await unlinkAttachmentFiles(storage, keys);
 }
 
-export async function emptyTrash(db: Db, userId: string): Promise<number> {
+export async function emptyTrash(db: Db, userId: string, storage?: Storage): Promise<number> {
+  const trashedIds = (
+    await db
+      .select({ id: notes.id })
+      .from(notes)
+      .where(and(eq(notes.ownerId, userId), isNotNull(notes.trashedAt)))
+  ).map((r) => r.id);
+  if (trashedIds.length === 0) return 0;
+  const keys = await attachmentKeysForNotes(db, trashedIds);
   const deleted = await db
     .delete(notes)
-    .where(and(eq(notes.ownerId, userId), isNotNull(notes.trashedAt)))
+    .where(inArray(notes.id, trashedIds))
     .returning({ id: notes.id });
+  if (storage) await unlinkAttachmentFiles(storage, keys);
   return deleted.length;
 }
 
-export async function copyNote(db: Db, userId: string, noteId: string): Promise<FullNote> {
+export async function copyNote(
+  db: Db,
+  userId: string,
+  noteId: string,
+  storage?: Storage,
+): Promise<FullNote> {
   return db.transaction(async (tx) => {
     const { member, note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
     assertNotTrashed(note);
@@ -439,7 +499,13 @@ export async function copyNote(db: Db, userId: string, noteId: string): Promise<
         .values(myLabels.map((labelId) => ({ noteId: newNote!.id, userId, labelId })));
     }
 
-    return toFullNote(newNote!, newMember!, newItems, myLabels);
+    // Attachment files are duplicated too (Keep parity).
+    if (storage) {
+      await copyAttachments(tx as unknown as Db, storage, noteId, newNote!.id);
+    }
+    const newAtts = (await loadAttachments(tx, [newNote!.id])).get(newNote!.id) ?? [];
+
+    return toFullNote(newNote!, newMember!, newItems, myLabels, newAtts);
   });
 }
 
@@ -611,11 +677,24 @@ export async function restoreVersion(
 // ---------------------------------------------------------------- purge
 
 /** pg-boss `purge-trash` handler body (invoked directly in tests with a fake clock). */
-export async function purgeExpiredTrash(db: Db, now: Date = new Date()): Promise<number> {
+export async function purgeExpiredTrash(
+  db: Db,
+  now: Date = new Date(),
+  storage?: Storage,
+): Promise<number> {
   const cutoff = new Date(now.getTime() - LIMITS.trashRetentionDays * 24 * 60 * 60 * 1000);
+  const expiredIds = (
+    await db
+      .select({ id: notes.id })
+      .from(notes)
+      .where(and(isNotNull(notes.trashedAt), lt(notes.trashedAt, cutoff)))
+  ).map((r) => r.id);
+  if (expiredIds.length === 0) return 0;
+  const keys = await attachmentKeysForNotes(db, expiredIds);
   const deleted = await db
     .delete(notes)
-    .where(and(isNotNull(notes.trashedAt), lt(notes.trashedAt, cutoff)))
+    .where(inArray(notes.id, expiredIds))
     .returning({ id: notes.id });
+  if (storage) await unlinkAttachmentFiles(storage, keys);
   return deleted.length;
 }

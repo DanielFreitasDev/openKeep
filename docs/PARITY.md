@@ -34,9 +34,9 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
 | Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ✅ client-side instant + server FTS endpoint; People M7, media types M5 | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
-| Images: multi-upload, stack above title, delete | ✓ | ⬜ | M5 |
-| Audio attachment playback | ✓ | ⬜ | M5 |
-| Link preview chips + setting | ✓ | ⬜ | M5 |
+| Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
+| Audio attachment playback | ✓ | ✅ player (recording post-1.0; files arrive via import) | M5 |
+| Link preview chips + setting | ✓ | ✅ SSRF-safe pinned-IP fetch; browser loads images | M5 |
 | Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ⬜ 🔀 native | M6 |
 | Web push + in-app notifications | classic Keep UX | ⬜ 🔀 | M6 |
 | Sharing: invite by email, single permission level | ✓ | ⬜ | M7 |

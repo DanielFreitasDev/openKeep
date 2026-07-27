@@ -3,6 +3,7 @@ import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
 import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
 import formatSvg from '@material-symbols/svg-400/outlined/format_color_text.svg?raw';
+import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
 import moreSvg from '@material-symbols/svg-400/outlined/more_vert.svg?raw';
@@ -17,6 +18,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
@@ -30,7 +32,9 @@ import type { ChecklistHandle } from './ChecklistEditor.js';
 import { ChecklistEditor } from './ChecklistEditor.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
+import { NoteImages } from './NoteImages.js';
 import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
@@ -93,6 +97,8 @@ function EditorBody({
   });
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
   const checklistRef = useRef<ChecklistHandle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentM = useAttachmentMutations();
 
   const noteIdRef = useRef(note.id);
   const autosave = useAutosave((patch) => {
@@ -183,6 +189,10 @@ function EditorBody({
         >
           <NoteBackgroundArt background={note.background} />
 
+          <div className="max-h-[38vh] flex-none overflow-y-auto">
+            <NoteImages note={note} editable={!trashed} />
+          </div>
+
           <div className="flex items-start">
             <textarea
               ref={titleRef}
@@ -227,6 +237,7 @@ function EditorBody({
             )}
           </div>
 
+          <LinkPreviewChips note={note} />
           <LabelChips note={note} removable />
 
           <div className="px-4 pb-1 text-right">
@@ -355,6 +366,25 @@ function EditorBody({
                     </Popover.Positioner>
                   </Popover.Portal>
                 </Popover.Root>
+                <IconButton
+                  svg={imageSvg}
+                  label={t('notes:addImage')}
+                  size={38}
+                  iconSize={19}
+                  className="text-on-surface-variant"
+                  onClick={() => fileInputRef.current?.click()}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) attachmentM.upload.mutate({ noteId: note.id, file });
+                    e.target.value = '';
+                  }}
+                />
                 <IconButton
                   svg={archiveSvg}
                   label={note.archived ? t('notes:unarchiveNote') : t('shell:navArchive')}

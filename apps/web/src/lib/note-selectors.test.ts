@@ -20,6 +20,7 @@ function note(over: Partial<FullNote>): FullNote {
     hasLinks: false,
     items: [],
     labelIds: [],
+    attachments: [],
     role: 'owner',
     pinned: false,
     archived: false,

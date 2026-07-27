@@ -8,6 +8,7 @@ import paletteSvg from '@material-symbols/svg-400/outlined/palette.svg?raw';
 import type { NoteBackground, NoteColor } from '@openkeep/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { plainTextToHtml } from '../../lib/html.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
@@ -36,6 +37,8 @@ export function Composer() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   const collapsedRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentM = useAttachmentMutations();
 
   const reset = () => {
     setExpanded(false);
@@ -149,7 +152,31 @@ export function Composer() {
               svg={imageSvg}
               label={t('newNoteWithImage')}
               className="text-on-surface-variant"
-              disabled
+              onClick={() => imageInputRef.current?.click()}
+            />
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                const id = m.newNoteId();
+                void m.create
+                  .mutateAsync({
+                    id,
+                    type: 'text',
+                    title: '',
+                    bodyHtml: '',
+                    items: [],
+                    pinned: false,
+                    color: 'default',
+                    background: 'none',
+                  })
+                  .then(() => attachmentM.upload.mutate({ noteId: id, file }));
+              }}
             />
           </div>
         ) : (

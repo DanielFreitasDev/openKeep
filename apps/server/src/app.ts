@@ -12,8 +12,11 @@ import type { Auth } from './auth/auth.js';
 import type { Config } from './config.js';
 import type { Db } from './db/client.js';
 import { buildLogger } from './lib/logger.js';
+import type { Storage } from './lib/storage.js';
+import { registerAttachmentRoutes } from './modules/attachments/routes.js';
 import { registerItemRoutes } from './modules/items/routes.js';
 import { registerLabelRoutes } from './modules/labels/routes.js';
+import { registerLinkPreviewRoutes } from './modules/link-preview/routes.js';
 import { registerNotesRoutes } from './modules/notes/routes.js';
 import { registerSearchRoutes } from './modules/search/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
@@ -26,6 +29,9 @@ export interface AppDeps {
   db: Db;
   pool: { query: (sql: string) => Promise<unknown> };
   auth: Auth;
+  storage: Storage;
+  /** Enqueue a link-preview fetch (pg-boss in prod;直接 in tests). */
+  enqueueLinkPreview?: (url: string) => Promise<void>;
 }
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
@@ -93,10 +99,12 @@ export async function buildApp(config: Config, deps: AppDeps) {
   );
 
   registerSettingsRoutes(app, deps.db);
-  registerNotesRoutes(app, deps.db);
+  registerNotesRoutes(app, deps.db, deps.storage);
   registerItemRoutes(app, deps.db);
   registerLabelRoutes(app, deps.db);
   registerSearchRoutes(app, deps.db);
+  await registerAttachmentRoutes(app, deps.db, deps.storage);
+  registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
 
   return app;
 }

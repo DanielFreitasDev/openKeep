@@ -1,5 +1,7 @@
 import checkboxSvg from '@material-symbols/svg-400/outlined/check_box.svg?raw';
+import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
 import linkSvg from '@material-symbols/svg-400/outlined/link.svg?raw';
+import audioSvg from '@material-symbols/svg-400/outlined/mic.svg?raw';
 import searchSvg from '@material-symbols/svg-400/outlined/search.svg?raw';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -98,6 +100,16 @@ function SearchView() {
               svg={linkSvg}
               label={t('type_url')}
               onClick={() => setParam({ type: 'url' })}
+            />
+            <TypeTile
+              svg={imageSvg}
+              label={t('type_image')}
+              onClick={() => setParam({ type: 'image' })}
+            />
+            <TypeTile
+              svg={audioSvg}
+              label={t('type_audio')}
+              onClick={() => setParam({ type: 'audio' })}
             />
           </TileSection>
           {labels && labels.length > 0 && (

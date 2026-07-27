@@ -19,8 +19,10 @@ import { LabelChips } from '../labels/LabelChips.js';
 import { LabelPicker } from '../labels/LabelPicker.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteBody } from './NoteBody.js';
+import { NoteImages } from './NoteImages.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
@@ -42,7 +44,8 @@ export function NoteCard({ note }: { note: FullNote }) {
   };
 
   const isDefaultColor = note.color === 'default';
-  const isEmpty = !note.title && !note.bodyHtml && note.items.length === 0;
+  const isEmpty =
+    !note.title && !note.bodyHtml && note.items.length === 0 && note.attachments.length === 0;
 
   return (
     <div
@@ -79,20 +82,24 @@ export function NoteCard({ note }: { note: FullNote }) {
             openEditor();
           }
         }}
-        className="relative min-h-[56px] cursor-default rounded-t-lg px-4 pt-3 pb-2 outline-none focus-visible:ring-2 focus-visible:ring-(--primary)"
+        className="relative min-h-[56px] cursor-default rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-(--primary)"
       >
-        {note.title && (
-          <div className="mb-1.5 break-words pr-7 font-medium text-[1rem] text-on-surface leading-6">
-            {note.title}
-          </div>
-        )}
-        {isEmpty ? (
-          <div className="py-3 text-[1rem] text-on-surface-variant">{t('emptyNote')}</div>
-        ) : (
-          <NoteBody note={note} />
-        )}
+        <NoteImages note={note} />
+        <div className="px-4 pt-3 pb-2">
+          {note.title && (
+            <div className="mb-1.5 break-words pr-7 font-medium text-[1rem] text-on-surface leading-6">
+              {note.title}
+            </div>
+          )}
+          {isEmpty ? (
+            <div className="py-3 text-[1rem] text-on-surface-variant">{t('emptyNote')}</div>
+          ) : (
+            <NoteBody note={note} />
+          )}
+        </div>
       </div>
 
+      <LinkPreviewChips note={note} />
       <LabelChips note={note} />
 
       <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">
