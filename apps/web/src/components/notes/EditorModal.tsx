@@ -1,6 +1,7 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
+import addAlertSvg from '@material-symbols/svg-400/outlined/add_alert.svg?raw';
 import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
 import formatSvg from '@material-symbols/svg-400/outlined/format_color_text.svg?raw';
 import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
@@ -35,10 +36,22 @@ import { ConfirmDialog } from './ConfirmDialog.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteImages } from './NoteImages.js';
+import { ReminderChip } from './ReminderChip.js';
+import { ReminderPicker } from './ReminderPicker.js';
 import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
+
+function EditorReminderPop({ note }: { note: FullNote }) {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  return (
+    <>
+      <Popover.Close ref={closeRef} className="hidden" />
+      <ReminderPicker note={note} onDone={() => closeRef.current?.click()} />
+    </>
+  );
+}
 
 /** Route-driven editor: open when ?note=<id> is present on any shell route. */
 export function EditorModal() {
@@ -238,6 +251,7 @@ function EditorBody({
           </div>
 
           <LinkPreviewChips note={note} />
+          <ReminderChip note={note} />
           <LabelChips note={note} removable />
 
           <div className="px-4 pb-1 text-right">
@@ -330,6 +344,23 @@ function EditorBody({
               </>
             ) : (
               <>
+                <Popover.Root>
+                  <Popover.Trigger
+                    aria-label={t('reminders:addReminder')}
+                    title={t('reminders:addReminder')}
+                    className={iconButtonClass}
+                    style={{ width: 38, height: 38 }}
+                  >
+                    <Icon svg={addAlertSvg} size={19} />
+                  </Popover.Trigger>
+                  <Popover.Portal>
+                    <Popover.Positioner className="z-50" sideOffset={4}>
+                      <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
+                        <EditorReminderPop note={note} />
+                      </Popover.Popup>
+                    </Popover.Positioner>
+                  </Popover.Portal>
+                </Popover.Root>
                 {!isList && (
                   <IconButton
                     svg={formatSvg}

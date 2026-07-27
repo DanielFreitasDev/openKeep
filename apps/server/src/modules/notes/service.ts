@@ -14,6 +14,7 @@ import { attachments as attachmentsTable } from '../../db/schema/attachments.js'
 import { noteLabels } from '../../db/schema/labels.js';
 import type { VersionItem } from '../../db/schema/notes.js';
 import { noteItems, noteMembers, notes, noteVersions } from '../../db/schema/notes.js';
+import { reminders as remindersTable } from '../../db/schema/reminders.js';
 import { errors } from '../../lib/errors.js';
 import {
   detectLinks,
@@ -28,6 +29,7 @@ import {
   toAttachmentDto,
   unlinkAttachmentFiles,
 } from '../attachments/service.js';
+import { toReminderDto } from '../reminders/service.js';
 import type { MembershipRow, NoteRow } from './access.js';
 import { assertNoteAccess, assertNotTrashed } from './access.js';
 
@@ -50,6 +52,7 @@ function isUniqueViolation(err: unknown): boolean {
 // ---------------------------------------------------------------- assembly
 
 type AttachmentRow = typeof attachmentsTable.$inferSelect;
+type ReminderRow = typeof remindersTable.$inferSelect;
 
 function toFullNote(
   note: NoteRow,
@@ -57,6 +60,7 @@ function toFullNote(
   items: ItemRow[],
   labelIds: string[] = [],
   attachmentRows: AttachmentRow[] = [],
+  reminder: ReminderRow | null = null,
 ): FullNote {
   return {
     id: note.id,
@@ -73,6 +77,7 @@ function toFullNote(
     })),
     labelIds,
     attachments: attachmentRows.map(toAttachmentDto),
+    reminder: reminder ? toReminderDto(reminder) : null,
     role: member.role as FullNote['role'],
     pinned: member.pinned,
     archived: member.archived,
@@ -139,12 +144,28 @@ async function loadAttachments(
   return map;
 }
 
+async function loadReminders(
+  db: Db | Tx,
+  userId: string,
+  noteIds: string[],
+): Promise<Map<string, ReminderRow>> {
+  const map = new Map<string, ReminderRow>();
+  if (noteIds.length === 0) return map;
+  const rows = await db
+    .select()
+    .from(remindersTable)
+    .where(and(eq(remindersTable.userId, userId), inArray(remindersTable.noteId, noteIds)));
+  for (const row of rows) map.set(row.noteId, row);
+  return map;
+}
+
 async function loadFullNote(db: Db | Tx, userId: string, noteId: string): Promise<FullNote> {
   const { member, note } = await assertNoteAccess(db as Db, userId, noteId);
   const items = (await loadItems(db, [noteId])).get(noteId) ?? [];
   const labelIds = (await loadLabelIds(db, userId, [noteId])).get(noteId) ?? [];
   const atts = (await loadAttachments(db, [noteId])).get(noteId) ?? [];
-  return toFullNote(note, member, items, labelIds, atts);
+  const rem = (await loadReminders(db, userId, [noteId])).get(noteId) ?? null;
+  return toFullNote(note, member, items, labelIds, atts, rem);
 }
 
 /** Shared assembly for search & list: FullNotes for a set of note ids. */
@@ -157,6 +178,7 @@ export async function assembleFullNotes(
   const itemsByNote = await loadItems(db, ids);
   const labelsByNote = await loadLabelIds(db, userId, ids);
   const attsByNote = await loadAttachments(db, ids);
+  const remByNote = await loadReminders(db, userId, ids);
   return rows.map(({ member, note }) =>
     toFullNote(
       note,
@@ -164,6 +186,7 @@ export async function assembleFullNotes(
       itemsByNote.get(note.id) ?? [],
       labelsByNote.get(note.id) ?? [],
       attsByNote.get(note.id) ?? [],
+      remByNote.get(note.id) ?? null,
     ),
   );
 }

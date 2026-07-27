@@ -16,6 +16,15 @@ export function formatEdited(iso: string, lang: string): string {
   return format(date, 'd MMM yyyy', { locale });
 }
 
+/** Reminder chip stamp: "Jul 30, 18:00" (this year) or with year. */
+export function formatReminderTime(iso: string, lang: string): string {
+  const date = new Date(iso);
+  const locale = localeFor(lang);
+  if (isToday(date)) return format(date, 'p', { locale });
+  if (isSameYear(date, new Date())) return format(date, 'd MMM, p', { locale });
+  return format(date, 'd MMM yyyy, p', { locale });
+}
+
 export function formatCreatedTooltip(iso: string, lang: string): string {
   const date = new Date(iso);
   const locale = localeFor(lang);

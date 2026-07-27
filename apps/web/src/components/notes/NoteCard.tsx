@@ -1,5 +1,6 @@
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
+import addAlertSvg from '@material-symbols/svg-400/outlined/add_alert.svg?raw';
 import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
 import deleteForeverSvg from '@material-symbols/svg-400/outlined/delete_forever.svg?raw';
 import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
@@ -10,7 +11,7 @@ import restoreSvg from '@material-symbols/svg-400/outlined/restore_from_trash.sv
 import unarchiveSvg from '@material-symbols/svg-400/outlined/unarchive.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { Icon } from '../Icon.js';
@@ -23,9 +24,22 @@ import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteBody } from './NoteBody.js';
 import { NoteImages } from './NoteImages.js';
+import { ReminderChip } from './ReminderChip.js';
+import { ReminderPicker } from './ReminderPicker.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
+
+/** ReminderPicker inside an uncontrolled popover: closes via a hidden Close. */
+function ReminderPickerPop({ note }: { note: FullNote }) {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  return (
+    <>
+      <Popover.Close ref={closeRef} className="hidden" />
+      <ReminderPicker note={note} onDone={() => closeRef.current?.click()} />
+    </>
+  );
+}
 
 export function NoteCard({ note }: { note: FullNote }) {
   const { t } = useTranslation('notes');
@@ -100,6 +114,7 @@ export function NoteCard({ note }: { note: FullNote }) {
       </div>
 
       <LinkPreviewChips note={note} />
+      <ReminderChip note={note} />
       <LabelChips note={note} />
 
       <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">
@@ -124,6 +139,24 @@ export function NoteCard({ note }: { note: FullNote }) {
           </>
         ) : (
           <>
+            <Popover.Root>
+              <Popover.Trigger
+                aria-label={t('reminders:addReminder')}
+                title={t('reminders:addReminder')}
+                className={iconButtonClass}
+                style={{ width: 34, height: 34 }}
+              >
+                <Icon svg={addAlertSvg} size={18} />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Positioner className="z-50" sideOffset={4}>
+                  <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
+                    <ReminderPickerPop note={note} />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+
             <Popover.Root>
               <Popover.Trigger
                 aria-label={t('backgroundOptions')}

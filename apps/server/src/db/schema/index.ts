@@ -2,4 +2,5 @@ export * from './attachments.js';
 export * from './auth.js';
 export * from './labels.js';
 export * from './notes.js';
+export * from './reminders.js';
 export * from './settings.js';

@@ -6,6 +6,7 @@ import type { Db } from '../../db/client.js';
 import { attachments } from '../../db/schema/attachments.js';
 import { labels, noteLabels } from '../../db/schema/labels.js';
 import { noteItems, noteMembers, notes } from '../../db/schema/notes.js';
+import { reminders } from '../../db/schema/reminders.js';
 import { buildPrefixTsquery } from '../../lib/tsquery.js';
 import { assembleFullNotes } from '../notes/service.js';
 
@@ -60,9 +61,15 @@ export function registerSearchRoutes(app: App, db: Db): void {
               .where(and(eq(attachments.noteId, notes.id), eq(attachments.kind, type))),
           ),
         );
-      } else if (type !== undefined) {
-        // reminder arrives with M6.
-        return [];
+      } else if (type === 'reminder') {
+        conditions.push(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(reminders)
+              .where(and(eq(reminders.noteId, notes.id), eq(reminders.userId, userId))),
+          ),
+        );
       }
 
       if (color) conditions.push(eq(noteMembers.color, color));

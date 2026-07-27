@@ -1,0 +1,21 @@
+{
+  "title": "Lembrete:",
+  "addReminder": "Lembrar-me",
+  "editReminder": "Editar lembrete",
+  "deleteReminder": "Excluir lembrete",
+  "laterToday": "Mais tarde hoje",
+  "tomorrow": "Amanhã",
+  "nextWeek": "Próxima semana",
+  "pickDateTime": "Escolher data e hora",
+  "dateTime": "Data e hora",
+  "repeat": "Repetir",
+  "recurNone": "Não se repete",
+  "recurDaily": "Diariamente",
+  "recurWeekly": "Semanalmente",
+  "recurMonthly": "Mensalmente",
+  "recurYearly": "Anualmente",
+  "emptyState": "Notas com lembretes futuros aparecem aqui",
+  "firedToast": "Lembrete: {{title}}",
+  "untitled": "Nota sem título",
+  "open": "Abrir"
+}

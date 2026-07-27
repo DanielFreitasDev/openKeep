@@ -18,6 +18,7 @@ import { registerItemRoutes } from './modules/items/routes.js';
 import { registerLabelRoutes } from './modules/labels/routes.js';
 import { registerLinkPreviewRoutes } from './modules/link-preview/routes.js';
 import { registerNotesRoutes } from './modules/notes/routes.js';
+import { registerReminderRoutes } from './modules/reminders/routes.js';
 import { registerSearchRoutes } from './modules/search/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
 import { registerAuth } from './plugins/auth.js';
@@ -105,6 +106,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerSearchRoutes(app, deps.db);
   await registerAttachmentRoutes(app, deps.db, deps.storage);
   registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
+  registerReminderRoutes(app, deps.db, config);
 
   return app;
 }

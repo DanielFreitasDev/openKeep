@@ -37,6 +37,18 @@ export function selectById(notes: FullNote[], id: string): FullNote | undefined 
   return notes.find((n) => n.id === id);
 }
 
+/** Reminders view: notes with my reminder, upcoming first (done last). */
+export function selectReminders(notes: FullNote[]): FullNote[] {
+  return notes
+    .filter((n) => n.trashedAt === null && n.reminder !== null)
+    .sort((a, b) => {
+      if (a.reminder!.done !== b.reminder!.done) return a.reminder!.done ? 1 : -1;
+      const ea = a.reminder!.snoozedUntil ?? a.reminder!.remindAt;
+      const eb = b.reminder!.snoozedUntil ?? b.reminder!.remindAt;
+      return ea.localeCompare(eb);
+    });
+}
+
 /** Label view: non-trashed notes carrying the label, pinned split like main. */
 export function selectByLabel(notes: FullNote[], labelId: string): MainSections {
   return selectMain(notes.filter((n) => n.labelIds.includes(labelId)));
@@ -94,8 +106,7 @@ export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults
       !n.attachments.some((a) => a.kind === f.type)
     )
       return false;
-    // reminder filter gains data in M6.
-    if (f.type === 'reminder') return false;
+    if (f.type === 'reminder' && n.reminder === null) return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;
     return matchesQuery(n, f.q);

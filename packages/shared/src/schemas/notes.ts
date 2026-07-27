@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LIMITS } from '../constants/limits.js';
 import { zAttachment } from './attachments.js';
 import { zId, zNoteBackground, zNoteColor } from './common.js';
+import { zReminder } from './reminders.js';
 
 export const zNoteType = z.enum(['text', 'list']);
 export const zNoteRole = z.enum(['owner', 'collaborator']);
@@ -27,6 +28,8 @@ export const zFullNote = z.object({
   /** Per-user label assignment. */
   labelIds: z.array(zId),
   attachments: z.array(zAttachment),
+  /** My reminder on this note (per-user). */
+  reminder: zReminder.nullable(),
   role: zNoteRole,
   pinned: z.boolean(),
   archived: z.boolean(),

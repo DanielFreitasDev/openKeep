@@ -5,6 +5,7 @@ import enCommon from './locales/en/common.json';
 import enEditor from './locales/en/editor.json';
 import enLabels from './locales/en/labels.json';
 import enNotes from './locales/en/notes.json';
+import enReminders from './locales/en/reminders.json';
 import enSearch from './locales/en/search.json';
 import enSettings from './locales/en/settings.json';
 import enShell from './locales/en/shell.json';
@@ -14,6 +15,7 @@ import ptCommon from './locales/pt-BR/common.json';
 import ptEditor from './locales/pt-BR/editor.json';
 import ptLabels from './locales/pt-BR/labels.json';
 import ptNotes from './locales/pt-BR/notes.json';
+import ptReminders from './locales/pt-BR/reminders.json';
 import ptSearch from './locales/pt-BR/search.json';
 import ptSettings from './locales/pt-BR/settings.json';
 import ptShell from './locales/pt-BR/shell.json';
@@ -30,6 +32,7 @@ export const resources = {
     settings: enSettings,
     labels: enLabels,
     search: enSearch,
+    reminders: enReminders,
   },
   'pt-BR': {
     common: ptCommon,
@@ -41,6 +44,7 @@ export const resources = {
     settings: ptSettings,
     labels: ptLabels,
     search: ptSearch,
+    reminders: ptReminders,
   },
 } as const;
 

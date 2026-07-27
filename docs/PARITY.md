@@ -37,8 +37,8 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
 | Audio attachment playback | ✓ | ✅ player (recording post-1.0; files arrive via import) | M5 |
 | Link preview chips + setting | ✓ | ✅ SSRF-safe pinned-IP fetch; browser loads images | M5 |
-| Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ⬜ 🔀 native | M6 |
-| Web push + in-app notifications | classic Keep UX | ⬜ 🔀 | M6 |
+| Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ✅ 🔀 native (per-user; DST-correct wall-clock recurrence) | M6 |
+| Web push + in-app notifications | classic Keep UX | ✅ 🔀 VAPID push (opt-in on first reminder) + in-app toasts | M6 |
 | Sharing: invite by email, single permission level | ✓ | ⬜ | M7 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ⬜ | M7 |
 | ~1s realtime propagation | ✓ | ⬜ | M7 |

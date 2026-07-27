@@ -9,4 +9,5 @@ export * from './schemas/common.js';
 export * from './schemas/items.js';
 export * from './schemas/labels.js';
 export * from './schemas/notes.js';
+export * from './schemas/reminders.js';
 export * from './schemas/settings.js';

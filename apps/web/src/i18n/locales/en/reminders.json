@@ -1,0 +1,21 @@
+{
+  "title": "Reminder:",
+  "addReminder": "Remind me",
+  "editReminder": "Edit reminder",
+  "deleteReminder": "Delete reminder",
+  "laterToday": "Later today",
+  "tomorrow": "Tomorrow",
+  "nextWeek": "Next week",
+  "pickDateTime": "Pick date & time",
+  "dateTime": "Date and time",
+  "repeat": "Repeat",
+  "recurNone": "Does not repeat",
+  "recurDaily": "Daily",
+  "recurWeekly": "Weekly",
+  "recurMonthly": "Monthly",
+  "recurYearly": "Yearly",
+  "emptyState": "Notes with upcoming reminders appear here",
+  "firedToast": "Reminder: {{title}}",
+  "untitled": "Untitled note",
+  "open": "Open"
+}

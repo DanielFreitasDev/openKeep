@@ -21,6 +21,7 @@ function note(over: Partial<FullNote>): FullNote {
     items: [],
     labelIds: [],
     attachments: [],
+    reminder: null,
     role: 'owner',
     pinned: false,
     archived: false,

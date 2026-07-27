@@ -120,6 +120,6 @@ test('# in the note body opens the label picker and assigns', async ({ page }) =
   await page.keyboard.press('Escape'); // close editor
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    cardRootByTitle(page, 'Hashtag note').getByRole('button', { name: 'Hash' }),
+    cardRootByTitle(page, 'Hashtag note').getByRole('button', { name: 'Hash', exact: true }),
   ).toBeVisible();
 });

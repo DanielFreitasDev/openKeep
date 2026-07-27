@@ -6,6 +6,8 @@ import type { Storage } from '../lib/storage.js';
 import { fetchLinkPreview } from '../modules/link-preview/fetcher.js';
 import { normalizeUrl, storeFetched } from '../modules/link-preview/service.js';
 import { purgeExpiredTrash } from '../modules/notes/service.js';
+import { configureWebPush, pushFiredReminders } from '../modules/reminders/push.js';
+import { fireDueReminders } from '../modules/reminders/service.js';
 
 interface QueryablePool {
   query: (text: string, values?: unknown[]) => Promise<unknown>;
@@ -15,7 +17,7 @@ interface QueryablePool {
  * pg-boss over the shared pg Pool. In-process workers; idempotent schedules.
  */
 export async function startJobs(
-  _config: Config,
+  config: Config,
   pool: QueryablePool,
   db: Db,
   log: FastifyBaseLogger,
@@ -36,6 +38,17 @@ export async function startJobs(
   await boss.work('purge-trash', async () => {
     const purged = await purgeExpiredTrash(db, new Date(), storage);
     if (purged > 0) log.info({ purged }, 'purged expired trash');
+  });
+
+  const pushEnabled = configureWebPush(config);
+  await boss.createQueue('fire-reminders');
+  await boss.schedule('fire-reminders', '* * * * *');
+  await boss.work('fire-reminders', async () => {
+    const fired = await fireDueReminders(db);
+    if (fired.length > 0) {
+      log.info({ count: fired.length }, 'reminders fired');
+      if (pushEnabled) await pushFiredReminders(db, fired);
+    }
   });
 
   await boss.createQueue('link-preview-fetch');
