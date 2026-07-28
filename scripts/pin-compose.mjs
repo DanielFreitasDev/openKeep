@@ -15,7 +15,9 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version ?? '')) {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = readFileSync(path.join(root, 'docker/compose.release.yml'), 'utf8');
-const pinned = source.replace('${OPENKEEP_TAG:-latest}', `\${OPENKEEP_TAG:-${version}}`);
+// biome-ignore lint/suspicious/noTemplateCurlyInString: compose interpolation, not JS
+const placeholder = '${OPENKEEP_TAG:-latest}';
+const pinned = source.replace(placeholder, `\${OPENKEEP_TAG:-${version}}`);
 if (pinned === source) {
   console.error('pin-compose: OPENKEEP_TAG placeholder not found in docker/compose.release.yml');
   process.exit(1);

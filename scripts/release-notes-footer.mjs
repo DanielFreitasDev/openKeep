@@ -4,6 +4,7 @@
  * concatenates the notes of every plugin that produces them).
  */
 const version = process.argv[2];
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: runs under semantic-release, not turbo
 const repo = process.env.GITHUB_REPOSITORY ?? 'DanielFreitasDev/openKeep';
 const image = `ghcr.io/${repo.toLowerCase()}`;
 
