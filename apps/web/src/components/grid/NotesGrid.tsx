@@ -5,10 +5,18 @@ import {
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import type { FullNote } from '@openkeep/shared';
 import { positionBetween } from '@openkeep/shared';
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { NoteCard } from '../notes/NoteCard.js';
 import { CARD_W, columnsForWidth, GUTTER, gridWidth, layoutMasonry } from './masonry.js';
+
+/**
+ * Controls inside a card must not arm the card's native HTML5 drag: the browser
+ * swallows the `click` as soon as the pointer moves a pixel or two while
+ * pressed, so an ordinary (slightly imprecise) click on e.g. the pin button did
+ * nothing. Cards stay draggable from anywhere else.
+ */
+const INTERACTIVE = 'button, a, input, textarea, select, [role="menuitem"], [contenteditable]';
 
 interface NotesGridProps {
   notes: FullNote[];
@@ -37,6 +45,23 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   /** Cards present at first paint don't replay the enter animation. */
   const initialIdsRef = useRef<Set<string> | null>(null);
   if (initialIdsRef.current === null) initialIdsRef.current = new Set(notes.map((n) => n.id));
+
+  /**
+   * Whether the current press started on a card control. Lives in a ref because
+   * `canDrag` runs from whichever draggable registration is current at dragstart
+   * — a re-render between pointerdown and dragstart swaps that closure out.
+   */
+  const pressedControlRef = useRef(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onPointerDown = (e: PointerEvent) => {
+      pressedControlRef.current = (e.target as HTMLElement | null)?.closest(INTERACTIVE) != null;
+    };
+    el.addEventListener('pointerdown', onPointerDown, { capture: true });
+    return () => el.removeEventListener('pointerdown', onPointerDown, { capture: true });
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -159,6 +184,47 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     return layoutMasonry(items, cols, cardW, GUTTER);
   }, [orderedForLayout, cols, cardW, measureVersion]);
 
+  /**
+   * Must stay referentially stable: React re-runs a changed ref callback on
+   * every render, and re-observing a card makes the ResizeObserver re-report
+   * its height — which bumps `measureVersion`, which renders again. An inline
+   * callback here spins that into a 60fps render loop, and the icons React
+   * re-paints each frame vanish from under the pointer, so clicks (pin,
+   * archive, …) get dropped between mousedown and mouseup.
+   */
+  const cardRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      const noteId = el?.dataset.noteId;
+      if (!el || !noteId || !cardObserver) return undefined;
+      cardObserver.observe(el);
+      const cleanups = [
+        () => {
+          cardObserver.unobserve(el);
+          heightsRef.current.delete(noteId);
+        },
+      ];
+      if (dndSection) {
+        cleanups.push(
+          draggable({
+            element: el,
+            canDrag: () => !pressedControlRef.current,
+            getInitialData: () => ({ gridNoteId: noteId, gridSection: dndSection }),
+            onDragStart: () => setDraggingId(noteId),
+            onDrop: () => setDraggingId(null),
+          }),
+          dropTargetForElements({
+            element: el,
+            getData: () => ({ gridNoteId: noteId, gridSection: dndSection }),
+          }),
+        );
+      }
+      return () => {
+        for (const c of cleanups) c();
+      };
+    },
+    [cardObserver, dndSection],
+  );
+
   const innerW = cols === 1 ? cardW : gridWidth(cols, cardW, GUTTER);
 
   return (
@@ -174,35 +240,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
             <div
               key={note.id}
               data-note-id={note.id}
-              ref={(el) => {
-                if (el && cardObserver) {
-                  cardObserver.observe(el);
-                  const cleanups = [
-                    () => {
-                      cardObserver.unobserve(el);
-                      heightsRef.current.delete(note.id);
-                    },
-                  ];
-                  if (dndSection) {
-                    cleanups.push(
-                      draggable({
-                        element: el,
-                        getInitialData: () => ({ gridNoteId: note.id, gridSection: dndSection }),
-                        onDragStart: () => setDraggingId(note.id),
-                        onDrop: () => setDraggingId(null),
-                      }),
-                      dropTargetForElements({
-                        element: el,
-                        getData: () => ({ gridNoteId: note.id, gridSection: dndSection }),
-                      }),
-                    );
-                  }
-                  return () => {
-                    for (const c of cleanups) c();
-                  };
-                }
-                return undefined;
-              }}
+              ref={cardRef}
               className={`${
                 animate && draggingId !== note.id
                   ? 'transition-transform duration-[180ms] motion-reduce:transition-none'

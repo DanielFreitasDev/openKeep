@@ -38,6 +38,27 @@ test('pinning creates PINNED/OTHERS sections and unpin restores', async ({ page 
   await expect(page.getByRole('heading', { name: 'Pinned' })).toHaveCount(0);
 });
 
+test('card buttons survive an imprecise click (press, small move, release)', async ({ page }) => {
+  await composeNote(page, { title: 'Jittery click', body: 'pin me' });
+
+  const card = cardRootByTitle(page, 'Jittery click');
+  await card.hover();
+  const pin = card.getByRole('button', { name: 'Pin note' });
+  const box = await pin.boundingBox();
+  if (!box) throw new Error('pin button not visible');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  // Real pointers drift a few pixels between press and release. That must not
+  // arm the card's drag or otherwise swallow the click.
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 5, y + 4, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(page.getByRole('heading', { name: 'Pinned' })).toBeVisible();
+});
+
 test('archive with undo snackbar', async ({ page }) => {
   await composeNote(page, { title: 'Archive me', body: 'x' });
 
