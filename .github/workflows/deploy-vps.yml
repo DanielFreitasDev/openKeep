@@ -1,0 +1,77 @@
+name: Deploy VPS (native)
+
+# Deploy nativo do OpenKeep na VPS (systemd), atrás de um Cloudflare Tunnel.
+#
+# Dispara APÓS o workflow "CI" concluir com sucesso na main -- assim o deploy só
+# acontece se lint + typecheck + testes + build passarem (o mesmo portão de
+# qualidade que o Release usa; não reexecuta o CI, apenas reage à conclusão).
+#
+# Por que build na própria VPS: escolhemos deploy NATIVO (Node/systemd), e o
+# node_modules de produção carrega dependências nativas específicas de
+# arquitetura (sharp, pg). O runner self-hosted é arm64 (Oracle Ampere), então
+# ele mesmo faz `pnpm build` + `pnpm deploy --prod` e entrega o build pronto ao
+# deploy.sh, que troca os artefatos, reinicia o serviço, confere a saúde e faz
+# rollback se a nova versão não subir.
+#
+# Pré-requisitos na máquina (ver deploy/README.md):
+#   - runner self-hosted registrado no repo com o label 'openkeep', como serviço;
+#   - /opt/openkeep/deploy.sh instalado (dono root, 0755) -- cópia de deploy/deploy.sh;
+#   - regra sudoers permitindo ao usuário do runner rodar SOMENTE esse script sem senha.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch: # permite disparar um deploy manual pelo botão do Actions
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build + deploy na VPS (self-hosted)
+    # Só em disparo manual, ou quando o CI passou na main.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: [self-hosted, openkeep]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout do commit testado
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (web + server)
+        run: pnpm --filter @openkeep/web build && pnpm --filter @openkeep/server build
+
+      - name: node_modules de produção (server)
+        run: pnpm --filter @openkeep/server deploy --prod --legacy ./out/server
+
+      - name: Montar diretório de build
+        run: |
+          rm -rf ./staging
+          mkdir -p ./staging
+          cp -a apps/server/dist          ./staging/dist
+          cp -a apps/server/drizzle       ./staging/drizzle
+          cp -a apps/web/dist             ./staging/web-dist
+          cp -a ./out/server/node_modules ./staging/node_modules
+
+      - name: Deploy (deploy.sh + health-check + rollback)
+        run: sudo /opt/openkeep/deploy.sh "$(realpath ./staging)"

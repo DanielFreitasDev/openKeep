@@ -1,0 +1,53 @@
+# Serviço systemd do OpenKeep (Node 24; SPA + API Fastify same-origin).
+#
+# Instalação:
+#   sudo cp deploy/openkeep.service /etc/systemd/system/openkeep.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now openkeep
+#
+# Logs:   journalctl -u openkeep -f
+# Status: systemctl status openkeep
+#
+# Pré-requisitos (ver deploy/README.md):
+#   - artefatos em /opt/openkeep (dist/, drizzle/, web-dist/, node_modules/), dono root
+#   - variáveis em /etc/openkeep/openkeep.env (root:600; ver deploy/openkeep.env.example)
+#   - usuário de sistema 'openkeep' (sudo useradd -r -s /usr/sbin/nologin openkeep)
+#   - storage gravável em /var/lib/openkeep (dono openkeep)
+#   - PostgreSQL local com database 'openkeep' (as migrations rodam sozinhas no boot)
+
+[Unit]
+Description=OpenKeep - clone self-hosted do Google Keep
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=openkeep
+Group=openkeep
+WorkingDirectory=/opt/openkeep
+EnvironmentFile=/etc/openkeep/openkeep.env
+ExecStart=/usr/bin/node /opt/openkeep/dist/index.js
+Restart=on-failure
+RestartSec=5
+# Encerramento gracioso via SIGTERM (128+15) não deve contar como falha.
+SuccessExitStatus=143
+
+# Teto de memória (defesa contra o OOM-killer global do VPS; sharp usa memória
+# nativa fora do heap V8). MemoryHigh estrangula antes; MemoryMax mata só o openkeep.
+MemoryHigh=900M
+MemoryMax=1200M
+# WebSockets + conexões podem passar do soft limit padrão de 1024 descritores.
+LimitNOFILE=65536
+
+# Endurecimento. ProtectSystem=strict deixa TODO o FS só-leitura, exceto ReadWritePaths.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/openkeep
+
+[Install]
+WantedBy=multi-user.target
