@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import fs from 'node:fs';
 import { LIMITS, positionAfter, positionsBetween } from '@openkeep/shared';
 import { ZipArchive } from 'archiver';
-import { and, count, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import yauzl from 'yauzl';
 import type { Db } from '../../db/client.js';
 import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
@@ -12,9 +12,9 @@ import { noteItems, noteMembers, notes } from '../../db/schema/notes.js';
 import { errors } from '../../lib/errors.js';
 import { detectLinks, plainTextToHtml } from '../../lib/sanitize.js';
 import type { Storage } from '../../lib/storage.js';
-import { uploadImage } from '../attachments/service.js';
+import { importMediaAttachment } from '../attachments/service.js';
 import { listLabels } from '../labels/service.js';
-import { listNotes } from '../notes/service.js';
+import { listNotes, snapshotVersion } from '../notes/service.js';
 import { getSettings } from '../settings/service.js';
 import { type ParsedTakeoutNote, parseTakeoutNote } from './takeout.js';
 
@@ -49,49 +49,64 @@ async function updateJob(db: Db, jobId: string, patch: Partial<typeof userJobs.$
 
 // ---------------------------------------------------------------- import
 
-/** Streams the zip once, keeping JSON notes and referenced media in memory maps. */
-async function readTakeoutZip(path: string): Promise<{
+interface TakeoutZip {
   notes: { fileName: string; parsed: ParsedTakeoutNote }[];
-  media: Map<string, Buffer>;
-}> {
+  /** Random-access read of one media entry by base name (null if absent/corrupt). */
+  readMedia: (baseName: string) => Promise<Buffer | null>;
+  close: () => void;
+}
+
+function bufferEntry(zip: yauzl.ZipFile, entry: yauzl.Entry): Promise<Buffer | null> {
+  return new Promise((resolve) => {
+    zip.openReadStream(entry, (err, stream) => {
+      if (err || !stream) return resolve(null);
+      const chunks: Buffer[] = [];
+      stream.on('data', (c: Buffer) => chunks.push(c));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', () => resolve(null));
+    });
+  });
+}
+
+/**
+ * Scans the zip once: JSON notes are parsed eagerly (small), media entries are
+ * only indexed — bodies are read on demand per note, so a photo-heavy Takeout
+ * never sits fully in memory.
+ */
+async function openTakeoutZip(path: string): Promise<TakeoutZip> {
   const parsedNotes: { fileName: string; parsed: ParsedTakeoutNote }[] = [];
-  const media = new Map<string, Buffer>();
+  const mediaEntries = new Map<string, yauzl.Entry>();
 
   const zip = await new Promise<yauzl.ZipFile>((resolve, reject) => {
-    yauzl.open(path, { lazyEntries: true }, (err, zf) => (err ? reject(err) : resolve(zf)));
+    yauzl.open(path, { lazyEntries: true, autoClose: false }, (err, zf) =>
+      err ? reject(err) : resolve(zf),
+    );
   });
 
   await new Promise<void>((resolve, reject) => {
     zip.on('entry', (entry: yauzl.Entry) => {
       const name = entry.fileName;
       const isJson = name.toLowerCase().endsWith('.json');
-      const isMedia = /\.(jpe?g|png|gif|webp|3gp|m4a|mp3|ogg|aac)$/i.test(name);
+      const isMedia = /\.(jpe?g|png|gif|webp|3gp|m4a|mp3|ogg|aac|amr|wav)$/i.test(name);
       if (entry.uncompressedSize > 30 * 1024 * 1024 || (!isJson && !isMedia)) {
         zip.readEntry();
         return;
       }
-      zip.openReadStream(entry, (err, stream) => {
-        if (err || !stream) {
-          zip.readEntry();
-          return;
-        }
-        const chunks: Buffer[] = [];
-        stream.on('data', (c: Buffer) => chunks.push(c));
-        stream.on('end', () => {
-          const buffer = Buffer.concat(chunks);
-          if (isJson) {
-            try {
-              const parsed = parseTakeoutNote(JSON.parse(buffer.toString('utf8')));
-              if (parsed) parsedNotes.push({ fileName: name, parsed });
-            } catch {
-              // not a Keep note — skip
-            }
-          } else {
-            media.set(name.split('/').pop() ?? name, buffer);
+      if (!isJson) {
+        mediaEntries.set(name.split('/').pop() ?? name, entry);
+        zip.readEntry();
+        return;
+      }
+      void bufferEntry(zip, entry).then((buffer) => {
+        if (buffer) {
+          try {
+            const parsed = parseTakeoutNote(JSON.parse(buffer.toString('utf8')));
+            if (parsed) parsedNotes.push({ fileName: name, parsed });
+          } catch {
+            // not a Keep note — skip
           }
-          zip.readEntry();
-        });
-        stream.on('error', () => zip.readEntry());
+        }
+        zip.readEntry();
       });
     });
     zip.on('end', resolve);
@@ -99,7 +114,14 @@ async function readTakeoutZip(path: string): Promise<{
     zip.readEntry();
   });
 
-  return { notes: parsedNotes, media };
+  return {
+    notes: parsedNotes,
+    readMedia: (baseName) => {
+      const entry = mediaEntries.get(baseName);
+      return entry ? bufferEntry(zip, entry) : Promise.resolve(null);
+    },
+    close: () => zip.close(),
+  };
 }
 
 /** pg-boss `import-takeout` handler body. */
@@ -114,9 +136,10 @@ export async function runTakeoutImport(
   const userId = job.userId;
 
   await updateJob(db, jobId, { status: 'running' });
+  let zip: TakeoutZip | null = null;
   try {
-    const zipPath = storage.pathFor('exports', job.fileKey);
-    const { notes: entries, media } = await readTakeoutZip(zipPath);
+    zip = await openTakeoutZip(storage.pathFor('exports', job.fileKey));
+    const entries = zip.notes;
     await updateJob(db, jobId, { total: entries.length });
 
     let done = 0;
@@ -124,7 +147,7 @@ export async function runTakeoutImport(
     let skipped = 0;
 
     for (const { parsed } of entries) {
-      const outcome = await importOneNote(db, storage, userId, parsed, media);
+      const outcome = await importOneNote(db, storage, userId, parsed, zip.readMedia);
       if (outcome === 'imported') imported++;
       else skipped++;
       done++;
@@ -139,14 +162,18 @@ export async function runTakeoutImport(
       progress: done,
       finishedAt: new Date(),
       summary: JSON.stringify({ imported, skipped }),
+      fileKey: null,
     });
-    await storage.remove('exports', job.fileKey);
   } catch (err) {
     await updateJob(db, jobId, {
       status: 'failed',
       error: err instanceof Error ? err.message.slice(0, 500) : 'import failed',
       finishedAt: new Date(),
+      fileKey: null,
     });
+  } finally {
+    zip?.close();
+    await storage.remove('exports', job.fileKey);
   }
 }
 
@@ -155,7 +182,7 @@ async function importOneNote(
   storage: Storage,
   userId: string,
   parsed: ParsedTakeoutNote,
-  media: Map<string, Buffer>,
+  readMedia: (baseName: string) => Promise<Buffer | null>,
 ): Promise<'imported' | 'skipped'> {
   // Idempotency: (owner_id, imported_fingerprint) partial unique index.
   const existing = await db
@@ -250,16 +277,27 @@ async function importOneNote(
       }
     }
 
+    // Version capture "at import": the arriving content is the first snapshot.
+    if (parsed.title !== '' || parsed.bodyText !== '' || parsed.items.length > 0) {
+      await snapshotVersion(
+        tx,
+        note!,
+        parsed.items.map((i) => ({ text: i.text, checked: i.checked, indent: 0 })),
+        userId,
+      );
+    }
+
     return note!.id;
   });
 
-  // Attachments outside the tx (sharp + file IO).
+  // Attachments outside the tx (sharp + file IO). Images and audio both
+  // ingest; unrecognized/corrupt media is skipped.
   for (const att of parsed.attachmentPaths.slice(0, LIMITS.attachmentsPerNoteMax)) {
     const base = att.filePath.split('/').pop() ?? att.filePath;
-    const buffer = media.get(base);
+    const buffer = await readMedia(base);
     if (!buffer) continue;
-    await uploadImage(db, storage, userId, noteId, buffer).catch(() => {
-      // non-image / corrupt media — skip silently (summarized as skipped media)
+    await importMediaAttachment(db, storage, userId, noteId, buffer).catch(() => {
+      // corrupt / unsupported media — skip
     });
   }
 
@@ -349,4 +387,78 @@ export async function cleanupExpiredExports(
     await updateJob(db, job.id, { fileKey: null });
   }
   return expired.length;
+}
+
+/**
+ * Crash recovery: imports stuck pending/running for >24h (worker died) are
+ * failed and their zips released so the reconcile below can collect them.
+ */
+export async function cleanupStaleImports(
+  db: Db,
+  storage: Storage,
+  now = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - 24 * 3600 * 1000);
+  const stale = await db
+    .select()
+    .from(userJobs)
+    .where(
+      and(
+        eq(userJobs.kind, 'import'),
+        inArray(userJobs.status, ['pending', 'running']),
+        lt(userJobs.createdAt, cutoff),
+      ),
+    );
+  for (const job of stale) {
+    if (job.fileKey) await storage.remove('exports', job.fileKey);
+    await updateJob(db, job.id, {
+      status: 'failed',
+      error: 'import abandoned (worker restart)',
+      finishedAt: now,
+      fileKey: null,
+    });
+  }
+  return stale.length;
+}
+
+/**
+ * Disk ↔ rows reconcile: unlink files no row references (crashed uploads,
+ * failed unlinks). A 24h mtime grace keeps in-flight writes safe.
+ */
+export async function reconcileStorage(
+  db: Db,
+  storage: Storage,
+  now = new Date(),
+): Promise<number> {
+  const graceMs = 24 * 3600 * 1000;
+  const known: Record<'attachments' | 'thumbs' | 'exports', Set<string>> = {
+    attachments: new Set(),
+    thumbs: new Set(),
+    exports: new Set(),
+  };
+  const attRows = await db
+    .select({ storageKey: attachmentsTable.storageKey, thumbKey: attachmentsTable.thumbKey })
+    .from(attachmentsTable);
+  for (const row of attRows) {
+    known.attachments.add(row.storageKey);
+    if (row.thumbKey) known.thumbs.add(row.thumbKey);
+  }
+  const jobRows = await db
+    .select({ fileKey: userJobs.fileKey })
+    .from(userJobs)
+    .where(isNotNull(userJobs.fileKey));
+  for (const row of jobRows) {
+    if (row.fileKey) known.exports.add(row.fileKey);
+  }
+
+  let removed = 0;
+  for (const area of ['attachments', 'thumbs', 'exports'] as const) {
+    for (const file of await storage.list(area)) {
+      if (!known[area].has(file.key) && now.getTime() - file.mtimeMs > graceMs) {
+        await storage.remove(area, file.key);
+        removed++;
+      }
+    }
+  }
+  return removed;
 }

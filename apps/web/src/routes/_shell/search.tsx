@@ -1,7 +1,9 @@
+import brushSvg from '@material-symbols/svg-400/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-400/outlined/check_box.svg?raw';
 import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
 import linkSvg from '@material-symbols/svg-400/outlined/link.svg?raw';
 import audioSvg from '@material-symbols/svg-400/outlined/mic.svg?raw';
+import notificationsSvg from '@material-symbols/svg-400/outlined/notifications.svg?raw';
 import searchSvg from '@material-symbols/svg-400/outlined/search.svg?raw';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -113,6 +115,16 @@ function SearchView() {
               svg={audioSvg}
               label={t('type_audio')}
               onClick={() => setParam({ type: 'audio' })}
+            />
+            <TypeTile
+              svg={brushSvg}
+              label={t('type_drawing')}
+              onClick={() => setParam({ type: 'drawing' })}
+            />
+            <TypeTile
+              svg={notificationsSvg}
+              label={t('type_reminder')}
+              onClick={() => setParam({ type: 'reminder' })}
             />
           </TileSection>
           {labels && labels.length > 0 && (

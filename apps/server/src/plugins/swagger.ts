@@ -1,4 +1,5 @@
 import swagger from '@fastify/swagger';
+import { APP_VERSION } from '@openkeep/shared';
 import type { FastifyInstance } from 'fastify';
 import { jsonSchemaTransform } from 'fastify-type-provider-zod';
 
@@ -9,7 +10,7 @@ export async function registerSwagger(app: FastifyInstance, withUi: boolean): Pr
       info: {
         title: 'OpenKeep API',
         description: 'Open-source, self-hostable Google Keep alternative',
-        version: '0.0.0',
+        version: APP_VERSION,
       },
       tags: [
         { name: 'auth', description: 'Better Auth endpoints (bridged)' },

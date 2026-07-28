@@ -39,6 +39,11 @@ test('keyboard-only journey: ? help, j/k focus, Enter open, Ctrl+Enter close, e 
   await page.keyboard.press('e');
   await expect(page.getByText('Note archived')).toBeVisible();
   await expect(cardByTitle(page, 'Second note')).toHaveCount(0);
+
+  // / focuses search (navigating to the search route).
+  await page.keyboard.press('/');
+  await expect(page.getByPlaceholder('Search')).toBeFocused();
+  await expect(page).toHaveURL(/\/search/);
 });
 
 test('multi-select: x + Ctrl+A + bulk archive via the selection bar', async ({ page }) => {
@@ -51,8 +56,8 @@ test('multi-select: x + Ctrl+A + bulk archive via the selection bar', async ({ p
   await cardRootByTitle(page, 'Bulk one').getByRole('button', { name: 'Select note' }).click();
   await expect(page.getByText('1 selected')).toBeVisible();
 
-  // Select the second card as well (x-toggle is covered by the journey test;
-  // sub-5ms synthetic key cadence flakes here without exercising real UX).
+  // Select the second card as well (x-toggle is exercised further down, after
+  // an explicit focus-ring await — pressing it blind flakes).
   await cardRootByTitle(page, 'Bulk two').hover();
   await cardRootByTitle(page, 'Bulk two').getByRole('button', { name: 'Select note' }).click();
   await expect(page.getByText('2 selected')).toBeVisible();
@@ -73,6 +78,14 @@ test('multi-select: x + Ctrl+A + bulk archive via the selection bar', async ({ p
   await expect(page.getByText('2 selected')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByText('2 selected')).toHaveCount(0);
+
+  // x toggles selection on the keyboard-focused card.
+  await page.keyboard.press('j');
+  await expect(cardRootByTitle(page, 'Bulk two').locator('> div').first()).toHaveClass(/ring-2/);
+  await page.keyboard.press('x');
+  await expect(page.getByText('1 selected')).toBeVisible();
+  await page.keyboard.press('x');
+  await expect(page.getByText('1 selected')).toHaveCount(0);
 });
 
 test('drag-reorder persists across reload', async ({ page }) => {

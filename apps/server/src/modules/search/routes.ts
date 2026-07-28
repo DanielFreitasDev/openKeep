@@ -1,4 +1,4 @@
-import { zFullNote } from '@openkeep/shared';
+import { LIMITS, zFullNote } from '@openkeep/shared';
 import { and, eq, exists, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { App } from '../../app.js';
@@ -13,7 +13,7 @@ import { assembleFullNotes } from '../notes/service.js';
 const zSearchQuery = z.object({
   q: z.string().max(500).default(''),
   type: z.enum(['list', 'url', 'image', 'audio', 'drawing', 'reminder']).optional(),
-  label: z.string().max(225).optional(),
+  label: z.string().max(LIMITS.labelNameMax).optional(),
   color: z.string().max(30).optional(),
 });
 
@@ -30,7 +30,7 @@ export function registerSearchRoutes(app: App, db: Db): void {
       schema: {
         tags: ['search'],
         querystring: zSearchQuery,
-        response: { 200: z.array(zFullNote) },
+        response: { 200: z.array(zFullNote.extend({ headline: z.string().nullable() })) },
       },
     },
     async (req) => {
@@ -93,7 +93,15 @@ export function registerSearchRoutes(app: App, db: Db): void {
       }
 
       const base = db
-        .select({ member: noteMembers, note: notes })
+        .select({
+          member: noteMembers,
+          note: notes,
+          headline: tsq
+            ? sql<
+                string | null
+              >`ts_headline('openkeep', ${notes.bodyText}, to_tsquery('openkeep', ${tsq}), 'MaxFragments=1, MaxWords=18, MinWords=6')`
+            : sql<string | null>`NULL`,
+        })
         .from(noteMembers)
         .innerJoin(notes, eq(notes.id, noteMembers.noteId))
         .where(and(...conditions))
@@ -106,7 +114,9 @@ export function registerSearchRoutes(app: App, db: Db): void {
           )
         : await base.orderBy(sql`${notes.updatedAt} DESC`);
 
-      return assembleFullNotes(db, userId, rows);
+      const headlines = new Map(rows.map((r) => [r.note.id, r.headline]));
+      const assembled = await assembleFullNotes(db, userId, rows);
+      return assembled.map((n) => ({ ...n, headline: headlines.get(n.id) ?? null }));
     },
   );
 }

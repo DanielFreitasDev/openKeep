@@ -174,6 +174,40 @@ function EditorBody({
     }
   }, [isList, editor, note.bodyHtml, autosave]);
 
+  // Collaborator edits merge into the open editor, field-level LWW: only
+  // non-dirty, unfocused surfaces update (dirty/focused fields win locally;
+  // in-flight own PATCHes are excluded so the ack echo can't revert them).
+  useEffect(() => {
+    const el = titleRef.current;
+    if (el && !autosave.isDirty('title') && !m.patchContent.isPending && el.value !== note.title) {
+      // Dirty tracking guards typing; a focused-but-clean title merges with
+      // its caret preserved (the dialog autofocuses the title on open).
+      const focused = document.activeElement === el;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      el.value = note.title;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+      if (focused) {
+        const len = note.title.length;
+        el.setSelectionRange(Math.min(start, len), Math.min(end, len));
+      }
+    }
+  }, [note.title, autosave, m.patchContent.isPending]);
+
+  useEffect(() => {
+    if (
+      !isList &&
+      editor &&
+      !autosave.isDirty('bodyHtml') &&
+      !m.patchContent.isPending &&
+      !editor.isFocused &&
+      editor.getHTML() !== note.bodyHtml
+    ) {
+      editor.commands.setContent(note.bodyHtml);
+    }
+  }, [isList, editor, note.bodyHtml, autosave, m.patchContent.isPending]);
+
   const flushAndClose = () => {
     autosave.flush();
     onClose();

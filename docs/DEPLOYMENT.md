@@ -23,7 +23,23 @@ keep.example.com {
 }
 ```
 
-**Traefik / nginx**: route the host to port 3000; WebSockets (`/api/ws`) work with standard upgrade passthrough.
+**Traefik** (file provider)
+```yaml
+http:
+  routers:
+    openkeep:
+      rule: Host(`keep.example.com`)
+      entryPoints: [websecure]
+      tls: { certResolver: letsencrypt }
+      service: openkeep
+  services:
+    openkeep:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3000
+```
+
+**nginx**: `proxy_pass http://127.0.0.1:3000;` with `proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade";` — WebSockets (`/api/ws`) work with standard upgrade passthrough on all three proxies.
 
 Set `APP_URL` to the exact public origin — cookies are `Secure` when it is https, and the `Origin` check enforces it.
 
@@ -38,7 +54,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 ## Operations
 
 - **Migrations** run automatically at boot (also: `pnpm db:migrate`).
-- **Health**: `GET /api/healthz` (process) and `GET /api/readyz` (DB) — the compose file wires the healthcheck.
+- **Health**: `GET /api/healthz` (process) and `GET /api/readyz` (DB). The container healthcheck lives in the Docker image (`HEALTHCHECK` → `/api/healthz`), so `docker compose up --wait` and orchestrators gate on it; point external monitoring at `/api/readyz` for DB-aware readiness.
 - **Jobs** (in-process pg-boss): reminder firing (per-minute), trash purge (hourly), storage cleanup (daily), link-preview fetches, imports/exports.
 - **Backups**: `pg_dump` the database + snapshot the `openkeep-storage` volume (attachments, pending exports). Restore both, start the app.
 - **Logs**: structured JSON on stdout (pino). Note content never appears above debug level.

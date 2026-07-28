@@ -1,0 +1,2 @@
+ALTER TABLE "labels" DROP CONSTRAINT "labels_name_len_check";--> statement-breakpoint
+ALTER TABLE "labels" ADD CONSTRAINT "labels_name_len_check" CHECK (char_length("labels"."name") between 1 and 255);

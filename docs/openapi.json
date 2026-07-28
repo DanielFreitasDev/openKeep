@@ -3,7 +3,7 @@
   "info": {
     "title": "OpenKeep API",
     "description": "Open-source, self-hostable Google Keep alternative",
-    "version": "0.0.0"
+    "version": "1.0.0"
   },
   "components": {
     "schemas": {}
@@ -363,6 +363,15 @@
             },
             "in": "query",
             "name": "view",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "in": "query",
+            "name": "label",
             "required": false
           }
         ],
@@ -3630,7 +3639,7 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 225
+                    "maxLength": 255
                   }
                 },
                 "required": [
@@ -3690,7 +3699,7 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 225
+                    "maxLength": 255
                   }
                 },
                 "required": [
@@ -3903,7 +3912,7 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 225
+              "maxLength": 255
             },
             "in": "query",
             "name": "label",
@@ -4188,6 +4197,10 @@
                         "type": "string",
                         "format": "date-time",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                      },
+                      "headline": {
+                        "nullable": true,
+                        "type": "string"
                       }
                     },
                     "required": [
@@ -4209,7 +4222,8 @@
                       "position",
                       "trashedAt",
                       "createdAt",
-                      "updatedAt"
+                      "updatedAt",
+                      "headline"
                     ],
                     "additionalProperties": false
                   }

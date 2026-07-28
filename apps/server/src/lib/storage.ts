@@ -43,6 +43,18 @@ export class Storage {
     await fsp.rm(this.pathFor(area, key), { force: true });
   }
 
+  /** All files in an area with mtimes — used by the storage reconcile job. */
+  async list(area: StorageArea): Promise<{ key: string; mtimeMs: number }[]> {
+    const dir = path.join(this.rootDir, area);
+    const names = await fsp.readdir(dir).catch(() => [] as string[]);
+    const out: { key: string; mtimeMs: number }[] = [];
+    for (const name of names) {
+      const st = await fsp.stat(path.join(dir, name)).catch(() => null);
+      if (st?.isFile()) out.push({ key: name, mtimeMs: st.mtimeMs });
+    }
+    return out;
+  }
+
   async size(area: StorageArea, key: string): Promise<number> {
     return (await fsp.stat(this.pathFor(area, key))).size;
   }

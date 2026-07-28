@@ -1,15 +1,15 @@
 # OpenKeep Feature Catalog
 
-The v1.0 scope: full parity with the Google Keep **web** app as researched in July 2026. Items marked *(divergence)* are deliberate differences, explained in [DECISIONS.md](DECISIONS.md).
+The v1.0 scope: full parity with the Google Keep **web** app as researched in July 2026. Items marked *(divergence)* are deliberate differences, explained in [DECISIONS.md](DECISIONS.md). This file is the research catalog — what Keep does and what we target; a handful of items marked *(deferred in v1.0)* shipped later than the rest and are tracked in [PARITY.md](PARITY.md) under "Known deferrals".
 
 ## Notes
 
 - Text notes with limited rich formatting — exactly Keep web's May-2025 set: **H1, H2, normal**, **bold**, *italic*, underline, clear formatting. Body only; the title is plain text.
-- Autosave (debounced, flush on blur/close/navigation). No explicit save button.
+- Autosave (debounced; flush on close/navigation — per-field blur flush *deferred in v1.0*). No explicit save button.
 - Limits: body 19,999 characters, title ~999 characters.
 - "Empty note discarded" when a composer/editor closes with no content.
 - Edited timestamp in editor footer, with created-date tooltip on hover.
-- Session-scoped Undo/Redo inside the editor (cleared when the editor closes).
+- Session-scoped Undo/Redo inside the editor (cleared when the editor closes; v1.0 covers the body — title/list-item undo *deferred*).
 - Version history: text snapshots per editing session, dated list, download as `.txt`; in-place restore (small enhancement over Keep).
 - "Make a copy": copies content, color, labels, images; does **not** copy reminders, collaborators, or pin state.
 
@@ -65,7 +65,7 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 ## Search
 
 - Full-text over title + body + list items; English + Portuguese stemming-free word-prefix matching, accent-insensitive.
-- Focusing the search box shows filter tiles: **Types** (Lists, Images, URLs, Audio, Drawings, Reminders), **Labels**, **People**, **Colors** — combinable with text.
+- Focusing the search box shows filter tiles: **Types** (Lists, Images, URLs, Audio, Drawings, Reminders), **Labels**, **People** *(deferred in v1.0)*, **Colors** — combinable with text.
 - Archived notes included, grouped under an "ARCHIVE" section header; trashed excluded.
 - Live filtering as you type; "No matching results." empty state; `/` focuses search.
 
@@ -82,12 +82,12 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 
 ## Multi-select
 
-- Checkmark appears top-left of cards on hover; marquee (rubber-band) selection on the grid; `Ctrl+A` selects all in view; `x` toggles the focused card.
+- Checkmark appears top-left of cards on hover; marquee (rubber-band) selection *(deferred in v1.0)*; `Ctrl+A` selects all in view; `x` toggles the focused card.
 - Selection top bar: "N selected" + Pin, Remind, Color, Archive, More (Delete, Change labels, Make a copy). Esc exits.
 
 ## Keyboard shortcuts
 
-Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `?` help dialog: `j/k`, `Shift+J/K`, `n/p`, `Shift+N/P`, `c`, `l`, `/`, `Ctrl+A`, `?`, `e`, `#`, `f`, `x`, `Enter`, `Ctrl+G`, `Esc`/`Ctrl+Enter`, `Ctrl+Shift+8`, `Ctrl+]`/`[`, `Ctrl+B/I/U`.
+Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `?` help dialog: `j/k`, `Shift+J/K`, `c`, `l`, `/`, `Ctrl+A`, `?`, `e`, `#`, `f`, `x`, `Enter`, `Ctrl+G`, `Esc`/`Ctrl+Enter`, `Ctrl+Shift+8`, `Ctrl+]`/`[`, `Ctrl+B/I/U`. Keep's list-item shortcuts `n/p`/`Shift+N/P` are *deferred in v1.0* (they need a non-typing "selected item" editor state).
 
 ## Settings
 

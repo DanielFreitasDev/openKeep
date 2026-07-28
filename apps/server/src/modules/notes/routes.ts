@@ -38,7 +38,7 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
         response: { 200: z.array(zFullNote) },
       },
     },
-    async (req) => svc.listNotes(db, req.user.id, req.query.view),
+    async (req) => svc.listNotes(db, req.user.id, req.query.view, req.query.label),
   );
 
   app.post(

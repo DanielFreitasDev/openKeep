@@ -12,12 +12,16 @@ export const LIMITS = {
   itemsPerNoteMax: 1_000,
   /** 50 labels per account (Keep parity). */
   labelsPerUserMax: 50,
-  labelNameMax: 225,
+  labelNameMax: 255,
   attachmentsPerNoteMax: 25,
   collaboratorsPerNoteMax: 20,
   /** Upload caps: ~10 MB and 25 megapixels per image. */
   imageMaxBytes: 10 * 1024 * 1024,
   imageMaxPixels: 25_000_000,
+  /** Audio attachments (Takeout import only in v1). */
+  audioMaxBytes: 20 * 1024 * 1024,
+  /** Takeout archives carry full-size photos — far beyond the image cap. */
+  importZipMaxBytes: 512 * 1024 * 1024,
   /** Trash retention before permanent purge, in days (Keep parity). */
   trashRetentionDays: 7,
   /** Version snapshots kept per note (oldest pruned). */

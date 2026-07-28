@@ -30,7 +30,7 @@ export const labels = pgTable(
   },
   (t) => [
     uniqueIndex('labels_user_lower_name_uq').on(t.userId, sql`lower(${t.name})`),
-    check('labels_name_len_check', sql`char_length(${t.name}) between 1 and 225`),
+    check('labels_name_len_check', sql`char_length(${t.name}) between 1 and 255`),
   ],
 );
 

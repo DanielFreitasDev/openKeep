@@ -211,9 +211,24 @@ describe('sharing & realtime', () => {
     const ownState = await ownerWs.waitFor('note.state_changed', 1000);
     expect((ownState.payload as { color: string }).color).toBe('coral');
 
-    // The collaborator must receive NOTHING for the owner's per-user change.
+    // Labels are per-user too: attaching one must not leak to the collaborator.
+    const label = await t.app.inject({
+      method: 'POST',
+      url: '/api/labels',
+      headers: { cookie: ownerCookie },
+      payload: { name: 'isolation-tag' },
+    });
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/notes/${noteId}/labels/${label.json().id}`,
+      headers: { cookie: ownerCookie },
+    });
+    await ownerWs.waitFor('note.labels_changed', 1000);
+
+    // The collaborator must receive NOTHING for the owner's per-user changes.
     await new Promise((r) => setTimeout(r, 400));
     expect(collabWs.events.filter((e) => e.type === 'note.state_changed')).toHaveLength(0);
+    expect(collabWs.events.filter((e) => e.type === 'note.labels_changed')).toHaveLength(0);
 
     ownerWs.close();
     collabWs.close();
@@ -302,5 +317,21 @@ describe('sharing & realtime', () => {
       headers: { cookie: ownerCookie },
     });
     expect(res.statusCode).toBe(400);
+
+    // Re-invite the collaborator (they left in the previous test), then have
+    // them try to remove the owner — members can only remove themselves.
+    const reinvite = await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/collaborators`,
+      headers: { cookie: ownerCookie },
+      payload: { email: collabEmail },
+    });
+    expect(reinvite.statusCode).toBe(201);
+    const foreign = await t.app.inject({
+      method: 'DELETE',
+      url: `/api/notes/${noteId}/collaborators/${ownerId}`,
+      headers: { cookie: collabCookie },
+    });
+    expect(foreign.statusCode).toBe(403);
   });
 });

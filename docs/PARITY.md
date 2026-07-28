@@ -14,10 +14,10 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Composer ("Take a note…", New list, New note with image) | ✓ | ✅ (list M3, image M5; expand on click/type; click-away saves) | M2 |
 | "Empty note discarded" | ✓ | ✅ snackbar | M2 |
 | Masonry grid, PINNED/OTHERS sections | ✓ | ✅ shortest-column flow, 240px cards, FLIP moves | M2 |
-| Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ✅ color/archive/more (+pin); remind M6, collaborator M7, image M5 | M2 |
+| Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ✅ all six: remind, collaborator, color/background, add image, archive, more (+pin) | M2 |
 | 12 colors, light+dark | ✓ | ✅ verified via e2e in both themes | M2 |
 | 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
-| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; Esc/Ctrl+Enter close | M2 |
+| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
 | Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 500ms debounce, dirty-field patches | M2 |
 | Archive view + undo snackbar | ✓ | ✅ inverse-mutation undo | M2 |
@@ -32,12 +32,12 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Settings dialog (6 toggles/fields) | ✓ | ✅ instant-apply + theme select | M3 |
 | Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ✅ per-user; case-insensitive uniqueness | M4 |
 | `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
-| Search: instant, filter tiles (Types/Labels/Colors) | ✓ | ✅ client-side instant + server FTS endpoint; media types M5. People filter deferred (see below) | M4 |
+| Search: instant, filter tiles (Types/Labels/Colors) | ✓ | ✅ client-side instant + server FTS endpoint (ts_headline snippet); all six type tiles. People filter deferred (see below) | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
-| Audio attachment playback | ✓ | ✅ player (recording post-1.0; files arrive via import) | M5 |
+| Audio attachment playback | ✓ | ✅ player; Takeout import ingests audio (3gp/m4a/mp3/ogg/aac/amr/wav, magic-sniffed) — recording itself is post-1.0 | M5 |
 | Link preview chips + setting | ✓ | ✅ SSRF-safe pinned-IP fetch; browser loads images | M5 |
-| Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ✅ 🔀 native (per-user; DST-correct wall-clock recurrence) | M6 |
+| Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ✅ 🔀 native (per-user; DST-correct wall-clock recurrence incl. custom "every N days/weeks/months/years") | M6 |
 | Web push + in-app notifications | classic Keep UX | ✅ 🔀 VAPID push (opt-in on first reminder) + in-app toasts | M6 |
 | Sharing: invite by email, single permission level | ✓ | ✅ registered users; both-side sharing setting; 20 cap | M7 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
@@ -47,7 +47,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ | M8 |
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
-| Takeout import | — (adoption feature) | ✅ 🔀 | M9 |
+| Takeout import | — (adoption feature) | ✅ 🔀 images + audio, 512 MB archives, media read on demand, version snapshot at import | M9 |
 | JSON export | Takeout equivalent | ✅ | M9 |
 
 ## Known deferrals in v1.0
@@ -65,6 +65,9 @@ the table above stays honest. Roughly in order of user impact:
 - **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing
   "selected item" editor focus state our native-textarea checklist doesn't
   have; removed from the "?" dialog rather than advertised dead.
+- **Checklist indent by dragging right** — Keep also indents when an item is
+  dragged rightward; we ship `Ctrl+]`/`[` and Tab/Shift+Tab only (item drag
+  changes order, not indent).
 - **Grid virtualization >400 cards/section** — every card renders; the ~5k-note
   ceiling documented in ARCHITECTURE.md still applies.
 - **Offline banner + Retry snackbars** — the PWA serves cached reads offline,

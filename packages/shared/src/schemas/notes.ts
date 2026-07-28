@@ -114,4 +114,6 @@ export type NoteVersionMeta = z.infer<typeof zNoteVersionMeta>;
 
 export const zListNotesQuery = z.object({
   view: z.enum(['active', 'archived', 'trash']).optional(),
+  /** Filter by label name (case-insensitive), matching the /label/:name routes. */
+  label: z.string().max(LIMITS.labelNameMax).optional(),
 });

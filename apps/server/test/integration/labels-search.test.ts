@@ -269,4 +269,44 @@ describe('search (FTS)', () => {
     );
     expect(await search(`q=${encodeURIComponent('(((*&|!')}`)).toBeInstanceOf(Array);
   });
+
+  it('returns a ts_headline snippet for text queries, null without one', async () => {
+    const res = await t.app.inject({
+      method: 'GET',
+      url: '/api/search?q=peru',
+      headers: { cookie },
+    });
+    const hit = (res.json() as (FullNote & { headline: string | null })[]).find((n) =>
+      n.title.startsWith('Ação'),
+    );
+    expect(hit?.headline).toContain('<b>');
+    expect(hit?.headline?.toLowerCase()).toContain('peru');
+
+    const untyped = await t.app.inject({
+      method: 'GET',
+      url: '/api/search?type=list',
+      headers: { cookie },
+    });
+    for (const n of untyped.json() as { headline: string | null }[]) {
+      expect(n.headline).toBeNull();
+    }
+  });
+
+  it('GET /notes filters by label name, case-insensitively, combined with view', async () => {
+    const listByLabel = async (qs: string) => {
+      const res = await t.app.inject({
+        method: 'GET',
+        url: `/api/notes?${qs}`,
+        headers: { cookie },
+      });
+      expect(res.statusCode).toBe(200);
+      return (res.json() as FullNote[]).map((n) => n.title);
+    };
+
+    // "Receitas" was attached to "Ação de graças" in the label/color test above.
+    expect(await listByLabel('label=RECEITAS')).toEqual(['Ação de graças']);
+    expect(await listByLabel('view=active&label=receitas')).toEqual(['Ação de graças']);
+    expect(await listByLabel('view=archived&label=receitas')).toEqual([]);
+    expect(await listByLabel('label=nonexistent')).toEqual([]);
+  });
 });

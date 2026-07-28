@@ -4,6 +4,7 @@ import addAlertSvg from '@material-symbols/svg-400/outlined/add_alert.svg?raw';
 import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
 import checkCircleSvg from '@material-symbols/svg-400/outlined/check_circle.svg?raw';
 import deleteForeverSvg from '@material-symbols/svg-400/outlined/delete_forever.svg?raw';
+import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
 import moreSvg from '@material-symbols/svg-400/outlined/more_vert.svg?raw';
@@ -15,6 +16,7 @@ import type { FullNote } from '@openkeep/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useSelectionStore } from '../../stores/selection.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -50,6 +52,8 @@ export function NoteCard({ note }: { note: FullNote }) {
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useNoteMutations();
+  const attachmentM = useAttachmentMutations();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectedSet = useSelectionStore((s) => s.selected);
   const toggleSelect = useSelectionStore((s) => s.toggle);
   const focusedNoteId = useUiStore((s) => s.focusedNoteId);
@@ -240,6 +244,26 @@ export function NoteCard({ note }: { note: FullNote }) {
                 </Popover.Positioner>
               </Popover.Portal>
             </Popover.Root>
+
+            <IconButton
+              svg={imageSvg}
+              label={t('addImage')}
+              size={34}
+              iconSize={18}
+              className="text-on-surface-variant"
+              onClick={() => fileInputRef.current?.click()}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) attachmentM.upload.mutate({ noteId: note.id, file });
+                e.target.value = '';
+              }}
+            />
 
             <IconButton
               svg={note.archived ? unarchiveSvg : archiveSvg}

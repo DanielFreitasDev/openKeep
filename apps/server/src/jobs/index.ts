@@ -7,6 +7,8 @@ import { userJobs } from '../db/schema/jobs.js';
 import type { Storage } from '../lib/storage.js';
 import {
   cleanupExpiredExports,
+  cleanupStaleImports,
+  reconcileStorage,
   runExport,
   runTakeoutImport,
 } from '../modules/import-export/service.js';
@@ -169,9 +171,14 @@ export async function startJobs(
     await boss.schedule('cleanup-storage', '30 3 * * *');
     await boss.work('cleanup-storage', async () => {
       const exportsRemoved = await cleanupExpiredExports(db, storage);
+      const staleImports = await cleanupStaleImports(db, storage);
       const previewsRemoved = await pruneExpiredPreviews(db);
-      if (exportsRemoved + previewsRemoved > 0) {
-        log.info({ exportsRemoved, previewsRemoved }, 'storage cleanup');
+      const orphansRemoved = await reconcileStorage(db, storage);
+      if (exportsRemoved + staleImports + previewsRemoved + orphansRemoved > 0) {
+        log.info(
+          { exportsRemoved, staleImports, previewsRemoved, orphansRemoved },
+          'storage cleanup',
+        );
       }
     });
   }

@@ -90,6 +90,17 @@ export function ChecklistEditor({
   const inputRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const focusRequest = useRef<{ key: string; caret: number } | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  /** Rows with a PATCH in flight — the remote merge must not revert them. */
+  const pendingPatch = useRef(new Map<string, number>());
+
+  const beginPatch = useCallback((key: string) => {
+    pendingPatch.current.set(key, (pendingPatch.current.get(key) ?? 0) + 1);
+  }, []);
+  const endPatch = useCallback((key: string) => {
+    const n = pendingPatch.current.get(key) ?? 0;
+    if (n <= 1) pendingPatch.current.delete(key);
+    else pendingPatch.current.set(key, n - 1);
+  }, []);
 
   // ---------------------------------------------------------------- sync
 
@@ -126,14 +137,17 @@ export function ChecklistEditor({
 
   const patchServer = useCallback(
     (key: string, patch: Parameters<typeof patchItemApi>[2]) => {
+      beginPatch(key);
       withServerId(key, (id) => {
-        void patchItemApi(noteId, id, patch).then((result) => {
-          cacheUpsert(result.item);
-          for (const c of result.cascaded) cacheUpsert(c);
-        });
+        void patchItemApi(noteId, id, patch)
+          .then((result) => {
+            cacheUpsert(result.item);
+            for (const c of result.cascaded) cacheUpsert(c);
+          })
+          .finally(() => endPatch(key));
       });
     },
-    [withServerId, noteId, cacheUpsert],
+    [withServerId, noteId, cacheUpsert, beginPatch, endPatch],
   );
 
   const scheduleTextSync = useCallback(
@@ -201,10 +215,26 @@ export function ChecklistEditor({
 
   const toggleCheck = useCallback(
     (key: string, checked: boolean) => {
-      setRows((prev) => applyCheck(prev, key, checked).rows);
-      patchServer(key, { checked });
+      // Cascaded rows (parent auto-check) are pending too until the ack lands,
+      // so the remote merge can't briefly revert them.
+      const next = applyCheck(rowsRef.current, key, checked).rows;
+      const affected = next
+        .filter((r) => rowsRef.current.find((p) => p.key === r.key)?.checked !== r.checked)
+        .map((r) => r.key);
+      for (const k of affected) beginPatch(k);
+      setRows(next);
+      withServerId(key, (id) => {
+        void patchItemApi(noteId, id, { checked })
+          .then((result) => {
+            cacheUpsert(result.item);
+            for (const c of result.cascaded) cacheUpsert(c);
+          })
+          .finally(() => {
+            for (const k of affected) endPatch(k);
+          });
+      });
     },
-    [patchServer],
+    [withServerId, noteId, cacheUpsert, beginPatch, endPatch],
   );
 
   const setIndent = useCallback(
@@ -286,6 +316,65 @@ export function ChecklistEditor({
   // ---------------------------------------------------------------- dnd
 
   const [dragKey, setDragKey] = useState<string | null>(null);
+
+  // ------------------------------------------------------------ remote merge
+  // Collaborator edits land in the ['notes'] cache (WS deltas); fold them into
+  // the open editor's rows, field-level LWW: anything locally dirty (pending
+  // text debounce, in-flight PATCH, focused input, active drag) wins.
+  useEffect(() => {
+    setRows((prev) => {
+      const byId = new Map(prev.filter((r) => r.id).map((r) => [r.id as string, r]));
+      const localKeys = new Set(prev.map((r) => r.key));
+      const remoteIds = new Set(note.items.map((i) => i.id));
+      let changed = false;
+
+      let next = prev;
+      if (prev.some((r) => r.id && !remoteIds.has(r.id) && !pendingPatch.current.has(r.key))) {
+        next = next.filter((r) => !r.id || remoteIds.has(r.id) || pendingPatch.current.has(r.key));
+        changed = true;
+      }
+
+      const additions: ChecklistRow[] = [];
+      for (const item of note.items) {
+        const row = byId.get(item.id);
+        if (!row) {
+          if (!localKeys.has(item.id)) {
+            additions.push({
+              key: item.id,
+              id: item.id,
+              text: item.text,
+              checked: item.checked,
+              indent: item.indent,
+              position: item.position,
+            });
+          }
+          continue;
+        }
+        if (pendingPatch.current.has(row.key) || textTimers.current.has(row.key)) continue;
+        const textLocked = document.activeElement === inputRefs.current.get(row.key);
+        const text = textLocked ? row.text : item.text;
+        const position = dragKey === row.key ? row.position : item.position;
+        if (
+          text !== row.text ||
+          item.checked !== row.checked ||
+          item.indent !== row.indent ||
+          position !== row.position
+        ) {
+          next = next.map((r) =>
+            r.key === row.key
+              ? { ...r, text, checked: item.checked, indent: item.indent, position }
+              : r,
+          );
+          changed = true;
+        }
+      }
+      if (additions.length > 0) {
+        next = [...next, ...additions];
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [note.items, dragKey]);
   useEffect(() => {
     const el = listRef.current;
     if (!el || readOnly) return;

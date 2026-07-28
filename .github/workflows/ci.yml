@@ -68,6 +68,22 @@ jobs:
           path: e2e/playwright-report
           retention-days: 7
 
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build -f docker/Dockerfile -t openkeep:ci .
+      - name: Smoke-check the image entrypoint
+        # No DB in this job — a config validation failure at boot proves the
+        # bundle loads and env parsing runs (a crash on import would differ).
+        run: |
+          set +e
+          out=$(docker run --rm -e BETTER_AUTH_SECRET=short openkeep:ci 2>&1)
+          echo "$out"
+          echo "$out" | grep -qi "invalid\|BETTER_AUTH_SECRET\|DATABASE_URL"
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

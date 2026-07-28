@@ -42,6 +42,53 @@ const MAGIC: { mime: string; ext: string; match: (b: Buffer) => boolean }[] = [
 ];
 
 /**
+ * Audio formats Keep's Takeout can carry (voice recordings + imported files).
+ * Order matters: container signatures before the loose MPEG frame-sync match.
+ */
+const AUDIO_MAGIC: { mime: string; ext: string; match: (b: Buffer) => boolean }[] = [
+  {
+    mime: 'audio/mp4',
+    ext: 'm4a',
+    match: (b) =>
+      b.subarray(4, 8).toString('latin1') === 'ftyp' &&
+      !b.subarray(8, 11).toString('latin1').startsWith('3g'),
+  },
+  {
+    mime: 'audio/3gpp',
+    ext: '3gp',
+    match: (b) =>
+      b.subarray(4, 8).toString('latin1') === 'ftyp' &&
+      b.subarray(8, 11).toString('latin1').startsWith('3g'),
+  },
+  { mime: 'audio/ogg', ext: 'ogg', match: (b) => b.subarray(0, 4).toString('latin1') === 'OggS' },
+  {
+    mime: 'audio/wav',
+    ext: 'wav',
+    match: (b) =>
+      b.subarray(0, 4).toString('latin1') === 'RIFF' &&
+      b.subarray(8, 12).toString('latin1') === 'WAVE',
+  },
+  { mime: 'audio/amr', ext: 'amr', match: (b) => b.subarray(0, 5).toString('latin1') === '#!AMR' },
+  { mime: 'audio/mpeg', ext: 'mp3', match: (b) => b.subarray(0, 3).toString('latin1') === 'ID3' },
+  {
+    mime: 'audio/aac',
+    ext: 'aac',
+    match: (b) => b[0] === 0xff && (b[1]! & 0xf6) === 0xf0,
+  },
+  {
+    mime: 'audio/mpeg',
+    ext: 'mp3',
+    match: (b) => b[0] === 0xff && (b[1]! & 0xe0) === 0xe0,
+  },
+];
+
+export function sniffAudio(data: Buffer): { mime: string; ext: string } | null {
+  if (data.length < 12) return null;
+  const found = AUDIO_MAGIC.find((m) => m.match(data));
+  return found ? { mime: found.mime, ext: found.ext } : null;
+}
+
+/**
  * Upload pipeline: magic bytes decide the type (declared mime ignored, no
  * SVG), sharp re-encode strips EXIF and doubles as an integrity check.
  */
@@ -51,9 +98,10 @@ export async function uploadImage(
   userId: string,
   noteId: string,
   data: Buffer,
+  opts: { allowTrashed?: boolean } = {},
 ): Promise<Attachment> {
   const { note } = await assertNoteAccess(db, userId, noteId);
-  assertNotTrashed(note);
+  if (!opts.allowTrashed) assertNotTrashed(note);
 
   if (data.length > LIMITS.imageMaxBytes) {
     throw errors.payloadTooLarge(`Images can be at most ${LIMITS.imageMaxBytes / 1024 / 1024} MB`);
@@ -117,6 +165,71 @@ export async function uploadImage(
     .returning();
   await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
   return toAttachmentDto(created!);
+}
+
+/**
+ * Audio ingest — Takeout import only in v1 (the upload route stays
+ * images-only). Magic bytes decide the type; stored as-is, no thumbnail.
+ */
+async function ingestAudio(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  noteId: string,
+  data: Buffer,
+): Promise<Attachment> {
+  if (data.length > LIMITS.audioMaxBytes) {
+    throw errors.payloadTooLarge(`Audio can be at most ${LIMITS.audioMaxBytes / 1024 / 1024} MB`);
+  }
+  const magic = sniffAudio(data);
+  if (!magic) throw errors.unsupportedMediaType('Unrecognized audio format');
+
+  const [row] = await db
+    .select({ n: count() })
+    .from(attachments)
+    .where(eq(attachments.noteId, noteId));
+  if ((row?.n ?? 0) >= LIMITS.attachmentsPerNoteMax) {
+    throw new AppError(400, 'attachment_limit_reached', 'Attachment limit reached');
+  }
+
+  const storageKey = storage.newKey(magic.ext);
+  await storage.write('attachments', storageKey, data);
+
+  const [created] = await db
+    .insert(attachments)
+    .values({
+      noteId,
+      kind: 'audio',
+      storageKey,
+      mime: magic.mime,
+      size: data.length,
+    })
+    .returning();
+  await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  return toAttachmentDto(created!);
+}
+
+/**
+ * Import-time media dispatch: sniff the buffer (declared mime ignored, as
+ * everywhere) and route to the image or audio pipeline. Runs with
+ * `allowTrashed` — Takeout notes with `isTrashed` keep their media so a
+ * restore brings them back intact.
+ */
+export async function importMediaAttachment(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  noteId: string,
+  data: Buffer,
+): Promise<Attachment> {
+  if (MAGIC.some((m) => m.match(data))) {
+    return uploadImage(db, storage, userId, noteId, data, { allowTrashed: true });
+  }
+  if (sniffAudio(data)) {
+    await assertNoteAccess(db, userId, noteId);
+    return ingestAudio(db, storage, userId, noteId, data);
+  }
+  throw errors.unsupportedMediaType('Unrecognized media format');
 }
 
 export interface AttachmentFile {

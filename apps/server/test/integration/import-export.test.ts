@@ -1,12 +1,23 @@
+import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type { FullNote, WsEvent } from '@openkeep/shared';
 import { ZipArchive } from 'archiver';
+import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { userJobs } from '../../src/db/schema/jobs.js';
 import { exportUserDataJob, importTakeoutJob, linkPreviewFetchJob } from '../../src/jobs/index.js';
-import { runExport, runTakeoutImport } from '../../src/modules/import-export/service.js';
+import {
+  cleanupExpiredExports,
+  cleanupStaleImports,
+  createJob,
+  reconcileStorage,
+  runExport,
+  runTakeoutImport,
+} from '../../src/modules/import-export/service.js';
 import type { TestApp } from './harness.js';
 import { createTestApp } from './harness.js';
 
@@ -261,5 +272,265 @@ describe('takeout import & export', () => {
       headers: { cookie: other },
     });
     expect(foreign.statusCode).toBe(404);
+  });
+
+  it('imports audio attachments (kind=audio, playable, searchable) and media on trashed notes', async () => {
+    const png = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 1, g: 2, b: 3 } },
+    })
+      .png()
+      .toBuffer();
+    // Sniffing goes by magic bytes, so an ID3 header is enough to classify.
+    const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64)]);
+
+    const zipDir = `${process.env.TMPDIR ?? '/tmp'}/openkeep-test-takeout`;
+    fs.mkdirSync(zipDir, { recursive: true });
+    const zipPath = path.join(zipDir, `takeout-audio-${Date.now()}.zip`);
+    const out = fs.createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 1 } });
+    archive.pipe(out);
+    archive.append(
+      JSON.stringify({
+        title: `Voice memo ${Date.now()}`,
+        textContent: 'listen later',
+        attachments: [{ filePath: 'memo.mp3', mimetype: 'audio/mp3' }],
+        createdTimestampUsec: Date.now() * 1000,
+      }),
+      { name: 'Takeout/Keep/voice.json' },
+    );
+    archive.append(mp3, { name: 'Takeout/Keep/memo.mp3' });
+    archive.append(
+      JSON.stringify({
+        title: `Trashed with pic ${Date.now()}`,
+        textContent: 'bye',
+        isTrashed: true,
+        attachments: [{ filePath: 'trashed-pic.png', mimetype: 'image/png' }],
+        createdTimestampUsec: Date.now() * 1000 + 1,
+      }),
+      { name: 'Takeout/Keep/trashed-pic.json' },
+    );
+    archive.append(png, { name: 'Takeout/Keep/trashed-pic.png' });
+    await archive.finalize();
+    await once(out, 'close');
+
+    const key = t.storage.newKey('zip');
+    await t.storage.write('exports', key, fs.readFileSync(zipPath));
+    const job = await createJob(t.db, userId, 'import', key);
+    await runTakeoutImport(t.db, t.storage, job.id);
+
+    const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
+    const notes = list.json() as FullNote[];
+
+    const voice = notes.find((n) => n.title.startsWith('Voice memo'));
+    expect(voice?.attachments).toHaveLength(1);
+    expect(voice?.attachments[0]).toMatchObject({
+      kind: 'audio',
+      mime: 'audio/mpeg',
+      hasThumb: false,
+    });
+
+    const file = await t.app.inject({
+      method: 'GET',
+      url: `/api/attachments/${voice!.attachments[0]!.id}/file`,
+      headers: { cookie },
+    });
+    expect(file.statusCode).toBe(200);
+    expect(file.headers['content-type']).toBe('audio/mpeg');
+    expect(file.rawPayload.subarray(0, 3).toString()).toBe('ID3');
+
+    const found = await t.app.inject({
+      method: 'GET',
+      url: '/api/search?type=audio',
+      headers: { cookie },
+    });
+    expect((found.json() as FullNote[]).some((n) => n.id === voice!.id)).toBe(true);
+
+    // Media attached to notes imported as trashed survives for restore.
+    const trashed = notes.find((n) => n.title.startsWith('Trashed with pic'));
+    expect(trashed?.trashedAt).not.toBeNull();
+    expect(trashed?.attachments).toHaveLength(1);
+    expect(trashed?.attachments[0]).toMatchObject({ kind: 'image' });
+  });
+
+  it('captures a version snapshot at import', async () => {
+    const zipDir = `${process.env.TMPDIR ?? '/tmp'}/openkeep-test-takeout`;
+    fs.mkdirSync(zipDir, { recursive: true });
+    const zipPath = path.join(zipDir, `takeout-version-${Date.now()}.zip`);
+    const out = fs.createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 1 } });
+    archive.pipe(out);
+    const title = `Versioned import ${Date.now()}`;
+    archive.append(
+      JSON.stringify({
+        title,
+        textContent: 'as imported',
+        createdTimestampUsec: Date.now() * 1000,
+      }),
+      { name: 'Takeout/Keep/versioned.json' },
+    );
+    await archive.finalize();
+    await once(out, 'close');
+
+    const key = t.storage.newKey('zip');
+    await t.storage.write('exports', key, fs.readFileSync(zipPath));
+    const job = await createJob(t.db, userId, 'import', key);
+    await runTakeoutImport(t.db, t.storage, job.id);
+
+    const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
+    const note = (list.json() as FullNote[]).find((n) => n.title === title);
+    const versions = await t.app.inject({
+      method: 'GET',
+      url: `/api/notes/${note!.id}/versions`,
+      headers: { cookie },
+    });
+    expect(versions.statusCode).toBe(200);
+    expect(versions.json().length).toBe(1);
+  });
+
+  it('accepts archives beyond the 10 MB image cap (dedicated import limit)', async () => {
+    const zipDir = `${process.env.TMPDIR ?? '/tmp'}/openkeep-test-takeout`;
+    fs.mkdirSync(zipDir, { recursive: true });
+    const zipPath = path.join(zipDir, `takeout-big-${Date.now()}.zip`);
+    const out = fs.createWriteStream(zipPath);
+    const archive = new ZipArchive({ store: true });
+    archive.pipe(out);
+    const title = `Big archive note ${Date.now()}`;
+    archive.append(
+      JSON.stringify({ title, textContent: 'big', createdTimestampUsec: Date.now() * 1000 }),
+      { name: 'Takeout/Keep/big.json' },
+    );
+    // Unreferenced, incompressible media entry pushes the zip past 10 MB.
+    archive.append(randomBytes(11 * 1024 * 1024), { name: 'Takeout/Keep/pad.png' });
+    await archive.finalize();
+    await once(out, 'close');
+    const zipBuffer = fs.readFileSync(zipPath);
+    expect(zipBuffer.length).toBeGreaterThan(10 * 1024 * 1024);
+
+    const boundary = '----okbig';
+    const upload = await t.app.inject({
+      method: 'POST',
+      url: '/api/import/takeout',
+      headers: { cookie, 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="takeout.zip"\r\nContent-Type: application/zip\r\n\r\n`,
+        ),
+        zipBuffer,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]),
+    });
+    expect(upload.statusCode).toBe(202);
+
+    await runTakeoutImport(t.db, t.storage, upload.json().jobId);
+    const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
+    expect((list.json() as FullNote[]).some((n) => n.title === title)).toBe(true);
+  });
+});
+
+describe('storage cleanup job', () => {
+  let t: TestApp;
+  let cookie: string;
+  let userId: string;
+
+  beforeAll(async () => {
+    t = await createTestApp();
+    cookie = await t.signUp('cleanup@example.com', 'Cleanup');
+    const session = await t.app.inject({
+      method: 'GET',
+      url: '/api/auth/get-session',
+      headers: { cookie },
+    });
+    userId = session.json().user.id;
+  });
+  afterAll(async () => {
+    await t.close();
+  });
+
+  const backdate = async (area: 'attachments' | 'thumbs' | 'exports', key: string) => {
+    const old = new Date(Date.now() - 25 * 3600 * 1000);
+    await fsp.utimes(t.storage.pathFor(area, key), old, old);
+  };
+
+  it('removes expired export zips (24h TTL)', async () => {
+    const start = await t.app.inject({ method: 'POST', url: '/api/export', headers: { cookie } });
+    const { jobId } = start.json();
+    await runExport(t.db, t.storage, jobId);
+    const [job] = await t.db.select().from(userJobs).where(eq(userJobs.id, jobId));
+    expect(job?.fileKey).not.toBeNull();
+    expect(await t.storage.exists('exports', job!.fileKey!)).toBe(true);
+
+    await t.db
+      .update(userJobs)
+      .set({ expiresAt: new Date(Date.now() - 3600 * 1000) })
+      .where(eq(userJobs.id, jobId));
+    const removed = await cleanupExpiredExports(t.db, t.storage);
+    expect(removed).toBe(1);
+    expect(await t.storage.exists('exports', job!.fileKey!)).toBe(false);
+    const [after] = await t.db.select().from(userJobs).where(eq(userJobs.id, jobId));
+    expect(after?.fileKey).toBeNull();
+  });
+
+  it('fails abandoned imports and releases their zips', async () => {
+    const key = t.storage.newKey('zip');
+    await t.storage.write('exports', key, Buffer.from('PK\x03\x04stub'));
+    const job = await createJob(t.db, userId, 'import', key);
+    await t.db
+      .update(userJobs)
+      .set({ createdAt: new Date(Date.now() - 25 * 3600 * 1000) })
+      .where(eq(userJobs.id, job.id));
+
+    const stale = await cleanupStaleImports(t.db, t.storage);
+    expect(stale).toBe(1);
+    const [after] = await t.db.select().from(userJobs).where(eq(userJobs.id, job.id));
+    expect(after).toMatchObject({ status: 'failed', fileKey: null });
+    expect(await t.storage.exists('exports', key)).toBe(false);
+  });
+
+  it('reconciles disk vs rows: old orphans removed, fresh and referenced files kept', async () => {
+    // Referenced file: a real attachment upload.
+    const png = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 9, g: 9, b: 9 } },
+    })
+      .png()
+      .toBuffer();
+    const created = await t.app.inject({
+      method: 'POST',
+      url: '/api/notes',
+      headers: { cookie },
+      payload: { title: 'with file' },
+    });
+    const noteId = created.json().id;
+    const boundary = '----okrec';
+    const uploaded = await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/attachments`,
+      headers: { cookie, 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.png"\r\nContent-Type: image/png\r\n\r\n`,
+        ),
+        png,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]),
+    });
+    expect(uploaded.statusCode).toBe(201);
+
+    const referenced = (await t.storage.list('attachments')).map((f) => f.key);
+    expect(referenced.length).toBeGreaterThan(0);
+    for (const key of referenced) await backdate('attachments', key);
+
+    const oldOrphan = t.storage.newKey('png');
+    await t.storage.write('attachments', oldOrphan, Buffer.from('orphan'));
+    await backdate('attachments', oldOrphan);
+    const freshOrphan = t.storage.newKey('png');
+    await t.storage.write('attachments', freshOrphan, Buffer.from('fresh'));
+
+    const removed = await reconcileStorage(t.db, t.storage);
+    expect(removed).toBeGreaterThanOrEqual(1);
+    expect(await t.storage.exists('attachments', oldOrphan)).toBe(false);
+    expect(await t.storage.exists('attachments', freshOrphan)).toBe(true);
+    for (const key of referenced) {
+      expect(await t.storage.exists('attachments', key)).toBe(true);
+    }
   });
 });

@@ -20,6 +20,26 @@ describe('wall/UTC conversion', () => {
 describe('nextOccurrence', () => {
   const at = (iso: string) => new Date(iso);
 
+  it('honors custom INTERVAL (every 2 weeks)', () => {
+    const dtstart = wallToUtc(SP, { y: 2026, mo: 1, d: 5, h: 9, mi: 0, s: 0 });
+    const next = nextOccurrence({
+      rrule: 'FREQ=WEEKLY;INTERVAL=2',
+      dtstart,
+      timezone: SP,
+      after: dtstart,
+    });
+    expect(utcToWall(next!, SP)).toMatchObject({ y: 2026, mo: 1, d: 19, h: 9, mi: 0 });
+
+    const daily3 = nextOccurrence({
+      rrule: 'FREQ=DAILY;INTERVAL=3',
+      dtstart,
+      timezone: SP,
+      after: next!,
+    });
+    // Grid counts from dtstart: Jan 5 + 3-day steps → Jan 20 is the first after Jan 19.
+    expect(utcToWall(daily3!, SP)).toMatchObject({ mo: 1, d: 20 });
+  });
+
   it('daily keeps wall time across the spring-forward transition (NY, Mar 8 2026)', () => {
     // 08:00 NY daily. Mar 7 = EST (UTC-5) → 13:00Z; Mar 8 = EDT (UTC-4) → 12:00Z.
     const dtstart = wallToUtc(NY, { y: 2026, mo: 3, d: 6, h: 8, mi: 0, s: 0 });

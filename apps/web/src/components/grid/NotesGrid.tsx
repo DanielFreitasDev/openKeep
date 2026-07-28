@@ -28,11 +28,15 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ overId: string; before: boolean } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerW, setContainerW] = useState(0);
   const heightsRef = useRef(new Map<string, number>());
   const [measureVersion, bumpMeasure] = useReducer((x: number) => x + 1, 0);
   const [animate, setAnimate] = useState(false);
+  /** Cards present at first paint don't replay the enter animation. */
+  const initialIdsRef = useRef<Set<string> | null>(null);
+  if (initialIdsRef.current === null) initialIdsRef.current = new Set(notes.map((n) => n.id));
 
   useEffect(() => {
     const el = containerRef.current;
@@ -72,8 +76,27 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     if (!dndSection) return;
     return monitorForElements({
       canMonitor: ({ source }) => typeof source.data.gridNoteId === 'string',
+      onDragStart: ({ source }) => setDraggingId(source.data.gridNoteId as string),
+      // Live re-layout preview: while hovering this section, other cards glide
+      // to show where the drop would land.
+      onDrag: ({ location }) => {
+        const target = location.current.dropTargets.find(
+          (dt) => dt.data.gridSection === dndSection,
+        );
+        if (!target) {
+          setDragPreview((p) => (p === null ? p : null));
+          return;
+        }
+        const overId = target.data.gridNoteId as string;
+        const rect = (target.element as HTMLElement).getBoundingClientRect();
+        const before = (location.current.input.clientY ?? 0) < rect.top + rect.height / 2;
+        setDragPreview((p) =>
+          p?.overId === overId && p.before === before ? p : { overId, before },
+        );
+      },
       onDrop: ({ source, location }) => {
         setDraggingId(null);
+        setDragPreview(null);
         const target = location.current.dropTargets.find(
           (dt) => dt.data.gridSection === dndSection,
         );
@@ -115,14 +138,26 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const cardW =
     viewMode === 'list' && !isNarrow ? Math.min(600, containerW) : isNarrow ? containerW : CARD_W;
 
+  // While dragging within this section, lay out the preview order instead.
+  const orderedForLayout = useMemo(() => {
+    if (!draggingId || !dragPreview || dragPreview.overId === draggingId) return notes;
+    const without = notes.filter((n) => n.id !== draggingId);
+    if (without.length === notes.length) return notes; // dragged card lives in the other section
+    const overIdx = without.findIndex((n) => n.id === dragPreview.overId);
+    const dragged = notes.find((n) => n.id === draggingId);
+    if (overIdx === -1 || !dragged) return notes;
+    const insertAt = dragPreview.before ? overIdx : overIdx + 1;
+    return [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
+  }, [notes, draggingId, dragPreview]);
+
   const layout = useMemo(() => {
     void measureVersion;
-    const items = notes.map((n) => ({
+    const items = orderedForLayout.map((n) => ({
       id: n.id,
       height: heightsRef.current.get(n.id) ?? 120,
     }));
     return layoutMasonry(items, cols, cardW, GUTTER);
-  }, [notes, cols, cardW, measureVersion]);
+  }, [orderedForLayout, cols, cardW, measureVersion]);
 
   const innerW = cols === 1 ? cardW : gridWidth(cols, cardW, GUTTER);
 
@@ -169,10 +204,12 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
                 return undefined;
               }}
               className={`${
-                animate && draggingId === null
+                animate && draggingId !== note.id
                   ? 'transition-transform duration-[180ms] motion-reduce:transition-none'
                   : ''
-              } ${draggingId === note.id ? 'opacity-40' : ''}`}
+              } ${draggingId === note.id ? 'opacity-40' : ''} ${
+                animate && !initialIdsRef.current?.has(note.id) ? 'note-enter' : ''
+              }`}
               style={{
                 position: 'absolute',
                 width: cardW,

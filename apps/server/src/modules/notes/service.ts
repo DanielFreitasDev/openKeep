@@ -9,11 +9,11 @@ import type {
   PatchNoteState,
 } from '@openkeep/shared';
 import { comparePositions, LIMITS, positionBefore, positionsBetween } from '@openkeep/shared';
-import { and, asc, desc, eq, inArray, isNotNull, lt, min } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, inArray, isNotNull, lt, min, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
 import { user as userTable } from '../../db/schema/auth.js';
-import { noteLabels } from '../../db/schema/labels.js';
+import { labels as labelsTable, noteLabels } from '../../db/schema/labels.js';
 import type { VersionItem } from '../../db/schema/notes.js';
 import { noteItems, noteMembers, notes, noteVersions } from '../../db/schema/notes.js';
 import { reminders as remindersTable } from '../../db/schema/reminders.js';
@@ -247,12 +247,31 @@ export async function listNotes(
   db: Db,
   userId: string,
   view?: 'active' | 'archived' | 'trash',
+  label?: string,
 ): Promise<FullNote[]> {
+  const conditions = [eq(noteMembers.userId, userId)];
+  if (label) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(noteLabels)
+          .innerJoin(labelsTable, eq(labelsTable.id, noteLabels.labelId))
+          .where(
+            and(
+              eq(noteLabels.noteId, noteMembers.noteId),
+              eq(noteLabels.userId, userId),
+              sql`lower(${labelsTable.name}) = lower(${label})`,
+            ),
+          ),
+      ),
+    );
+  }
   const rows = await db
     .select({ member: noteMembers, note: notes })
     .from(noteMembers)
     .innerJoin(notes, eq(notes.id, noteMembers.noteId))
-    .where(eq(noteMembers.userId, userId));
+    .where(and(...conditions));
 
   const filtered = rows.filter(({ member, note }) => {
     const trashed = note.trashedAt !== null;
@@ -291,10 +310,10 @@ async function topPosition(db: Db | Tx, userId: string): Promise<string> {
   return positionBefore(row?.min ?? null);
 }
 
-async function snapshotVersion(
+export async function snapshotVersion(
   tx: Tx,
   note: NoteRow,
-  items: ItemRow[],
+  items: Pick<ItemRow, 'text' | 'checked' | 'indent'>[],
   byUserId: string,
 ): Promise<void> {
   const versionItems: VersionItem[] | null =

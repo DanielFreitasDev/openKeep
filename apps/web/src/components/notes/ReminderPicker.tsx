@@ -13,7 +13,19 @@ const RECURRENCES: { value: string; key: string }[] = [
   { value: 'FREQ=WEEKLY', key: 'recurWeekly' },
   { value: 'FREQ=MONTHLY', key: 'recurMonthly' },
   { value: 'FREQ=YEARLY', key: 'recurYearly' },
+  { value: 'CUSTOM', key: 'recurCustom' },
 ];
+
+const CUSTOM_FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
+type CustomFreq = (typeof CUSTOM_FREQS)[number];
+
+/** FREQ=X;INTERVAL=N ⇄ picker state (anything else edits as "custom"). */
+function parseCustomRule(rule: string): { freq: CustomFreq; interval: number } | null {
+  const freq = /FREQ=([A-Z]+)/.exec(rule)?.[1];
+  const interval = Number(/INTERVAL=(\d+)/.exec(rule)?.[1] ?? '1');
+  if (!freq || !CUSTOM_FREQS.includes(freq as CustomFreq)) return null;
+  return { freq: freq as CustomFreq, interval: Math.max(1, interval) };
+}
 
 function at(date: Date, hhmm: string): Date {
   const [h, m] = hhmm.split(':').map(Number);
@@ -34,14 +46,28 @@ export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () =>
   const m = useReminderMutations();
   const [custom, setCustom] = useState(false);
   const [when, setWhen] = useState(() => toLocalInputValue(new Date(Date.now() + 3600_000)));
-  const [rrule, setRrule] = useState(note.reminder?.rrule ?? '');
+  const [rrule, setRrule] = useState(() => {
+    const existing = note.reminder?.rrule ?? '';
+    if (existing && !RECURRENCES.some((r) => r.value === existing)) return 'CUSTOM';
+    return existing;
+  });
+  const [customRule, setCustomRule] = useState(() => {
+    return (
+      parseCustomRule(note.reminder?.rrule ?? '') ?? { freq: 'WEEKLY' as CustomFreq, interval: 2 }
+    );
+  });
+
+  const effectiveRule =
+    rrule === 'CUSTOM' ? `FREQ=${customRule.freq};INTERVAL=${customRule.interval}` : rrule;
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const now = new Date();
   const morning = settings?.reminderMorning ?? '08:00';
+  const afternoon = settings?.reminderAfternoon ?? '13:00';
   const evening = settings?.reminderEvening ?? '18:00';
 
-  const laterToday = at(now, evening);
+  // "Later today" = the next configured slot still ahead (afternoon → evening).
+  const laterToday = at(now, afternoon) > now ? at(now, afternoon) : at(now, evening);
   const tomorrow = at(new Date(now.getTime() + 86400_000), morning);
   const nextWeek = at(new Date(now.getTime() + 7 * 86400_000), morning);
 
@@ -125,6 +151,38 @@ export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () =>
               ))}
             </select>
           </label>
+          {rrule === 'CUSTOM' && (
+            <div className="flex items-center gap-2 text-on-surface-variant text-xs">
+              {t('repeatEvery')}
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={customRule.interval}
+                aria-label={t('repeatInterval')}
+                onChange={(e) =>
+                  setCustomRule((c) => ({
+                    ...c,
+                    interval: Math.max(1, Math.min(999, Number(e.target.value) || 1)),
+                  }))
+                }
+                className="w-16 rounded border border-(--outline) bg-transparent px-2 py-1.5 text-on-surface text-sm"
+              />
+              <select
+                value={customRule.freq}
+                aria-label={t('repeatUnit')}
+                onChange={(e) =>
+                  setCustomRule((c) => ({ ...c, freq: e.target.value as CustomFreq }))
+                }
+                className="flex-1 rounded border border-(--outline) bg-surface px-2 py-1.5 text-on-surface text-sm"
+              >
+                <option value="DAILY">{t('unitDays', { count: customRule.interval })}</option>
+                <option value="WEEKLY">{t('unitWeeks', { count: customRule.interval })}</option>
+                <option value="MONTHLY">{t('unitMonths', { count: customRule.interval })}</option>
+                <option value="YEARLY">{t('unitYears', { count: customRule.interval })}</option>
+              </select>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -138,7 +196,7 @@ export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () =>
               className="rounded px-3 py-1.5 font-medium text-primary text-sm hover:bg-(--surface-hover)"
               onClick={() => {
                 const date = new Date(when);
-                if (!Number.isNaN(date.getTime())) apply(date, rrule);
+                if (!Number.isNaN(date.getTime())) apply(date, effectiveRule);
               }}
             >
               {t('common:save')}
