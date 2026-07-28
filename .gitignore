@@ -15,3 +15,4 @@ e2e/blob-report/
 .DS_Store
 *.tsbuildinfo
 .vite/
+.claude/scheduled_tasks.lock
