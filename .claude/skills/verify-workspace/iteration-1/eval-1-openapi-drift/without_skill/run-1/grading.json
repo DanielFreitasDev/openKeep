@@ -1,0 +1,79 @@
+{
+  "expectations": [
+    {
+      "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+      "passed": true,
+      "evidence": "report.md step 2: 'pnpm check — PASS, Biome clean on 278 files; 5/5 typecheck tasks OK'; re-run at step 10 after spec regeneration, plus a belt-and-braces fresh server tsc at step 3."
+    },
+    {
+      "text": "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+      "passed": true,
+      "evidence": "The drift was caught with the cause identified — step 4: 'pnpm --filter @openkeep/server test -- openapi — FAIL: rendered spec contains the new includeCounts query parameter, committed docs/openapi.json does not' — and full 'pnpm test' was run (step 7, cache replay; step 9 'turbo run test --force' genuinely executed all 306 tests green). Note: strictly, the detector was the targeted server openapi test, run pre-fix because CLAUDE.md flags this CI-breaker; full pnpm test only ran post-fix. The substance (repo test suite caught the seeded drift before any ready verdict) is genuinely satisfied, matching the standard applied to the with_skill arm."
+    },
+    {
+      "text": "Regenerated docs/openapi.json via UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi (or equivalent); final.diff shows docs/openapi.json updated with includeCounts",
+      "passed": true,
+      "evidence": "report.md step 5 shows the exact documented command; step 6 reviewed the resulting diff. final.diff contains the docs/openapi.json hunk with '\"name\": \"includeCounts\"' — byte-identical to the with_skill arm. Corroborated in the worktree: wt-openapi-base/docs/openapi.json line 4091 contains includeCounts; git status shows exactly routes.ts + docs/openapi.json."
+    },
+    {
+      "text": "Correctly did NOT run Playwright e2e (no files under apps/web/ changed)",
+      "passed": true,
+      "evidence": "report.md 'Steps intentionally skipped': e2e skipped citing CLAUDE.md's web-only rule and confirming via git status that no apps/web files changed. Corroborated by absence of artifacts: wt-openapi-base has no e2e/test-results, no playwright-report, and no .env (required to run e2e)."
+    },
+    {
+      "text": "Final report gives pass/fail per step and only declares ready after the spec was regenerated and tests are green",
+      "passed": true,
+      "evidence": "10-row table with a result per step. The one recorded FAIL besides the drift (step 8, 'pnpm test -- --force') is transparently labeled 'invalid invocation, not a code failure', discarded, and re-run correctly at step 9. 'Ready to commit' appears only in the final section, after regeneration (step 5), a fully uncached green suite (step 9), and a clean re-check (step 10)."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "total_tool_calls": 16
+  },
+  "claims": [
+    {
+      "claim": "Step 8's 'pnpm test -- --force' failure was an invalid invocation (pnpm forwarded --force into each package's vitest), not a code failure",
+      "type": "process",
+      "verified": true,
+      "evidence": "Plausible and internally consistent: pnpm passes post-'--' args to the script, and the immediately following correct invocation ('pnpm exec turbo run test --force') passed with 0 cached tasks."
+    },
+    {
+      "claim": "Full suite genuinely executed uncached at step 9: 306 tests (shared 9, mcp 37, web 47, server 213), all green",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Self-reported; no per-run artifact records counts. Consistent with the clean final state and with per-suite counts reported independently across the other five runs."
+    },
+    {
+      "claim": "The docs/openapi.json diff is exactly one added block and nothing else",
+      "type": "factual",
+      "verified": true,
+      "evidence": "final.diff shows a single 10-line parameters block added to GET /api/labels; final.diff = seed.diff + that hunk."
+    },
+    {
+      "claim": "E2e was also skipped because it writes to the dev database",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Accurate secondary rationale — CLAUDE.md documents that pnpm test:e2e writes to the dev database."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "5/5 in both arms — no discrimination. CLAUDE.md hands the baseline the exact regen command, so knowledge parity is guaranteed; the measurable difference was process efficiency (226s/16 tools vs 145s/13 with skill; three cache-distrust extras here, including one wasted invalid invocation) and the with_skill arm using pnpm test directly as the detector instead of pre-targeting the known CI-breaker."
+      },
+      {
+        "assertion": "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+        "reason": "Passed under a substance reading only: the targeted server openapi test caught the drift before full pnpm test ever ran. Specify the intended detector or reword to outcome language ('the drift was caught by the repo's tests before declaring ready')."
+      },
+      {
+        "reason": "The baseline's turbo-cache distrust spiral (steps 3, 7, 8, 9 — a fresh tsc, a cached full test treated as inconclusive, a botched --force, then a full forced re-run) is the most instructive behavior in this pair and is invisible to every assertion. An assertion rewarding a single trusted full-suite run would make this eval discriminate."
+      }
+    ],
+    "overall": "Correct outcome and honest reporting, including self-declared missteps; 56% slower than the skill arm on identical results. Assertions verify correctness, which both arms achieve, but not the efficiency the skill actually buys."
+  }
+}

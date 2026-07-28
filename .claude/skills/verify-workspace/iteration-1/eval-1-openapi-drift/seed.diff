@@ -1,0 +1,28 @@
+diff --git a/apps/server/src/modules/labels/routes.ts b/apps/server/src/modules/labels/routes.ts
+index 20b98c7..2e57f3e 100644
+--- a/apps/server/src/modules/labels/routes.ts
++++ b/apps/server/src/modules/labels/routes.ts
+@@ -8,6 +8,7 @@ import type { Realtime } from '../../realtime/registry.js';
+ import * as svc from './service.js';
+ 
+ const zLabelParams = z.object({ id: zId });
++const zListLabelsQuery = z.object({ includeCounts: z.coerce.boolean().optional() });
+ const zNoteLabelParams = z.object({ id: zId, labelId: zId });
+ 
+ export function registerLabelRoutes(app: App, db: Db, realtime: Realtime): void {
+@@ -25,7 +26,14 @@ export function registerLabelRoutes(app: App, db: Db, realtime: Realtime): void
+ 
+   app.get(
+     '/api/labels',
+-    { ...auth, schema: { tags: ['labels'], response: { 200: z.array(zLabel) } } },
++    {
++      ...auth,
++      schema: {
++        tags: ['labels'],
++        querystring: zListLabelsQuery,
++        response: { 200: z.array(zLabel) },
++      },
++    },
+     async (req) => svc.listLabels(db, req.user.id),
+   );
+ 

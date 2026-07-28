@@ -1,0 +1,48 @@
+{
+  "skill_name": "verify",
+  "notes": "Each eval seeds an uncommitted change in a dedicated git worktree ({DIR}) and asks the agent to verify before commit. {OUT} is the run's outputs dir. Baseline = no skill, but CLAUDE.md applies to both arms (realistic session context).",
+  "evals": [
+    {
+      "id": 0,
+      "name": "i18n-parity-miss",
+      "prompt": "You're working in the OpenKeep repo at {DIR} (its CLAUDE.md applies as usual; treat this directory as the repo root for every command). I started wiring the 'label limit reached' toast — the first bit of UI copy is in, the rest of the feature comes later. Before I commit, please verify my change is ready: run whatever verification this repo requires and fix anything that fails. When you're done, write your verification report to {OUT}/report.md — include exactly what you ran, pass/fail per step, and anything you fixed.",
+      "expected_output": "Agent discovers the uncommitted EN string 'labelLimitReached' in apps/web/src/i18n/locales/en/labels.json, runs pnpm check + pnpm test, catches the i18n parity failure, adds the pt-BR twin, recognizes e2e applies (web files changed), and does not declare done while red.",
+      "files": [],
+      "expectations": [
+        "Ran pnpm check (Biome + typecheck) and reported its result",
+        "Ran pnpm test and caught the i18n parity failure for the missing pt-BR 'labelLimitReached' key",
+        "Added the missing 'labelLimitReached' key to apps/web/src/i18n/locales/pt-BR/labels.json (visible in final.diff)",
+        "Recognized that e2e applies because files under apps/web/ changed — ran pnpm test:e2e or explicitly reported it as a required step",
+        "Did not declare the change ready while any step was failing; final report gives pass/fail per step"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "openapi-drift",
+      "prompt": "You're working in the OpenKeep repo at {DIR} (its CLAUDE.md applies as usual; treat this directory as the repo root for every command). I extended the labels list endpoint in apps/server/src/modules/labels/routes.ts with an optional query param to prepare for label counts in the sidebar — nothing consumes it yet. Before I commit, please verify the change is ready: run whatever verification this repo requires and fix anything that fails. When you're done, write your verification report to {OUT}/report.md — include exactly what you ran, pass/fail per step, and anything you fixed.",
+      "expected_output": "Agent runs pnpm check + pnpm test, catches docs/openapi.json drift, regenerates it with UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi, correctly skips e2e (no web files changed), reports green only after regen.",
+      "files": [],
+      "expectations": [
+        "Ran pnpm check (Biome + typecheck) and reported its result",
+        "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+        "Regenerated docs/openapi.json via UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi (or equivalent); final.diff shows docs/openapi.json updated with includeCounts",
+        "Correctly did NOT run Playwright e2e (no files under apps/web/ changed)",
+        "Final report gives pass/fail per step and only declares ready after the spec was regenerated and tests are green"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "skip-e2e-correctly",
+      "prompt": "You're working in the OpenKeep repo at {DIR} (its CLAUDE.md applies as usual; treat this directory as the repo root for every command). I did a tiny cleanup in the labels service — deduplicated the label-already-exists error into a helper. Before I commit, please verify it's ready: run whatever verification this repo requires and fix anything that fails. When you're done, write your verification report to {OUT}/report.md — include exactly what you ran, pass/fail per step, and anything you fixed.",
+      "expected_output": "Agent runs pnpm check + pnpm test (both green), correctly does NOT run e2e or pnpm db:up (server-only change), makes no unnecessary edits, reports per-step pass honestly.",
+      "files": [],
+      "expectations": [
+        "Ran pnpm check (Biome + typecheck) and reported its result",
+        "Ran pnpm test and reported it green",
+        "Correctly did NOT run Playwright e2e and did NOT start the dev DB (no pnpm db:up / docker compose up) — server-only change",
+        "Made no code changes beyond the seeded cleanup (final.diff matches seed.diff)",
+        "Final report gives pass/fail per step and declares the change ready"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "eval_id": 1,
+  "eval_name": "openapi-drift",
+  "prompt": "You're working in the OpenKeep repo at {DIR} (its CLAUDE.md applies as usual; treat this directory as the repo root for every command). I extended the labels list endpoint in apps/server/src/modules/labels/routes.ts with an optional query param to prepare for label counts in the sidebar — nothing consumes it yet. Before I commit, please verify the change is ready: run whatever verification this repo requires and fix anything that fails. When you're done, write your verification report to {OUT}/report.md — include exactly what you ran, pass/fail per step, and anything you fixed.",
+  "seeded_state": "Uncommitted change: GET /api/labels gains querystring { includeCounts?: boolean } in routes.ts. docs/openapi.json was NOT regenerated, so the OpenAPI snapshot test inside pnpm test fails until UPDATE_OPENAPI=1 regen runs.",
+  "assertions": [
+    "Ran pnpm check (Biome + typecheck) and reported its result",
+    "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+    "Regenerated docs/openapi.json via UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi (or equivalent); final.diff shows docs/openapi.json updated with includeCounts",
+    "Correctly did NOT run Playwright e2e (no files under apps/web/ changed)",
+    "Final report gives pass/fail per step and only declares ready after the spec was regenerated and tests are green"
+  ]
+}

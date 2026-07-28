@@ -1,0 +1,76 @@
+{
+  "expectations": [
+    {
+      "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+      "passed": true,
+      "evidence": "report.md step 1: 'pnpm check — PASS. Biome: 278 files checked, no issues. tsc --noEmit green in all workspaces'; explicitly re-run after the OpenAPI fix, still PASS."
+    },
+    {
+      "text": "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+      "passed": true,
+      "evidence": "report.md step 2: first 'pnpm test' run FAIL on apps/server/test/integration/openapi.test.ts — 'rendered spec contained the new includeCounts query parameter for GET /api/labels; the committed docs/openapi.json did not' (212/213 otherwise green). Full pnpm test itself was the detector, pre-fix."
+    },
+    {
+      "text": "Regenerated docs/openapi.json via UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi (or equivalent); final.diff shows docs/openapi.json updated with includeCounts",
+      "passed": true,
+      "evidence": "report.md step 4 shows the exact documented command. final.diff contains the docs/openapi.json hunk adding the parameters block with '\"name\": \"includeCounts\"', in: query, type boolean, required false. Corroborated in the worktree: wt-openapi-with/docs/openapi.json line 4091 contains includeCounts and git status shows exactly routes.ts + docs/openapi.json modified."
+    },
+    {
+      "text": "Correctly did NOT run Playwright e2e (no files under apps/web/ changed)",
+      "passed": true,
+      "evidence": "report.md step 3: 'Playwright e2e — SKIPPED (correctly, per skill)' with the decision procedure (git diff --name-only shows nothing under apps/web/). Corroborated by absence of artifacts: wt-openapi-with has no e2e/test-results, no playwright-report, and no .env (which an e2e run would have required, as the eval-0 runs demonstrated)."
+    },
+    {
+      "text": "Final report gives pass/fail per step and only declares ready after the spec was regenerated and tests are green",
+      "passed": true,
+      "evidence": "Each step is headed with its result (PASS / FAIL-then-PASS / SKIPPED / FIXED); the Outcome section declares 'ready to commit' only after the post-regeneration re-run of pnpm test passed 213/213, and it conditions readiness on committing both routes.ts and docs/openapi.json."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "total_tool_calls": 13
+  },
+  "claims": [
+    {
+      "claim": "Verification followed .claude/skills/verify/SKILL.md, steps in order",
+      "type": "process",
+      "verified": true,
+      "evidence": "Report cites the skill file (present in the worktree) and its structure matches the gate order including the two named CI-breaker checks."
+    },
+    {
+      "claim": "The diff to docs/openapi.json is exactly the new parameter on GET /api/labels (+10 lines)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "final.diff shows a single 10-line addition to docs/openapi.json, the includeCounts parameters block; nothing else in the spec changed."
+    },
+    {
+      "claim": "No source-code fixes were needed; only the spec regeneration",
+      "type": "factual",
+      "verified": true,
+      "evidence": "final.diff = seed.diff + the docs/openapi.json hunk; routes.ts is byte-identical to the seeded change."
+    },
+    {
+      "claim": "Re-run after fix: 20 files, 213/213 tests, all 4 workspace tasks successful",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Self-reported with no per-run artifact to confirm counts; consistent with the clean final worktree state and with identical counts reported independently by the baseline arm."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "Both arms pass 5/5 — the eval does not discriminate skill value because CLAUDE.md already spells out the exact UPDATE_OPENAPI regen command and the e2e-only-when-web-changed rule. The real difference was efficiency: 145s/13 tools here vs 226s/16 tools baseline, where the baseline burned time on cache-busting re-runs including one botched 'pnpm test -- --force' invocation. No assertion captures that."
+      },
+      {
+        "assertion": "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+        "reason": "Satisfied literally in this arm (pnpm test was the detector) but only in substance in the baseline (a targeted server openapi test caught it first). The wording should pin down whether the full-suite command must be the detector, or the eval will keep grading the two arms on different readings."
+      }
+    ],
+    "overall": "Cleanest run of the six: fewest tool calls, pnpm test trusted directly as the detector, minimal diff, correct skip. But the assertions as written are all reachable from CLAUDE.md alone."
+  }
+}

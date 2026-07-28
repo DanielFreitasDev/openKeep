@@ -1,0 +1,12 @@
+diff --git a/apps/web/src/i18n/locales/en/labels.json b/apps/web/src/i18n/locales/en/labels.json
+index 08ec156..9f26236 100644
+--- a/apps/web/src/i18n/locales/en/labels.json
++++ b/apps/web/src/i18n/locales/en/labels.json
+@@ -10,5 +10,6 @@
+   "addLabel": "Add label",
+   "changeLabels": "Change labels",
+   "removeLabel": "Remove label {{name}}",
+-  "emptyLabelView": "No notes with this label yet"
++  "emptyLabelView": "No notes with this label yet",
++  "labelLimitReached": "Label limit reached"
+ }

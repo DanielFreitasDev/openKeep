@@ -1,0 +1,334 @@
+{
+  "metadata": {
+    "skill_name": "verify",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-07-28T18:11:37Z",
+    "evals_run": [0, 1, 2],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 245.1,
+        "tokens": 39746,
+        "tool_calls": 27,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+          "passed": true,
+          "evidence": "report.md step 1: 'pnpm check — PASS (278 files checked, 5/5 typecheck tasks OK)'; re-run after the fix in step 2' ('pnpm check && pnpm test' PASS)."
+        },
+        {
+          "text": "Ran pnpm test and caught the i18n parity failure for the missing pt-BR 'labelLimitReached' key",
+          "passed": true,
+          "evidence": "report.md step 2: first 'pnpm test' run FAIL on apps/web/src/i18n/parity.test.ts ('labels.labelLimitReached present in EN, missing in pt-BR'). pnpm test itself surfaced the seeded failure before any fix. Corroborated by the pt-BR fix landing in final.diff."
+        },
+        {
+          "text": "Added the missing 'labelLimitReached' key to apps/web/src/i18n/locales/pt-BR/labels.json (visible in final.diff)",
+          "passed": true,
+          "evidence": "final.diff contains the hunk in apps/web/src/i18n/locales/pt-BR/labels.json adding '\"labelLimitReached\": \"Limite de marcadores atingido\"'. Verified in the worktree: git status shows exactly the two locale files modified."
+        },
+        {
+          "text": "Recognized that e2e applies because files under apps/web/ changed — ran pnpm test:e2e or explicitly reported it as a required step",
+          "passed": true,
+          "evidence": "report.md step 3 labels e2e 'required: files under apps/web/ changed' and ran pnpm test:e2e (26/26). Corroborated by artifact wt-i18n-with/e2e/test-results/.last-run.json {\"status\":\"passed\",\"failedTests\":[]} timestamped 14:54, inside this run's window, and by the .env the run created at 14:53 to enable db:migrate/e2e."
+        },
+        {
+          "text": "Did not declare the change ready while any step was failing; final report gives pass/fail per step",
+          "passed": true,
+          "evidence": "Steps table gives PASS/FAIL per step; the step-2 FAIL was fixed and re-verified (step 2') before proceeding, and 'The change is ready to commit' appears only in Final state after check, test (47/47 web), and e2e (26/26) were all green."
+        }
+      ],
+      "notes": [],
+      "eval_name": "i18n-parity-miss"
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 144.9,
+        "tokens": 30757,
+        "tool_calls": 13,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+          "passed": true,
+          "evidence": "report.md step 1: 'pnpm check — PASS. Biome: 278 files checked, no issues. tsc --noEmit green in all workspaces'; explicitly re-run after the OpenAPI fix, still PASS."
+        },
+        {
+          "text": "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+          "passed": true,
+          "evidence": "report.md step 2: first 'pnpm test' run FAIL on apps/server/test/integration/openapi.test.ts — 'rendered spec contained the new includeCounts query parameter for GET /api/labels; the committed docs/openapi.json did not' (212/213 otherwise green). Full pnpm test itself was the detector, pre-fix."
+        },
+        {
+          "text": "Regenerated docs/openapi.json via UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi (or equivalent); final.diff shows docs/openapi.json updated with includeCounts",
+          "passed": true,
+          "evidence": "report.md step 4 shows the exact documented command. final.diff contains the docs/openapi.json hunk adding the parameters block with '\"name\": \"includeCounts\"', in: query, type boolean, required false. Corroborated in the worktree: wt-openapi-with/docs/openapi.json line 4091 contains includeCounts and git status shows exactly routes.ts + docs/openapi.json modified."
+        },
+        {
+          "text": "Correctly did NOT run Playwright e2e (no files under apps/web/ changed)",
+          "passed": true,
+          "evidence": "report.md step 3: 'Playwright e2e — SKIPPED (correctly, per skill)' with the decision procedure (git diff --name-only shows nothing under apps/web/). Corroborated by absence of artifacts: wt-openapi-with has no e2e/test-results, no playwright-report, and no .env (which an e2e run would have required, as the eval-0 runs demonstrated)."
+        },
+        {
+          "text": "Final report gives pass/fail per step and only declares ready after the spec was regenerated and tests are green",
+          "passed": true,
+          "evidence": "Each step is headed with its result (PASS / FAIL-then-PASS / SKIPPED / FIXED); the Outcome section declares 'ready to commit' only after the post-regeneration re-run of pnpm test passed 213/213, and it conditions readiness on committing both routes.ts and docs/openapi.json."
+        }
+      ],
+      "notes": [],
+      "eval_name": "openapi-drift"
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 123.4,
+        "tokens": 29311,
+        "tool_calls": 11,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+          "passed": true,
+          "evidence": "report.md step 1: 'pnpm check — PASS. Biome checked 278 files, no issues... 5/5 tasks successful' (server re-typechecked fresh due to the change)."
+        },
+        {
+          "text": "Ran pnpm test and reported it green",
+          "passed": true,
+          "evidence": "report.md step 2: 'pnpm test — PASS', with the changed package's suite executed fresh (server: 20 files, 213 tests, including labels-search.test.ts covering the touched service — that file exists in the worktree with exactly 14 tests, matching the report) and unchanged packages as valid turbo cache hits. Docker precondition for Testcontainers checked first."
+        },
+        {
+          "text": "Correctly did NOT run Playwright e2e and did NOT start the dev DB (no pnpm db:up / docker compose up) — server-only change",
+          "passed": true,
+          "evidence": "report.md step 3: e2e 'SKIPPED (correctly, per the skill)' with the decision procedure (git diff --name-only shows only the service.ts file) and an explicit note that skipping avoids writing to the dev DB on :55432. No db:up/compose-up appears anywhere in the report; integration tests used throwaway Testcontainers. Corroborated by artifacts: wt-skip-with has no e2e/test-results, no playwright-report, and no .env — which db:migrate/e2e would have required (the eval-0 runs had to create one). Dev-DB non-start is not per-run attributable from global docker state, but every available artifact is consistent with the claim and nothing contradicts it."
+        },
+        {
+          "text": "Made no code changes beyond the seeded cleanup (final.diff matches seed.diff)",
+          "passed": true,
+          "evidence": "diff -q of seed.diff vs final.diff: identical. Worktree git status shows only apps/server/src/modules/labels/service.ts modified. Report's 'Fixes applied: None' is accurate."
+        },
+        {
+          "text": "Final report gives pass/fail per step and declares the change ready",
+          "passed": true,
+          "evidence": "Five step sections each headed PASS / SKIPPED / N-A-verified-clean, then 'Verdict: All required verification is green. The change is ready to commit as-is.'"
+        }
+      ],
+      "notes": [],
+      "eval_name": "skip-e2e-correctly"
+    },
+    {
+      "eval_id": 0,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 365.3,
+        "tokens": 48274,
+        "tool_calls": 29,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+          "passed": true,
+          "evidence": "report.md step 1: 'pnpm check (Biome 278 files + turbo run typecheck, 5 packages) — PASS'; re-run after the fix at step 3."
+        },
+        {
+          "text": "Ran pnpm test and caught the i18n parity failure for the missing pt-BR 'labelLimitReached' key",
+          "passed": true,
+          "evidence": "The parity failure was caught with the exact key identified — report step 2: 'pnpm --filter @openkeep/web test -- parity — FAIL ... labels.labelLimitReached present in en, missing in pt-BR' — and full 'pnpm test' was run (step 4, PASS post-fix; steps 5-8 re-ran every suite fresh, 47/47 web incl. parity). Note: strictly, the detector was a scoped invocation of the same vitest suite pnpm test runs, not the full pnpm test command itself; the substance of the assertion (test suite caught the seeded failure before any ready verdict) is genuinely satisfied, matching the standard applied to the with_skill arm."
+        },
+        {
+          "text": "Added the missing 'labelLimitReached' key to apps/web/src/i18n/locales/pt-BR/labels.json (visible in final.diff)",
+          "passed": true,
+          "evidence": "final.diff contains the hunk in apps/web/src/i18n/locales/pt-BR/labels.json adding '\"labelLimitReached\": \"Limite de marcadores atingido\"' — byte-identical to the with_skill arm's fix. Worktree git status shows exactly the two locale files modified."
+        },
+        {
+          "text": "Recognized that e2e applies because files under apps/web/ changed — ran pnpm test:e2e or explicitly reported it as a required step",
+          "passed": true,
+          "evidence": "report.md step 11 ran pnpm test:e2e (26/26 in 44.1s) and the verdict states it ran 'since the web app changed'. Corroborated by artifact wt-i18n-base/e2e/test-results/.last-run.json {\"status\":\"passed\",\"failedTests\":[]} timestamped 15:00, inside this run's window, and by the .env created at 15:00 to enable db:migrate/e2e."
+        },
+        {
+          "text": "Did not declare the change ready while any step was failing; final report gives pass/fail per step",
+          "passed": true,
+          "evidence": "11-step table gives PASS/FAIL per step; the parity FAIL (step 2) was fixed before re-verification, the db:migrate FAIL (step 10) was an environment issue resolved in-step, and 'Ready to commit' appears only in the Verdict after every step was green."
+        }
+      ],
+      "notes": [],
+      "eval_name": "i18n-parity-miss"
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 226.4,
+        "tokens": 37363,
+        "tool_calls": 16,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+          "passed": true,
+          "evidence": "report.md step 2: 'pnpm check — PASS, Biome clean on 278 files; 5/5 typecheck tasks OK'; re-run at step 10 after spec regeneration, plus a belt-and-braces fresh server tsc at step 3."
+        },
+        {
+          "text": "Ran pnpm test and caught the docs/openapi.json drift caused by the new includeCounts query param",
+          "passed": true,
+          "evidence": "The drift was caught with the cause identified — step 4: 'pnpm --filter @openkeep/server test -- openapi — FAIL: rendered spec contains the new includeCounts query parameter, committed docs/openapi.json does not' — and full 'pnpm test' was run (step 7, cache replay; step 9 'turbo run test --force' genuinely executed all 306 tests green). Note: strictly, the detector was the targeted server openapi test, run pre-fix because CLAUDE.md flags this CI-breaker; full pnpm test only ran post-fix. The substance (repo test suite caught the seeded drift before any ready verdict) is genuinely satisfied, matching the standard applied to the with_skill arm."
+        },
+        {
+          "text": "Regenerated docs/openapi.json via UPDATE_OPENAPI=1 pnpm --filter @openkeep/server test -- openapi (or equivalent); final.diff shows docs/openapi.json updated with includeCounts",
+          "passed": true,
+          "evidence": "report.md step 5 shows the exact documented command; step 6 reviewed the resulting diff. final.diff contains the docs/openapi.json hunk with '\"name\": \"includeCounts\"' — byte-identical to the with_skill arm. Corroborated in the worktree: wt-openapi-base/docs/openapi.json line 4091 contains includeCounts; git status shows exactly routes.ts + docs/openapi.json."
+        },
+        {
+          "text": "Correctly did NOT run Playwright e2e (no files under apps/web/ changed)",
+          "passed": true,
+          "evidence": "report.md 'Steps intentionally skipped': e2e skipped citing CLAUDE.md's web-only rule and confirming via git status that no apps/web files changed. Corroborated by absence of artifacts: wt-openapi-base has no e2e/test-results, no playwright-report, and no .env (required to run e2e)."
+        },
+        {
+          "text": "Final report gives pass/fail per step and only declares ready after the spec was regenerated and tests are green",
+          "passed": true,
+          "evidence": "10-row table with a result per step. The one recorded FAIL besides the drift (step 8, 'pnpm test -- --force') is transparently labeled 'invalid invocation, not a code failure', discarded, and re-run correctly at step 9. 'Ready to commit' appears only in the final section, after regeneration (step 5), a fully uncached green suite (step 9), and a clean re-check (step 10)."
+        }
+      ],
+      "notes": [],
+      "eval_name": "openapi-drift"
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 166.1,
+        "tokens": 34600,
+        "tool_calls": 13,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+          "passed": true,
+          "evidence": "report.md step 3: 'pnpm check — PASS, Biome: 278 files, no issues; typecheck green' (noted as turbo cache-served), plus a cache-bypassing fresh server tsc at step 4, also PASS."
+        },
+        {
+          "text": "Ran pnpm test and reported it green",
+          "passed": true,
+          "evidence": "report.md step 5: 'pnpm test — PASS' (honestly flagged as a FULL TURBO cache replay), backed by step 6's fresh, cache-bypassing run of the changed package's suite (server: 20 files / 213 tests green against throwaway Testcontainers Postgres). pnpm test was run and reported green, with the cached-result caveat handled by re-running what the change touched."
+        },
+        {
+          "text": "Correctly did NOT run Playwright e2e and did NOT start the dev DB (no pnpm db:up / docker compose up) — server-only change",
+          "passed": true,
+          "evidence": "report.md 'E2E: intentionally skipped' cites CLAUDE.md's web-only rule, notes the API surface is byte-identical, and that e2e 'would also have written to the dev database'. No db:up/compose-up appears in the report; only 'docker info' as a Testcontainers precondition. Corroborated by artifacts: wt-skip-base has no e2e/test-results, no playwright-report, and no .env (required for db:migrate/e2e). Dev-DB non-start is not per-run attributable from global docker state, but all artifacts are consistent and nothing contradicts — same standard as the with_skill arm."
+        },
+        {
+          "text": "Made no code changes beyond the seeded cleanup (final.diff matches seed.diff)",
+          "passed": true,
+          "evidence": "diff -q of seed.diff vs final.diff: identical. Worktree git status shows only apps/server/src/modules/labels/service.ts modified, matching the report's 'verification introduced no formatter rewrites or regenerated files'."
+        },
+        {
+          "text": "Final report gives pass/fail per step and declares the change ready",
+          "passed": true,
+          "evidence": "Six-row table with a result per step, CI-breaker section, then 'Verdict: ready to commit.'"
+        }
+      ],
+      "notes": [],
+      "eval_name": "skip-e2e-correctly"
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 171.1333,
+        "stddev": 64.9528,
+        "min": 123.4,
+        "max": 245.1
+      },
+      "tokens": {
+        "mean": 33271.3333,
+        "stddev": 5653.6458,
+        "min": 29311,
+        "max": 39746
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 252.6,
+        "stddev": 102.1518,
+        "min": 166.1,
+        "max": 365.3
+      },
+      "tokens": {
+        "mean": 40079.0,
+        "stddev": 7230.2878,
+        "min": 34600,
+        "max": 48274
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.00",
+      "time_seconds": "-81.5",
+      "tokens": "-6808"
+    }
+  },
+  "notes": [
+    "All 30 assertions pass in BOTH configurations (100% vs 100%) — this eval set cannot discriminate skill value on pass rate. The repo's CLAUDE.md already documents the i18n parity rule, the exact UPDATE_OPENAPI=1 regen command, and the e2e-only-when-web-changed rule that the assertions target.",
+    "Efficiency is where the skill differentiates: with_skill was faster on every eval pair (245s vs 365s, 145s vs 226s, 123s vs 166s; 26-36% faster) and cheaper on tokens in every pair (-18%, -18%, -15%).",
+    "Root cause of the baseline overhead is visible in the reports: every without_skill run distrusted turbo caching and forced redundant fresh re-runs (eval-1 baseline also botched a 'pnpm test -- --force' invocation before getting it right); with_skill runs walked the ordered gate once and stopped.",
+    "Tool calls were lower with the skill in every pair (11 vs 13, 13 vs 16, 27 vs 29).",
+    "Both eval-0 runs (with and without skill) hit the same environment failure before e2e: a fresh checkout has no .env, so db:migrate failed until the agent derived one from .env.example. No assertion covers this, and the skill text does not mention it.",
+    "Grader flagged assertion wording: 'Ran pnpm test and caught X' conflates command with outcome — both baselines caught the seeded failure via targeted test runs before full pnpm test executed (graded pass on substance).",
+    "eval-2's 'did not start the dev DB' is only indirectly verifiable — docker state is machine-global and no per-run docker snapshot exists; the absence of e2e artifacts and .env in the worktree was used as evidence.",
+    "Single run per configuration: deltas are consistent in direction across all three evals, but variance per eval is unmeasured — treat magnitudes as indicative, not precise."
+  ]
+}

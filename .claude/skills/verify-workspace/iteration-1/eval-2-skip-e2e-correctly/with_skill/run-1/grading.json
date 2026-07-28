@@ -1,0 +1,76 @@
+{
+  "expectations": [
+    {
+      "text": "Ran pnpm check (Biome + typecheck) and reported its result",
+      "passed": true,
+      "evidence": "report.md step 1: 'pnpm check — PASS. Biome checked 278 files, no issues... 5/5 tasks successful' (server re-typechecked fresh due to the change)."
+    },
+    {
+      "text": "Ran pnpm test and reported it green",
+      "passed": true,
+      "evidence": "report.md step 2: 'pnpm test — PASS', with the changed package's suite executed fresh (server: 20 files, 213 tests, including labels-search.test.ts covering the touched service — that file exists in the worktree with exactly 14 tests, matching the report) and unchanged packages as valid turbo cache hits. Docker precondition for Testcontainers checked first."
+    },
+    {
+      "text": "Correctly did NOT run Playwright e2e and did NOT start the dev DB (no pnpm db:up / docker compose up) — server-only change",
+      "passed": true,
+      "evidence": "report.md step 3: e2e 'SKIPPED (correctly, per the skill)' with the decision procedure (git diff --name-only shows only the service.ts file) and an explicit note that skipping avoids writing to the dev DB on :55432. No db:up/compose-up appears anywhere in the report; integration tests used throwaway Testcontainers. Corroborated by artifacts: wt-skip-with has no e2e/test-results, no playwright-report, and no .env — which db:migrate/e2e would have required (the eval-0 runs had to create one). Dev-DB non-start is not per-run attributable from global docker state, but every available artifact is consistent with the claim and nothing contradicts it."
+    },
+    {
+      "text": "Made no code changes beyond the seeded cleanup (final.diff matches seed.diff)",
+      "passed": true,
+      "evidence": "diff -q of seed.diff vs final.diff: identical. Worktree git status shows only apps/server/src/modules/labels/service.ts modified. Report's 'Fixes applied: None' is accurate."
+    },
+    {
+      "text": "Final report gives pass/fail per step and declares the change ready",
+      "passed": true,
+      "evidence": "Five step sections each headed PASS / SKIPPED / N-A-verified-clean, then 'Verdict: All required verification is green. The change is ready to commit as-is.'"
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "total_tool_calls": 11
+  },
+  "claims": [
+    {
+      "claim": "labels-search.test.ts has 14 tests covering the touched labels service",
+      "type": "factual",
+      "verified": true,
+      "evidence": "grep count of test(/it( in wt-skip-with/apps/server/test/integration/labels-search.test.ts returns exactly 14."
+    },
+    {
+      "claim": "OpenAPI drift N/A: the 409 label_exists response is byte-identical, and git status docs/ is clean",
+      "type": "factual",
+      "verified": true,
+      "evidence": "seed/final diffs show the helper returns the same AppError(409, 'label_exists', 'Label already exists'); worktree docs/ is unmodified."
+    },
+    {
+      "claim": "Web, mcp, and shared were valid turbo cache hits (their inputs unchanged)",
+      "type": "process",
+      "verified": true,
+      "evidence": "Reasonable and correctly reasoned: the diff touches only apps/server. Accepting cache hits for untouched packages is the efficient call the baseline arm declined to make."
+    },
+    {
+      "claim": "Every step passed on the first run; no fixes required",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Matches the seeded state ('behavior identical, everything green') and the unchanged final.diff."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Correctly did NOT run Playwright e2e and did NOT start the dev DB (no pnpm db:up / docker compose up) — server-only change",
+        "reason": "The 'did not start the dev DB' half is only indirectly verifiable: no worktree artifact records docker activity, and machine-global container state cannot be attributed to one run. Have the harness snapshot 'docker ps' before/after each run (or capture the command transcript) if this half is meant to be independently checkable."
+      },
+      {
+        "reason": "5/5 in both arms again — the skip rule is quoted verbatim in CLAUDE.md, so the baseline cannot miss it. This eval's discriminating signal is purely efficiency (123s/11 tools vs 166s/13 baseline; the baseline added a redundant fresh tsc and a redundant fresh server suite after a cached green), which no assertion measures. As a positive-control eval ('everything green, touch nothing') it works, but consider asserting 'no redundant re-runs of already-verified steps'."
+      }
+    ],
+    "overall": "Fastest, leanest run of the six; trusted turbo caching for untouched packages, re-ran fresh only what the change affected, and touched nothing. All assertions pass, but so does the baseline."
+  }
+}

@@ -1,0 +1,33 @@
+diff --git a/apps/server/src/modules/labels/service.ts b/apps/server/src/modules/labels/service.ts
+index 58c4649..df8fc47 100644
+--- a/apps/server/src/modules/labels/service.ts
++++ b/apps/server/src/modules/labels/service.ts
+@@ -21,6 +21,10 @@ function isUniqueViolation(err: unknown): boolean {
+   return false;
+ }
+ 
++function labelExistsError(): AppError {
++  return new AppError(409, 'label_exists', 'Label already exists');
++}
++
+ export async function listLabels(db: Db, userId: string): Promise<Label[]> {
+   const rows = await db
+     .select()
+@@ -41,7 +45,7 @@ export async function createLabel(db: Db, userId: string, name: string): Promise
+       return toDto(created!);
+     } catch (err) {
+       if (isUniqueViolation(err)) {
+-        throw new AppError(409, 'label_exists', 'Label already exists');
++        throw labelExistsError();
+       }
+       throw err;
+     }
+@@ -64,7 +68,7 @@ export async function renameLabel(
+     return toDto(updated);
+   } catch (err) {
+     if (isUniqueViolation(err)) {
+-      throw new AppError(409, 'label_exists', 'Label already exists');
++      throw labelExistsError();
+     }
+     throw err;
+   }

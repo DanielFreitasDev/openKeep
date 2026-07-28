@@ -1,0 +1,13 @@
+{
+  "eval_id": 0,
+  "eval_name": "i18n-parity-miss",
+  "prompt": "You're working in the OpenKeep repo at {DIR} (its CLAUDE.md applies as usual; treat this directory as the repo root for every command). I started wiring the 'label limit reached' toast — the first bit of UI copy is in, the rest of the feature comes later. Before I commit, please verify my change is ready: run whatever verification this repo requires and fix anything that fails. When you're done, write your verification report to {OUT}/report.md — include exactly what you ran, pass/fail per step, and anything you fixed.",
+  "seeded_state": "Uncommitted change: EN key 'labelLimitReached' added to apps/web/src/i18n/locales/en/labels.json with no pt-BR twin. The parity test inside pnpm test fails until pt-BR/labels.json gains the key.",
+  "assertions": [
+    "Ran pnpm check (Biome + typecheck) and reported its result",
+    "Ran pnpm test and caught the i18n parity failure for the missing pt-BR 'labelLimitReached' key",
+    "Added the missing 'labelLimitReached' key to apps/web/src/i18n/locales/pt-BR/labels.json (visible in final.diff)",
+    "Recognized that e2e applies because files under apps/web/ changed — ran pnpm test:e2e or explicitly reported it as a required step",
+    "Did not declare the change ready while any step was failing; final report gives pass/fail per step"
+  ]
+}

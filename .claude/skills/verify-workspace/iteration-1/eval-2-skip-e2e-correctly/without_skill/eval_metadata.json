@@ -1,0 +1,13 @@
+{
+  "eval_id": 2,
+  "eval_name": "skip-e2e-correctly",
+  "prompt": "You're working in the OpenKeep repo at {DIR} (its CLAUDE.md applies as usual; treat this directory as the repo root for every command). I did a tiny cleanup in the labels service — deduplicated the label-already-exists error into a helper. Before I commit, please verify it's ready: run whatever verification this repo requires and fix anything that fails. When you're done, write your verification report to {OUT}/report.md — include exactly what you ran, pass/fail per step, and anything you fixed.",
+  "seeded_state": "Uncommitted change: apps/server/src/modules/labels/service.ts extracts labelExistsError() helper; behavior identical, everything green. Server-only change — e2e must NOT run.",
+  "assertions": [
+    "Ran pnpm check (Biome + typecheck) and reported its result",
+    "Ran pnpm test and reported it green",
+    "Correctly did NOT run Playwright e2e and did NOT start the dev DB (no pnpm db:up / docker compose up) — server-only change",
+    "Made no code changes beyond the seeded cleanup (final.diff matches seed.diff)",
+    "Final report gives pass/fail per step and declares the change ready"
+  ]
+}
