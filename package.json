@@ -6,10 +6,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DanielFreitasDev/OpenKeep.git"
+    "url": "git+https://github.com/DanielFreitasDev/openKeep.git"
   },
   "bugs": {
-    "url": "https://github.com/DanielFreitasDev/OpenKeep/issues"
+    "url": "https://github.com/DanielFreitasDev/openKeep/issues"
   },
   "packageManager": "pnpm@11.17.0",
   "engines": {

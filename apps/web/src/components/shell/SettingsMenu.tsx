@@ -5,7 +5,7 @@ import { isDarkEffective, useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { iconButtonClass } from '../IconButton.js';
 
-const FEEDBACK_URL = 'https://github.com/DanielFreitasDev/OpenKeep/issues/new/choose';
+const FEEDBACK_URL = 'https://github.com/DanielFreitasDev/openKeep/issues/new/choose';
 
 const itemClass =
   'flex cursor-default select-none items-center px-4 py-2.5 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';

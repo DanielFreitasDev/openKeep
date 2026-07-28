@@ -8,7 +8,7 @@ Every tagged release publishes a multi-arch image (`linux/amd64`, `linux/arm64`)
 
 ```sh
 mkdir openkeep && cd openkeep
-curl -LO https://github.com/DanielFreitasDev/OpenKeep/releases/latest/download/compose.yml
+curl -LO https://github.com/DanielFreitasDev/openKeep/releases/latest/download/compose.yml
 cat > .env <<ENV
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)
