@@ -5,6 +5,7 @@ WORKDIR /repo
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/config/package.json packages/config/
+COPY packages/mcp/package.json packages/mcp/
 COPY packages/shared/package.json packages/shared/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/

@@ -20,5 +20,6 @@
   "signedInAs": "Conectado como",
   "signOut": "Sair",
   "emptyView": "Nada por aqui ainda",
-  "importExport": "Importar / Exportar"
+  "importExport": "Importar / Exportar",
+  "apiTokens": "Tokens de API"
 }

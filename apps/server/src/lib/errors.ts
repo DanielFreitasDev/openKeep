@@ -45,6 +45,13 @@ export const errors = {
       'Label limit reached',
       'You can create up to 50 labels.',
     ),
+  tokenLimitReached: () =>
+    new AppError(
+      400,
+      'token_limit_reached',
+      'API token limit reached',
+      'You can create up to 10 API tokens.',
+    ),
   payloadTooLarge: (detail?: string) =>
     new AppError(413, 'payload_too_large', 'Payload Too Large', detail),
   unsupportedMediaType: (detail?: string) =>

@@ -24,6 +24,8 @@
     "@fastify/static": "10.1.2",
     "@fastify/swagger": "9.8.1",
     "@fastify/websocket": "11.3.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@openkeep/mcp": "workspace:*",
     "@openkeep/shared": "workspace:*",
     "archiver": "8.0.0",
     "better-auth": "1.6.25",
@@ -44,6 +46,7 @@
   },
   "devDependencies": {
     "@fastify/swagger-ui": "6.1.0",
+    "@modelcontextprotocol/client": "2.0.0",
     "@openkeep/config": "workspace:*",
     "@testcontainers/postgresql": "12.0.4",
     "@types/archiver": "8.0.0",

@@ -42,6 +42,9 @@ export function SettingsMenu() {
             <Menu.Item className={itemClass} onClick={() => setActiveDialog('import-export')}>
               {t('importExport')}
             </Menu.Item>
+            <Menu.Item className={itemClass} onClick={() => setActiveDialog('api-tokens')}>
+              {t('apiTokens')}
+            </Menu.Item>
             <Menu.Item
               className={itemClass}
               render={<a href={FEEDBACK_URL} target="_blank" rel="noreferrer" />}

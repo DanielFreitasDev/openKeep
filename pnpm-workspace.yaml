@@ -11,6 +11,10 @@ allowBuilds:
   protobufjs: false
   ssh2: false
 minimumReleaseAgeExclude:
+  # MCP TypeScript SDK v2 — spec-day releases (2026-07-28), pinned exact.
+  - '@modelcontextprotocol/client@2.0.0'
+  - '@modelcontextprotocol/core@2.0.0'
+  - '@modelcontextprotocol/server@2.0.0'
   - '@tiptap/core@3.29.1'
   - '@tiptap/extension-blockquote@3.29.1'
   - '@tiptap/extension-bold@3.29.1'

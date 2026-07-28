@@ -15,6 +15,7 @@ export async function registerSwagger(app: FastifyInstance, withUi: boolean): Pr
       tags: [
         { name: 'auth', description: 'Better Auth endpoints (bridged)' },
         { name: 'settings', description: 'User settings' },
+        { name: 'tokens', description: 'Personal access tokens (MCP/API)' },
         { name: 'meta', description: 'Instance metadata & health' },
       ],
     },

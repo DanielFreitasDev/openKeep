@@ -7,6 +7,7 @@ export type ActiveDialog =
   | 'edit-labels'
   | 'share'
   | 'import-export'
+  | 'api-tokens'
   | null;
 
 const THEME_KEY = 'openkeep-theme';

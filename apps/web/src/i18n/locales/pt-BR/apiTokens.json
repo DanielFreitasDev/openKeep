@@ -1,0 +1,23 @@
+{
+  "title": "Tokens de API",
+  "hint": "Tokens de acesso pessoal permitem que assistentes de IA e outros clientes de API (MCP) acessem suas notas. Trate-os como senhas.",
+  "revealTitle": "Token criado",
+  "revealWarning": "Copie agora — ele é mostrado uma única vez.",
+  "copy": "Copiar",
+  "copied": "Copiado!",
+  "createTitle": "Criar um token",
+  "namePlaceholder": "Nome (ex.: Claude Code)",
+  "expiryLabel": "Expiração",
+  "expiryDays": "{{days}} dias",
+  "expiryNever": "Sem expiração",
+  "createButton": "Criar",
+  "listTitle": "Seus tokens",
+  "empty": "Nenhum token ainda. Crie um para conectar um assistente de IA.",
+  "created": "Criado em {{date}}",
+  "lastUsed": "Último uso {{date}}",
+  "neverUsed": "Nunca usado",
+  "expires": "Expira em {{date}}",
+  "noExpiry": "Nunca expira",
+  "revoke": "Revogar",
+  "revokeConfirm": "Revogar mesmo?"
+}

@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import enApiTokens from './locales/en/apiTokens.json';
 import enAuth from './locales/en/auth.json';
 import enCommon from './locales/en/common.json';
 import enEditor from './locales/en/editor.json';
@@ -13,6 +14,7 @@ import enSharing from './locales/en/sharing.json';
 import enShell from './locales/en/shell.json';
 import enShortcuts from './locales/en/shortcuts.json';
 import enTrash from './locales/en/trash.json';
+import ptApiTokens from './locales/pt-BR/apiTokens.json';
 import ptAuth from './locales/pt-BR/auth.json';
 import ptCommon from './locales/pt-BR/common.json';
 import ptEditor from './locales/pt-BR/editor.json';
@@ -42,6 +44,7 @@ export const resources = {
     sharing: enSharing,
     shortcuts: enShortcuts,
     importExport: enImportExport,
+    apiTokens: enApiTokens,
   },
   'pt-BR': {
     common: ptCommon,
@@ -57,6 +60,7 @@ export const resources = {
     sharing: ptSharing,
     shortcuts: ptShortcuts,
     importExport: ptImportExport,
+    apiTokens: ptApiTokens,
   },
 } as const;
 

@@ -12,6 +12,8 @@ export const LIMITS = {
   itemsPerNoteMax: 1_000,
   /** 50 labels per account (Keep parity). */
   labelsPerUserMax: 50,
+  /** Personal access tokens (MCP/API) per account. */
+  apiTokensPerUserMax: 10,
   labelNameMax: 255,
   attachmentsPerNoteMax: 25,
   collaboratorsPerNoteMax: 20,

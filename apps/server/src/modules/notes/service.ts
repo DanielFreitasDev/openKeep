@@ -204,6 +204,11 @@ async function loadFullNote(db: Db | Tx, userId: string, noteId: string): Promis
   return toFullNote(note, member, items, labelIds, atts, rem, collabs);
 }
 
+/** Single FullNote for a user; 404 (no oracle) when they have no membership. */
+export async function getNote(db: Db, userId: string, noteId: string): Promise<FullNote> {
+  return loadFullNote(db, userId, noteId);
+}
+
 /** Single FullNote for a user, or null when they have no membership. */
 export async function assembleForUser(
   db: Db,

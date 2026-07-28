@@ -13,6 +13,7 @@ import type { Config } from './config.js';
 import type { Db } from './db/client.js';
 import { buildLogger } from './lib/logger.js';
 import type { Storage } from './lib/storage.js';
+import { registerApiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerAttachmentRoutes } from './modules/attachments/routes.js';
 import { registerImportExportRoutes } from './modules/import-export/routes.js';
 import { registerItemRoutes } from './modules/items/routes.js';
@@ -25,6 +26,7 @@ import { registerSettingsRoutes } from './modules/settings/routes.js';
 import { registerSharingRoutes } from './modules/sharing/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
+import { registerMcp } from './plugins/mcp.js';
 import { registerOriginCheck } from './plugins/security.js';
 import { findWebDist, registerSpa, spaFallback } from './plugins/static.js';
 import { registerSwagger } from './plugins/swagger.js';
@@ -73,7 +75,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   app.decorate('realtime', realtime);
   await registerWs(app, config, deps.auth, realtime);
   await registerSwagger(app, config.isDev);
-  await registerAuth(app, config, deps.auth);
+  await registerAuth(app, config, deps.auth, deps.db);
 
   app.get(
     '/api/healthz',
@@ -115,6 +117,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   );
 
   registerSettingsRoutes(app, deps.db, realtime);
+  registerApiTokenRoutes(app, deps.db);
   registerNotesRoutes(app, deps.db, realtime, deps.storage);
   registerItemRoutes(app, deps.db, realtime);
   registerLabelRoutes(app, deps.db, realtime);
@@ -124,6 +127,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerReminderRoutes(app, deps.db, config, realtime);
   registerSharingRoutes(app, deps.db, realtime);
   registerImportExportRoutes(app, deps.db, deps.storage, deps.enqueueJob ?? (async () => {}));
+  registerMcp(app, deps.db);
 
   // Production: serve the built SPA same-origin with the strict CSP.
   if (spaDist) await registerSpa(app, spaDist);

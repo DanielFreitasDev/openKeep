@@ -23,6 +23,7 @@ Conventions: `text` + CHECK instead of PG enums; native `uuidv7()` PKs; `timesta
 - **`reminders`** — ONE per (note, user): `remind_at` (= next occurrence, advanced by the fire job), `rrule` (nullable = one-shot) + `dtstart` + IANA `timezone` (DST-correct), `snoozed_until`, `acknowledged_at`, `done`. Partial index on `coalesce(snoozed_until, remind_at) WHERE NOT done`.
 - **`note_versions`** — immutable snapshots (title/body_text/items JSONB). Session-boundary capture: before a content mutation iff `notes.updated_at` > 10 min old OR `last_edited_by` differs; also before convert/restore and at import; cap 50/note.
 - **`attachments`** (kind image|audio|drawing, storage/thumb keys, mime, size, w/h; display order = created_at), **`link_previews`** (global cache keyed sha256(normalized url), TTL ok+7d/failed+1d; image/favicon stored as URLs — browser loads them), **`user_settings`**, **`push_subscriptions`**, **`user_jobs`** (import/export progress).
+- **`api_tokens`** — personal access tokens for MCP/API clients: `token_hash` (sha256 of the `okp_…` secret, unique index = the lookup path), display `token_prefix`, throttled `last_used_at`, optional `expires_at`; 10/account cap in the service.
 - **Ordering**: fractional indexing — single-row writes, no renumbering; tiebreak `(position, id)`.
 - **Trash semantics**: memberships persist while trashed (restore returns the note to everyone); content edits on trashed → `409 note_trashed`; editing archived is allowed; purge = hard DELETE + file unlink.
 - FullNote assembly = one batched select per table over the note-id set (no N+1).
@@ -31,7 +32,9 @@ Conventions: `text` + CHECK instead of PG enums; native `uuidv7()` PKs; `timesta
 
 - Everything under `/api`, no version prefix (SPA + server ship in lockstep). OpenAPI generated from shared Zod schemas (`fastify-type-provider-zod` + @fastify/swagger); Swagger UI in dev; committed spec drift-checked in CI.
 - Errors: RFC 9457 problem details `{type, title, status, code, detail?, errors?, requestId}` with a fixed code catalog (`packages/shared/src/schemas/common.ts`).
-- **Auth**: Better Auth fetch handler bridged at `/api/auth/*`; `requireAuth` preHandler decorates `req.user`.
+- **Auth**: Better Auth fetch handler bridged at `/api/auth/*`; `requireAuth` preHandler decorates `req.user`. A `Bearer okp_…` header takes the PAT branch instead (hash lookup + expiry check, `req.tokenId` set, `req.sessionId = pat:<tokenId>`); PATs never open WebSockets or `/api/auth/*`, and `/api/tokens` management is session-only (`rejectPatAuth`).
+- **API tokens**: `GET/POST /api/tokens`, `DELETE /api/tokens/:id` (create rate-limited 10/min; secret returned once, sha256 at rest — see DECISIONS #19).
+- **MCP `/api/mcp`** (Streamable HTTP): own PAT gate re-verified per request (401 + `WWW-Authenticate` on failure; revocation is immediate), then bridged into the MCP SDK v2 handler (`createMcpHandler` → `handler.fetch`). The per-request server factory receives an `OpenKeepClient` implemented over `app.inject` with the request's PAT and `x-client-id: mcp:<tokenId>` — every tool call traverses the real REST routes (validation/authz/versioning/realtime; see DECISIONS #20–21). Hidden from the OpenAPI spec; rate limited 120/min; body limit 15 MB (base64 image uploads). Tool catalog & contracts: [MCP.md](MCP.md).
 - **AuthZ**: single chokepoint `assertNoteAccess(userId, noteId, 'member'|'owner')` returns the membership row; non-members get 404 (no existence oracle). Matrix: content ops = all members; per-user state/labels/reminder = self; trash/restore/delete/empty/invite = owner; remove collaborator = owner (anyone) or self (leave). Encoded as a parameterized integration-test table.
 - **Notes**: `GET /notes?view=active|archived|trash&label=` (FullNotes; no pagination v1 — comfortable to ~5,000 notes, see Frontend) · `POST /notes` (client-supplied UUIDv7 ok) · `PATCH /notes/:id` (content LWW) · `PATCH /notes/:id/state` (per-user) · trash/restore/delete/empty · copy · convert.
 - **Items**: item-level endpoints (create honors `new_items_at_bottom`; PATCH text/checked/indent/position; uncheck-all; delete-checked). Checking a parent auto-checks its indent-1 run.
@@ -43,7 +46,9 @@ Conventions: `text` + CHECK instead of PG enums; native `uuidv7()` PKs; `timesta
 
 ## Server structure
 
-Two layers only (routes → services; Drizzle is the repository). Modules per domain: `notes, items, labels, sharing, reminders, search, attachments, versions, link-preview, settings, push, import-export`; `realtime/` (registry + publish); `plugins/` (auth bridge, helmet, rate limit, multipart, swagger, static SPA, error handler); `lib/` (errors, sanitize, ssrf-guard, plain-text); zod-validated env (`config.ts`, fail-fast); pino with redaction.
+Two layers only (routes → services; Drizzle is the repository). Modules per domain: `notes, items, labels, sharing, reminders, search, attachments, versions, link-preview, settings, push, import-export, api-tokens`; `realtime/` (registry + publish); `plugins/` (auth bridge, helmet, rate limit, multipart, swagger, static SPA, error handler, mcp mount); `lib/` (errors, sanitize, ssrf-guard, tokens); zod-validated env (`config.ts`, fail-fast); pino with redaction.
+
+**`packages/mcp` (@openkeep/mcp)** — the MCP server as a reusable package: an `OpenKeepClient` interface (the full REST surface), a `FetchClient` (HTTP + PAT; the mounted endpoint swaps in an `app.inject` transport), 43 SDK-neutral tool definitions (plain-text-first projections; compact note cards), resources, prompts, and `createOpenKeepMcpServer(client, {capabilities})` — the only SDK-facing code lives in `server.ts`/`stdio.ts` (+ the app's `plugins/mcp.ts`). Ships a stdio bin (`openkeep-mcp`) with fail-fast config probing. Text↔html helpers moved to `@openkeep/shared` (`lib/text.ts`) so both server and MCP share them.
 
 ## Frontend
 

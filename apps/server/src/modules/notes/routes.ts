@@ -41,6 +41,12 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
     async (req) => svc.listNotes(db, req.user.id, req.query.view, req.query.label),
   );
 
+  app.get(
+    '/api/notes/:id',
+    { ...auth, schema: { tags: ['notes'], params: zNoteParams, response: { 200: zFullNote } } },
+    async (req) => svc.getNote(db, req.user.id, req.params.id),
+  );
+
   app.post(
     '/api/notes',
     { ...auth, schema: { tags: ['notes'], body: zCreateNote, response: { 201: zFullNote } } },

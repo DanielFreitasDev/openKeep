@@ -1,0 +1,4 @@
+{
+  "extends": "@openkeep/config/tsconfig/node.json",
+  "include": ["src"]
+}

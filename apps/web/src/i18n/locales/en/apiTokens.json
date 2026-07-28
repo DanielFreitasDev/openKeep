@@ -1,0 +1,23 @@
+{
+  "title": "API tokens",
+  "hint": "Personal access tokens let AI assistants and other API clients (MCP) access your notes. Treat them like passwords.",
+  "revealTitle": "Token created",
+  "revealWarning": "Copy it now — it is shown only this once.",
+  "copy": "Copy",
+  "copied": "Copied!",
+  "createTitle": "Create a token",
+  "namePlaceholder": "Name (e.g. Claude Code)",
+  "expiryLabel": "Expiration",
+  "expiryDays": "{{days}} days",
+  "expiryNever": "No expiration",
+  "createButton": "Create",
+  "listTitle": "Your tokens",
+  "empty": "No tokens yet. Create one to connect an AI assistant.",
+  "created": "Created {{date}}",
+  "lastUsed": "Last used {{date}}",
+  "neverUsed": "Never used",
+  "expires": "Expires {{date}}",
+  "noExpiry": "Never expires",
+  "revoke": "Revoke",
+  "revokeConfirm": "Really revoke?"
+}

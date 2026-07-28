@@ -62,6 +62,61 @@ describe('notes core', () => {
     expect(n.hasLinks).toBe(true);
   });
 
+  it('GET /api/notes/:id returns the full note to members only', async () => {
+    const n = await create({ title: 'Single', bodyHtml: '<p>read me</p>' });
+
+    const mine = await t.app.inject({
+      method: 'GET',
+      url: `/api/notes/${n.id}`,
+      headers: { cookie },
+    });
+    expect(mine.statusCode).toBe(200);
+    expect((mine.json() as FullNote).title).toBe('Single');
+
+    // Non-member: same 404 as a missing note (no existence oracle).
+    const strangerCookie = await t.signUp('stranger@example.com', 'Stranger');
+    const stranger = await t.app.inject({
+      method: 'GET',
+      url: `/api/notes/${n.id}`,
+      headers: { cookie: strangerCookie },
+    });
+    expect(stranger.statusCode).toBe(404);
+
+    // Collaborator: 200 with their per-user state.
+    const collabEmail = 'single-collab@example.com';
+    const collabCookie = await t.signUp(collabEmail, 'Collab');
+    const invite = await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${n.id}/collaborators`,
+      headers: { cookie },
+      payload: { email: collabEmail },
+    });
+    expect(invite.statusCode).toBe(201);
+    const asCollab = await t.app.inject({
+      method: 'GET',
+      url: `/api/notes/${n.id}`,
+      headers: { cookie: collabCookie },
+    });
+    expect(asCollab.statusCode).toBe(200);
+    expect((asCollab.json() as FullNote).role).toBe('collaborator');
+
+    // Via PAT bearer auth.
+    const tokenRes = await t.app.inject({
+      method: 'POST',
+      url: '/api/tokens',
+      headers: { cookie },
+      payload: { name: 'notes-single' },
+    });
+    expect(tokenRes.statusCode).toBe(201);
+    const viaPat = await t.app.inject({
+      method: 'GET',
+      url: `/api/notes/${n.id}`,
+      headers: { authorization: `Bearer ${tokenRes.json().token}` },
+    });
+    expect(viaPat.statusCode).toBe(200);
+    expect((viaPat.json() as FullNote).id).toBe(n.id);
+  });
+
   it('patches content with LWW semantics and returns canonical html', async () => {
     const n = await create({ title: 'Patch me' });
     const res = await t.app.inject({

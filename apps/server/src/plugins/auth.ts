@@ -1,16 +1,27 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Auth, SessionUser } from '../auth/auth.js';
 import type { Config } from '../config.js';
+import type { Db } from '../db/client.js';
 import { errors } from '../lib/errors.js';
+import { verifyApiToken } from '../modules/api-tokens/service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
     user: SessionUser;
     sessionId: string;
+    /** Set when the request authenticated with a PAT (Bearer okp_…). */
+    tokenId?: string;
   }
   interface FastifyInstance {
     requireAuth: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     realtime: import('../realtime/registry.js').Realtime;
+  }
+}
+
+/** preHandler for session-only surfaces (e.g. token management). */
+export async function rejectPatAuth(req: FastifyRequest): Promise<void> {
+  if (req.tokenId !== undefined) {
+    throw errors.forbidden('API tokens cannot access this endpoint — sign in with a browser');
   }
 }
 
@@ -35,6 +46,7 @@ export async function registerAuth(
   app: FastifyInstance,
   config: Config,
   auth: Auth,
+  db: Db,
 ): Promise<void> {
   const handler = async (req: FastifyRequest, reply: FastifyReply) => {
     const url = new URL(req.raw.url ?? '/', config.APP_URL);
@@ -70,6 +82,15 @@ export async function registerAuth(
   });
 
   app.decorate('requireAuth', async (req: FastifyRequest, _reply: FastifyReply) => {
+    const header = req.headers.authorization;
+    if (typeof header === 'string' && header.startsWith('Bearer okp_')) {
+      const verified = await verifyApiToken(db, header.slice('Bearer '.length));
+      if (!verified) throw errors.unauthorized('Invalid or expired API token');
+      req.user = verified.user;
+      req.tokenId = verified.tokenId;
+      req.sessionId = `pat:${verified.tokenId}`;
+      return;
+    }
     const session = await auth.api.getSession({ headers: toWebHeaders(req) });
     if (!session) throw errors.unauthorized();
     req.user = session.user as SessionUser;

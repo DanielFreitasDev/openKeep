@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EditLabelsDialog } from '../components/labels/EditLabelsDialog.js';
 import { EditorModal } from '../components/notes/EditorModal.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
+import { ApiTokensDialog } from '../components/shell/ApiTokensDialog.js';
 import { ImportExportDialog } from '../components/shell/ImportExportDialog.js';
 import { SelectionBar } from '../components/shell/SelectionBar.js';
 import { SettingsDialog } from '../components/shell/SettingsDialog.js';
@@ -56,6 +57,7 @@ function ShellLayout() {
       <EditLabelsDialog />
       <ShortcutsDialog />
       <ImportExportDialog />
+      <ApiTokensDialog />
       <SelectionBar />
       <SnackbarHost />
     </div>

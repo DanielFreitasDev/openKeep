@@ -112,6 +112,13 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 - **Google Takeout import**: upload the Keep zip; async job with progress; maps colors/labels/pins/archive/trash; idempotent re-import.
 - JSON export of all your data (+ attachment files) as a zip.
 
+## AI integration (MCP) *(divergence: OpenKeep addition — real Keep has no API)*
+
+- Full [MCP](MCP.md) server: 43 tools covering everything the UI does — notes, checklists, labels, reminders (with recurrence), search, versions, collaborators, image attachments, settings, import/export — plus note resources and two prompts.
+- **Personal access tokens** (`okp_…`), managed in Settings → API tokens: shown once, sha256-at-rest, optional expiration, 10 per account, revocable; token management is session-only.
+- Two transports: Streamable HTTP mounted at `/api/mcp` (same container) and a stdio binary (`packages/mcp`) for local clients; stdio adds local-file tools (Takeout import, export download).
+- AI mutations ride the normal REST layer and fan out over WebSocket — edits appear live in open tabs, attributed to the token's client id.
+
 ## Production readiness
 
 - Docker Compose (app + Postgres 18), migrations on boot, seed script, `/api/healthz` + `/api/readyz`, structured logs, rate limiting, security headers/CSP, OpenAPI docs, backup guidance.

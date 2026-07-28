@@ -37,28 +37,17 @@ describe('sanitizeNoteHtml', () => {
   });
 });
 
-describe('htmlToPlainText', () => {
-  it('converts block boundaries and breaks to newlines', () => {
-    expect(htmlToPlainText('<h1>Title</h1><p>a<br>b</p><p>c</p>')).toBe('Title\na\nb\nc');
-  });
-
-  it('decodes entities', () => {
-    expect(htmlToPlainText('<p>a &amp; b &lt;c&gt; &quot;d&quot;</p>')).toBe('a & b <c> "d"');
-  });
-
-  it('collapses excessive blank lines', () => {
-    expect(htmlToPlainText('<p>a</p><p></p><p></p><p>b</p>')).toBe('a\n\nb');
-  });
-});
-
-describe('plainTextToHtml', () => {
-  it('escapes and wraps lines in paragraphs', () => {
-    expect(plainTextToHtml('a<b>\nc & d')).toBe('<p>a&lt;b&gt;</p><p>c &amp; d</p>');
-  });
-
+describe('plainTextToHtml ∘ sanitizeNoteHtml', () => {
+  // Conversion internals are covered in @openkeep/shared/lib/text.test.ts;
+  // here we pin that shared output survives the server sanitizer unchanged.
   it('round-trips through the sanitizer unchanged', () => {
     const html = plainTextToHtml('x < y\nz & w');
     expect(sanitizeNoteHtml(html)).toBe(html);
+  });
+
+  it('html→text→html preserves visible content', () => {
+    const text = htmlToPlainText('<h1>Title</h1><p>a<br>b</p>');
+    expect(text).toBe('Title\na\nb');
   });
 });
 

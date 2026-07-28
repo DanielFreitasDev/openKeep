@@ -51,6 +51,10 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `SMTP_URL`, `SMTP_FROM` | Password-reset emails |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web-push reminders (`pnpm --filter @openkeep/server gen:vapid`) |
 
+## MCP / AI clients
+
+The MCP endpoint ships in the same container — nothing extra to deploy or configure: `https://keep.example.com/api/mcp`, authenticated with personal access tokens created in Settings → API tokens. No new environment variables. The optional stdio server (`packages/mcp`) runs on the *client's* machine and only needs `OPENKEEP_URL` + `OPENKEEP_TOKEN` there. See [MCP.md](MCP.md).
+
 ## Operations
 
 - **Migrations** run automatically at boot (also: `pnpm db:migrate`).
