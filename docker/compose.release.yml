@@ -1,0 +1,55 @@
+name: openkeep
+
+# Runs the published image from GHCR instead of building from source.
+# Attached to every GitHub Release as `compose.yml`, with OPENKEEP_TAG pinned
+# to that release. See docs/DEPLOYMENT.md for the reverse proxy + env setup.
+
+services:
+  app:
+    image: ghcr.io/danielfreitasdev/openkeep:${OPENKEEP_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://openkeep:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/openkeep
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET (>=32 chars)}
+      APP_URL: ${APP_URL:?set APP_URL, e.g. https://keep.example.com}
+      STORAGE_DIR: /data
+      # Optional:
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    volumes:
+      - openkeep-storage:/data
+    ports:
+      - '127.0.0.1:3000:3000'
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openkeep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: openkeep
+    volumes:
+      - openkeep-pg:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openkeep -d openkeep']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  openkeep-storage:
+  openkeep-pg:

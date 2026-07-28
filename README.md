@@ -47,7 +47,7 @@ Useful scripts: `pnpm check` (lint + typecheck) · `pnpm test` (unit + integrati
 
 ## Deployment
 
-Docker Compose (app + Postgres 18) behind your TLS reverse proxy (Caddy/Traefik). See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Docker Compose (app + Postgres 18) behind your TLS reverse proxy (Caddy/Traefik), using the published image `ghcr.io/danielfreitasdev/openkeep` (amd64 + arm64) or a build from source. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Architecture
 

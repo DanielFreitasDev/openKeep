@@ -4,6 +4,23 @@ OpenKeep ships as **one app container** (API + built SPA served same-origin — 
 
 ## Quick start (Docker Compose)
 
+Every tagged release publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/danielfreitasdev/openkeep` and attaches a ready `compose.yml` pinned to that version:
+
+```sh
+mkdir openkeep && cd openkeep
+curl -LO https://github.com/DanielFreitasDev/OpenKeep/releases/latest/download/compose.yml
+cat > .env <<ENV
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+APP_URL=https://keep.example.com
+ENV
+docker compose --env-file .env up -d
+```
+
+Upgrading: download the newer `compose.yml` (or bump `OPENKEEP_TAG`) and `docker compose up -d` — migrations run at boot.
+
+To build from source instead:
+
 ```sh
 git clone <repo> openkeep && cd openkeep
 cat > .env <<ENV
