@@ -1,36 +1,73 @@
 name: Release
 
+# Every push to main that carries a releasable commit (feat/fix/perf, or a
+# BREAKING CHANGE) is versioned, tagged, released and published automatically.
+# Pushes with only chore/docs/test/refactor commits stop after the CI gate.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  # Re-runs the full gate against the exact tagged commit: a tag can point at
-  # anything, not necessarily a green main.
   ci:
     uses: ./.github/workflows/ci.yml
 
-  prepare:
+  # Dry run: learn the next version before building anything, so the image can
+  # carry it and a failed build leaves no tag, no release and no version bump.
+  plan:
+    needs: ci
     runs-on: ubuntu-latest
+    permissions:
+      # semantic-release checks for push rights even in dry-run mode; it does
+      # not write anything here.
+      contents: write
     outputs:
+      version: ${{ steps.semrel.outputs.version }}
       image: ${{ steps.image.outputs.image }}
     steps:
-      # GHCR refs must be lowercase; the owner/repo here are not.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # GHCR refs must be lowercase; owner and repo here are not.
       - id: image
         run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # The version lands in this step's outputs via the exec plugin's
+      # verifyReleaseCmd; it stays empty when nothing is releasable.
+      - id: semrel
+        run: pnpm exec semantic-release --dry-run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summarize
+        env:
+          VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "No releasable commits since the last tag — stopping here." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Releasing **v$VERSION**." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   # One native runner per architecture (free for public repos) — an emulated
   # arm64 build of the web bundle takes tens of minutes.
   build:
-    needs: [ci, prepare]
+    needs: plan
+    if: needs.plan.outputs.version != ''
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
@@ -52,10 +89,15 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
         run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
 
+      # Not committed here — the release job makes the same edit in the commit
+      # it tags. This only ensures the image reports its own released version.
+      - name: Stamp the release version
+        run: node scripts/set-version.mjs "${{ needs.plan.outputs.version }}"
+
       - uses: docker/metadata-action@v6
         id: meta
         with:
-          images: ${{ needs.prepare.outputs.image }}
+          images: ${{ needs.plan.outputs.image }}
 
       - uses: docker/setup-buildx-action@v4
 
@@ -75,16 +117,16 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ needs.plan.outputs.image }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
       - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
           touch "/tmp/digests/${DIGEST#sha256:}"
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
 
       - uses: actions/upload-artifact@v7
         with:
@@ -94,15 +136,13 @@ jobs:
           retention-days: 1
 
   merge:
-    needs: [prepare, build]
+    needs: [plan, build]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
       attestations: write
-    outputs:
-      version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -111,18 +151,6 @@ jobs:
           merge-multiple: true
 
       - uses: docker/setup-buildx-action@v4
-
-      - uses: docker/metadata-action@v6
-        id: meta
-        with:
-          images: ${{ needs.prepare.outputs.image }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=sha
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
 
       - uses: docker/login-action@v4
         with:
@@ -133,17 +161,21 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         env:
-          IMAGE: ${{ needs.prepare.outputs.image }}
+          IMAGE: ${{ needs.plan.outputs.image }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            -t "${IMAGE}:${VERSION}" \
+            -t "${IMAGE}:${VERSION%.*}" \
+            -t "${IMAGE}:${VERSION%%.*}" \
+            -t "${IMAGE}:latest" \
             $(printf "${IMAGE}@sha256:%s " *)
 
       - name: Inspect manifest
         id: inspect
         env:
-          IMAGE: ${{ needs.prepare.outputs.image }}
-          VERSION: ${{ steps.meta.outputs.version }}
+          IMAGE: ${{ needs.plan.outputs.image }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           docker buildx imagetools inspect "${IMAGE}:${VERSION}"
           digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)
@@ -151,62 +183,32 @@ jobs:
 
       - uses: actions/attest-build-provenance@v4
         with:
-          subject-name: ${{ needs.prepare.outputs.image }}
+          subject-name: ${{ needs.plan.outputs.image }}
           subject-digest: ${{ steps.inspect.outputs.digest }}
           push-to-registry: true
 
+  # The real run: bumps the versions, refreshes CHANGELOG.md and the OpenAPI
+  # spec, commits, tags, and publishes the GitHub Release with its assets.
   release:
-    if: github.ref_type == 'tag'
-    needs: [prepare, merge]
+    needs: [plan, merge]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
-      - name: Pin the released tag in the compose asset
+      # Regenerating the OpenAPI spec during prepare needs the integration
+      # harness, which spins a throwaway Postgres via Testcontainers.
+      - run: pnpm exec semantic-release
         env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          mkdir -p dist-release
-          sed "s|\${OPENKEEP_TAG:-latest}|\${OPENKEEP_TAG:-${TAG}}|" \
-            docker/compose.release.yml > dist-release/compose.yml
-          cp docs/openapi.json dist-release/openapi.json
-
-      - name: Build release notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-          IMAGE: ${{ needs.prepare.outputs.image }}
-        run: |
-          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f tag_name="$TAG" --jq .body > /tmp/generated.md
-          {
-            echo "## Run it"
-            echo
-            echo '```sh'
-            echo "docker pull ${IMAGE}:${TAG#v}"
-            echo '```'
-            echo
-            echo "Or grab \`compose.yml\` below (image pinned to \`${TAG}\`), set the env vars it lists, and \`docker compose up -d\`."
-            echo "Deployment guide: [docs/DEPLOYMENT.md](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/docs/DEPLOYMENT.md)"
-            echo
-            cat /tmp/generated.md
-          } > /tmp/notes.md
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          prerelease=()
-          case "$TAG" in *-*) prerelease=(--prerelease);; esac
-          gh release create "$TAG" \
-            --title "OpenKeep ${TAG}" \
-            --notes-file /tmp/notes.md \
-            --verify-tag \
-            "${prerelease[@]}" \
-            dist-release/compose.yml \
-            dist-release/openapi.json
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

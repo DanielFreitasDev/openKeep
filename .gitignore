@@ -16,3 +16,4 @@ e2e/blob-report/
 *.tsbuildinfo
 .vite/
 .claude/scheduled_tasks.lock
+dist-release/

@@ -38,5 +38,7 @@ Biome only (no ESLint/Prettier): single quotes, 2-space indent, line width 100, 
 ## Workflow
 
 - Commit directly to `main`. Small, atomic commits in `type: subject` style (`feat:`, `fix:`, `chore:`).
+- **Commit types drive releases** (semantic-release, on every push to `main`): `feat:` → minor, `fix:`/`perf:` → patch, `BREAKING CHANGE:` in the footer or `type!:` → major; anything else (`chore:`, `ci:`, `docs:`, `refactor:`, `test:`) ships without a release.
+- **Never bump versions or edit `CHANGELOG.md` by hand** — `scripts/set-version.mjs` writes the 7 `package.json` files and `APP_VERSION` during the release, and the release commit refreshes `docs/openapi.json` with it.
 - Before considering a change done: `pnpm check && pnpm test`; also `pnpm test:e2e` when the web app changed.
 - `docs/PARITY.md` lists known v1.0 deferrals — check it before "fixing" a perceived feature gap. Architecture rationale lives in `docs/ARCHITECTURE.md` and `docs/DECISIONS.md`; MCP usage in `docs/MCP.md`.
