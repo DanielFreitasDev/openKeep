@@ -1,3 +1,22 @@
+# [1.4.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.3.1...v1.4.0) (2026-07-29)
+
+
+### Features
+
+* enlarge note titles and thicken icon strokes ([3500627](https://github.com/DanielFreitasDev/openKeep/commit/3500627e295d4fc3a91aa86ba5ed2bd198474338))
+* select notes by dragging a marquee over the grid ([78ecadc](https://github.com/DanielFreitasDev/openKeep/commit/78ecadcfae613555a2962c71d95efd10467bc0e8))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.4.0
+```
+
+Or download `compose.yml` below (image pinned to `1.4.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.4.0/docs/DEPLOYMENT.md).
+
 ## [1.3.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.3.0...v1.3.1) (2026-07-29)
 
 
