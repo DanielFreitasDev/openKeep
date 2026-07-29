@@ -46,6 +46,17 @@ export default defineConfig({
       },
     },
   },
+  // `vite preview` serves the production build (service worker active) for
+  // the PWA e2e project; same-origin /api proxying mirrors the dev server.
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        ws: true,
+      },
+    },
+  },
   build: {
     sourcemap: true,
   },

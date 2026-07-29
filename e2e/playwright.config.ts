@@ -23,6 +23,14 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /offline-pwa\.spec\.ts/,
+    },
+    {
+      // Production build behind `vite preview`: the service worker is active,
+      // so the offline-reload flow can be exercised for real.
+      name: 'pwa',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' },
+      testMatch: /offline-pwa\.spec\.ts/,
     },
   ],
   webServer: [
@@ -39,6 +47,13 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       cwd: '..',
       timeout: 60_000,
+    },
+    {
+      command: 'pnpm --filter @openkeep/web build && pnpm --filter @openkeep/web preview',
+      url: 'http://localhost:4173',
+      reuseExistingServer: !process.env.CI,
+      cwd: '..',
+      timeout: 180_000,
     },
   ],
 });
