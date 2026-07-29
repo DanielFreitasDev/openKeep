@@ -21,6 +21,9 @@
   --inverse-surface: #3c4043;
   --on-inverse-surface: #ffffff;
   --scrim: rgba(0, 0, 0, 0.55);
+  /* Mobile create FAB (Keep-app Material You blue container). */
+  --fab-container: #d3e3fd;
+  --on-fab-container: #041e49;
   --elevation-2: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
   --elevation-3: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
 
@@ -58,6 +61,8 @@
   --inverse-surface: #e8eaed;
   --on-inverse-surface: #202124;
   --scrim: rgba(0, 0, 0, 0.7);
+  --fab-container: #004a77;
+  --on-fab-container: #c2e7ff;
 
   --note-default: #202124;
   --note-coral: #77172e;

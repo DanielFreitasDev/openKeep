@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Composer } from '../../components/notes/Composer.js';
+import { MobileFab } from '../../components/shell/MobileFab.js';
 import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { selectMain } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
@@ -27,8 +28,12 @@ function NotesView() {
   usePublishViewOrder(useMemo(() => [...pinned, ...others].map((n) => n.id), [pinned, others]));
 
   return (
-    <div className="px-6 pb-16">
-      <Composer />
+    <div className="px-3 pt-3 pb-28 md:px-6 md:pt-0 md:pb-16">
+      {/* Mobile creates through the FAB instead (Keep-app layout). */}
+      <div className="hidden md:block">
+        <Composer />
+      </div>
+      <MobileFab />
       {isEmpty ? (
         <EmptyView svg={lightbulbSvg} text={t('emptyStateNotes')} />
       ) : (

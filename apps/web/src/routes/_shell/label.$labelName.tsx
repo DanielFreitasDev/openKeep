@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
+import { MobileFab } from '../../components/shell/MobileFab.js';
 import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { selectByLabel } from '../../lib/note-selectors.js';
@@ -41,11 +42,17 @@ function LabelView() {
   usePublishViewOrder(useMemo(() => [...pinned, ...others].map((n) => n.id), [pinned, others]));
 
   if (pinned.length === 0 && others.length === 0) {
-    return <EmptyView svg={labelSvg} text={t('emptyLabelView')} />;
+    return (
+      <>
+        <EmptyView svg={labelSvg} text={t('emptyLabelView')} />
+        <MobileFab labelId={labelId} />
+      </>
+    );
   }
 
   return (
-    <div className="px-6 py-8">
+    <div className="px-3 pt-4 pb-28 md:px-6 md:py-8">
+      <MobileFab labelId={labelId} />
       <div className="mx-auto flex max-w-full flex-col gap-4">
         {pinned.length > 0 && (
           <>

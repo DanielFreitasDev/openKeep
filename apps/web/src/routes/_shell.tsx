@@ -24,9 +24,11 @@ import { sessionQuery } from '../lib/queries.js';
 import { useUiStore } from '../stores/ui.js';
 
 // `?note=<id>` opens the editor modal on ANY shell route (deep-linkable;
-// back button closes it).
+// back button closes it). `new` marks a note just created by the mobile FAB:
+// the editor discards it on close if it is still untouched.
 const shellSearch = z.object({
   note: z.string().uuid().optional(),
+  new: z.boolean().optional(),
 });
 
 export const Route = createFileRoute('/_shell')({
