@@ -38,8 +38,12 @@ import { assertNoteAccess, assertNotTrashed } from './access.js';
 type ItemRow = typeof noteItems.$inferSelect;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
-/** A version snapshot marks an "editing session" boundary. */
-const SESSION_BOUNDARY_MS = 10 * 60 * 1000;
+/**
+ * A version snapshot marks an "editing session" boundary: this much idle time
+ * (no edits at all) between two edits starts a new session, so reopening a note
+ * later and typing again lands in the history as its own entry.
+ */
+const SESSION_BOUNDARY_MS = 30 * 1000;
 
 /** Drizzle wraps pg errors; the SQLSTATE lives on the cause chain. */
 function isUniqueViolation(err: unknown): boolean {
@@ -349,19 +353,63 @@ export async function snapshotVersion(
   }
 }
 
-/** Session-boundary capture: snapshot pre-edit state when a new "session" starts. */
-async function maybeSnapshot(
+/** Two snapshots are the same version when title, body and items all match. */
+function sameContent(
+  a: { title: string; bodyText: string; items: VersionItem[] | null },
+  b: { title: string; bodyText: string; items: VersionItem[] | null },
+): boolean {
+  return (
+    a.title === b.title &&
+    a.bodyText === b.bodyText &&
+    JSON.stringify(a.items ?? null) === JSON.stringify(b.items ?? null)
+  );
+}
+
+/**
+ * Session-boundary capture: snapshot the pre-edit state when a new "session"
+ * starts — the note has been idle for a while, another collaborator took over,
+ * or nothing has ever been captured for it (so the first edit preserves the
+ * note as it was created). Snapshots identical to the newest one are skipped,
+ * which is what keeps the 500 ms autosave from filling the history with noise.
+ */
+export async function maybeSnapshot(
   tx: Tx,
   note: NoteRow,
   byUserId: string,
   opts: { force?: boolean } = {},
 ): Promise<void> {
-  const isEmpty = note.title === '' && note.bodyText === '';
+  const items = (await loadItems(tx, [note.id])).get(note.id) ?? [];
+  const candidate = {
+    title: note.title,
+    bodyText: note.bodyText,
+    items: (note.type === 'list'
+      ? items.map((i) => ({ text: i.text, checked: i.checked, indent: i.indent }))
+      : null) as VersionItem[] | null,
+  };
+  const isEmpty =
+    candidate.title === '' &&
+    candidate.bodyText === '' &&
+    !candidate.items?.some((i) => i.text !== '');
+  if (isEmpty) return;
+
+  const [newest] = await tx
+    .select({
+      title: noteVersions.title,
+      bodyText: noteVersions.bodyText,
+      items: noteVersions.items,
+      createdAt: noteVersions.createdAt,
+    })
+    .from(noteVersions)
+    .where(eq(noteVersions.noteId, note.id))
+    .orderBy(desc(noteVersions.createdAt), desc(noteVersions.id))
+    .limit(1);
+
+  if (newest && sameContent(newest, candidate)) return;
+
   const stale = Date.now() - note.updatedAt.getTime() > SESSION_BOUNDARY_MS;
   const editorChanged = note.lastEditedBy !== null && note.lastEditedBy !== byUserId;
-  if (!opts.force && !stale && !editorChanged) return;
-  if (isEmpty && note.type === 'text') return;
-  const items = (await loadItems(tx, [note.id])).get(note.id) ?? [];
+  if (!opts.force && newest && !stale && !editorChanged) return;
+
   await snapshotVersion(tx, note, items, byUserId);
 }
 

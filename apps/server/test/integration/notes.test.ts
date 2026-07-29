@@ -376,6 +376,83 @@ describe('notes core', () => {
       });
       expect(after.json().length).toBe(2);
     });
+
+    it('captures the original state on the first edit of a fresh note', async () => {
+      const n = await create({ title: 'Fresh', bodyHtml: '<p>original</p>' });
+      const versions = async () => {
+        const res = await t.app.inject({
+          method: 'GET',
+          url: `/api/notes/${n.id}/versions`,
+          headers: { cookie },
+        });
+        return res.json() as { id: string; createdAt: string }[];
+      };
+      const patch = (payload: Record<string, unknown>) =>
+        t.app.inject({ method: 'PATCH', url: `/api/notes/${n.id}`, headers: { cookie }, payload });
+
+      expect(await versions()).toHaveLength(0);
+
+      // No aging: the very first edit still preserves the note as created.
+      await patch({ bodyHtml: '<p>original edited</p>' });
+      const first = await versions();
+      expect(first).toHaveLength(1);
+
+      const download = await t.app.inject({
+        method: 'GET',
+        url: `/api/notes/${n.id}/versions/${first[0]!.id}/download`,
+        headers: { cookie },
+      });
+      expect(download.body).toContain('original');
+
+      // Same session: keystroke-level autosaves do not pile up.
+      await patch({ bodyHtml: '<p>original edited more</p>' });
+      expect(await versions()).toHaveLength(1);
+
+      // A later session gets its own entry.
+      await t.db
+        .update(notes)
+        .set({ updatedAt: new Date(Date.now() - 60 * 1000) })
+        .where(eq(notes.id, n.id));
+      await patch({ bodyHtml: '<p>next session</p>' });
+      expect(await versions()).toHaveLength(2);
+
+      // Idle sessions that leave the content untouched add nothing new.
+      for (let i = 0; i < 2; i++) {
+        await t.db
+          .update(notes)
+          .set({ updatedAt: new Date(Date.now() - 60 * 1000) })
+          .where(eq(notes.id, n.id));
+        await patch({ bodyHtml: '<p>next session</p>' });
+      }
+      expect(await versions()).toHaveLength(3);
+    });
+
+    it('captures list edits made through the items API', async () => {
+      const n = await create({ type: 'list', title: 'Groceries', items: [{ text: 'milk' }] });
+      const res = await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${n.id}/items`,
+        headers: { cookie },
+        payload: { text: 'bread' },
+      });
+      expect(res.statusCode).toBe(201);
+
+      const versions = await t.app.inject({
+        method: 'GET',
+        url: `/api/notes/${n.id}/versions`,
+        headers: { cookie },
+      });
+      const metas = versions.json() as { id: string }[];
+      expect(metas).toHaveLength(1);
+
+      const download = await t.app.inject({
+        method: 'GET',
+        url: `/api/notes/${n.id}/versions/${metas[0]!.id}/download`,
+        headers: { cookie },
+      });
+      expect(download.body).toContain('milk');
+      expect(download.body).not.toContain('bread');
+    });
   });
 });
 

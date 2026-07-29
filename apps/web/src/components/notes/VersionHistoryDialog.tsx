@@ -3,7 +3,7 @@ import downloadSvg from '@material-symbols/svg-400/outlined/download.svg?raw';
 import historySvg from '@material-symbols/svg-400/outlined/history.svg?raw';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { formatCreatedTooltip } from '../../lib/dates.js';
+import { formatVersionStamp } from '../../lib/dates.js';
 import { upsertNote } from '../../lib/note-selectors.js';
 import {
   listVersions,
@@ -55,7 +55,7 @@ export function VersionHistoryDialog({ noteId, open, onOpenChange }: VersionHist
               >
                 <Icon svg={historySvg} size={18} className="text-on-surface-variant" />
                 <span className="flex-1 text-on-surface text-sm">
-                  {formatCreatedTooltip(v.createdAt, i18n.language).replace(/^\S+\s/, '')}
+                  {formatVersionStamp(v.createdAt, i18n.language)}
                 </span>
                 <a
                   href={versionDownloadUrl(noteId, v.id)}

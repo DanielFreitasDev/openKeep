@@ -25,6 +25,12 @@ export function formatReminderTime(iso: string, lang: string): string {
   return format(date, 'd MMM yyyy, p', { locale });
 }
 
+/** Version history stamp: full date down to the second, so entries never tie. */
+export function formatVersionStamp(iso: string, lang: string): string {
+  const date = new Date(iso);
+  return format(date, 'PPpp', { locale: localeFor(lang) });
+}
+
 export function formatCreatedTooltip(iso: string, lang: string): string {
   const date = new Date(iso);
   const locale = localeFor(lang);

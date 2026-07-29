@@ -12,6 +12,7 @@ import { noteItems, notes } from '../../db/schema/notes.js';
 import { userSettings } from '../../db/schema/settings.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { assertNoteAccess, assertNotTrashed } from '../notes/access.js';
+import { maybeSnapshot } from '../notes/service.js';
 
 type ItemRow = typeof noteItems.$inferSelect;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -49,6 +50,7 @@ export async function createItem(
     const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
     assertNotTrashed(note);
     if (note.type !== 'list') throw errors.badRequest('Not a list note');
+    await maybeSnapshot(tx, note, userId);
 
     const [row] = await tx
       .select({ n: count() })
@@ -112,6 +114,7 @@ export async function patchItem(
       .where(and(eq(noteItems.id, itemId), eq(noteItems.noteId, noteId)))
       .limit(1);
     if (!existing) throw errors.notFound();
+    await maybeSnapshot(tx, note, userId);
 
     const [updated] = await tx
       .update(noteItems)
@@ -152,6 +155,7 @@ export async function deleteItem(
   return db.transaction(async (tx) => {
     const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
     assertNotTrashed(note);
+    await maybeSnapshot(tx, note, userId);
     const deleted = await tx
       .delete(noteItems)
       .where(and(eq(noteItems.id, itemId), eq(noteItems.noteId, noteId)))
@@ -169,6 +173,7 @@ export async function uncheckAll(
   return db.transaction(async (tx) => {
     const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
     assertNotTrashed(note);
+    await maybeSnapshot(tx, note, userId, { force: true });
     await tx.update(noteItems).set({ checked: false }).where(eq(noteItems.noteId, noteId));
     await touchNote(tx, noteId, userId);
     return { noteId, items: (await orderedItems(tx, noteId)).map(toDto) };
@@ -183,6 +188,7 @@ export async function deleteChecked(
   return db.transaction(async (tx) => {
     const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
     assertNotTrashed(note);
+    await maybeSnapshot(tx, note, userId, { force: true });
     await tx
       .delete(noteItems)
       .where(and(eq(noteItems.noteId, noteId), eq(noteItems.checked, true)));
