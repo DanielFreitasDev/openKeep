@@ -1,3 +1,32 @@
+# [1.5.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.4.0...v1.5.0) (2026-07-29)
+
+
+### Bug Fixes
+
+* align the edit-labels icon on the collapsed sidebar rail ([3a38038](https://github.com/DanielFreitasDev/openKeep/commit/3a3803878580c83f7ebed46f4b639942507f2fe4))
+* keep the grid scrolled where it was when opening a note ([aba7dc1](https://github.com/DanielFreitasDev/openKeep/commit/aba7dc1eca28570771be2ec5c160afb64e1e9bf1))
+
+
+### Features
+
+* tick checklist boxes from the card and show completed items ([b3b5ba9](https://github.com/DanielFreitasDev/openKeep/commit/b3b5ba96782cee549c2d950e664f9933a9fb700d))
+
+
+### Performance Improvements
+
+* render only the notes near the viewport ([934b50e](https://github.com/DanielFreitasDev/openKeep/commit/934b50e004fc13eee425e716c9b479dadfa9fd42))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.5.0
+```
+
+Or download `compose.yml` below (image pinned to `1.5.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.5.0/docs/DEPLOYMENT.md).
+
 # [1.4.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.3.1...v1.4.0) (2026-07-29)
 
 
