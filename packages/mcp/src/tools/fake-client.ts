@@ -474,6 +474,7 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       height: 1,
       hasThumb: true,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     note.attachments.push(attachment);
     this.attachmentData.set(attachment.id, { data, mime: 'image/png' });

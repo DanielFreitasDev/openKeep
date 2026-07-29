@@ -24,6 +24,10 @@ export const LIMITS = {
   audioMaxBytes: 20 * 1024 * 1024,
   /** Takeout archives carry full-size photos — far beyond the image cap. */
   importZipMaxBytes: 512 * 1024 * 1024,
+  /** Drawings: stroke/point caps keep the vector JSON bounded (~1 MB). */
+  drawingStrokesMax: 2_000,
+  drawingPointsPerStrokeMax: 10_000,
+  drawingDataMaxBytes: 1024 * 1024,
   /** Trash retention before permanent purge, in days (Keep parity). */
   trashRetentionDays: 7,
   /** Version snapshots kept per note (oldest pruned). */

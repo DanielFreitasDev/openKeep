@@ -28,9 +28,11 @@ export const attachments = pgTable(
     size: bigint({ mode: 'number' }).notNull(),
     width: integer(),
     height: integer(),
-    /** Reserved for post-1.0 drawings. */
+    /** Stroke vectors for kind='drawing' (the file is its PNG render); null otherwise. */
     drawingData: jsonb(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /** Bumped when a drawing is re-saved — clients cache-bust file/thumb URLs with it. */
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check('attachments_kind_check', sql`${t.kind} in ('image', 'audio', 'drawing')`),

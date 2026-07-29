@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LIMITS } from '../constants/limits.js';
 import { zId } from './common.js';
 
 export const zAttachmentKind = z.enum(['image', 'audio', 'drawing']);
@@ -11,8 +12,41 @@ export const zAttachment = z.object({
   height: z.number().int().nullable(),
   hasThumb: z.boolean(),
   createdAt: z.iso.datetime(),
+  /** Bumped when a drawing is re-saved — clients cache-bust file/thumb URLs with it. */
+  updatedAt: z.iso.datetime(),
 });
 export type Attachment = z.infer<typeof zAttachment>;
+
+/** Keep drawing toolbar tools (the eraser removes strokes, it is not stored). */
+export const zDrawingTool = z.enum(['pen', 'marker', 'highlighter']);
+export type DrawingTool = z.infer<typeof zDrawingTool>;
+
+export const zDrawingBackground = z.enum(['none', 'squares', 'dots', 'rules']);
+export type DrawingBackground = z.infer<typeof zDrawingBackground>;
+
+export const zDrawingStroke = z.object({
+  tool: zDrawingTool,
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  /** Stroke width in canvas px. */
+  size: z.number().min(0.5).max(200),
+  /** Flat [x0, y0, x1, y1, …] in canvas coordinates. */
+  points: z
+    .array(z.number())
+    .min(2)
+    .max(LIMITS.drawingPointsPerStrokeMax * 2)
+    .refine((p) => p.length % 2 === 0, 'points must be x,y pairs'),
+});
+export type DrawingStroke = z.infer<typeof zDrawingStroke>;
+
+/** The editable vector form of a drawing; the PNG is its rendered export. */
+export const zDrawingData = z.object({
+  version: z.literal(1),
+  width: z.number().int().min(16).max(8192),
+  height: z.number().int().min(16).max(8192),
+  background: zDrawingBackground,
+  strokes: z.array(zDrawingStroke).max(LIMITS.drawingStrokesMax),
+});
+export type DrawingData = z.infer<typeof zDrawingData>;
 
 export const zLinkPreview = z.object({
   url: z.string(),

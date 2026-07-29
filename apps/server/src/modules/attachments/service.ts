@@ -1,4 +1,4 @@
-import type { Attachment } from '@openkeep/shared';
+import type { Attachment, DrawingData } from '@openkeep/shared';
 import { LIMITS } from '@openkeep/shared';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import sharp, { type FormatEnum, type Metadata } from 'sharp';
@@ -20,6 +20,7 @@ export function toAttachmentDto(row: AttachmentRow): Attachment {
     height: row.height,
     hasThumb: row.thumbKey !== null,
     createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -177,6 +178,132 @@ export async function uploadImage(
     await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
   }
   return toAttachmentDto(created!);
+}
+
+/** Drawings arrive as canvas-rendered PNGs: verify, re-encode, thumbnail. */
+async function processDrawingPng(
+  data: Buffer,
+): Promise<{ stored: Buffer; thumb: Buffer; width: number; height: number }> {
+  if (data.length > LIMITS.imageMaxBytes) {
+    throw errors.payloadTooLarge(`Images can be at most ${LIMITS.imageMaxBytes / 1024 / 1024} MB`);
+  }
+  const png = MAGIC.find((m) => m.mime === 'image/png');
+  if (!png?.match(data)) {
+    throw errors.unsupportedMediaType('Drawings must be PNG images');
+  }
+  let meta: Metadata;
+  try {
+    meta = await sharp(data, { failOn: 'none' }).metadata();
+  } catch {
+    throw errors.unsupportedMediaType('Corrupt or unsupported image');
+  }
+  const width = meta.width ?? 0;
+  const height = meta.height ?? 0;
+  if (width * height > LIMITS.imageMaxPixels) {
+    throw errors.payloadTooLarge('Image exceeds 25 megapixels');
+  }
+  const stored = await sharp(data, { failOn: 'none' }).png().toBuffer();
+  const thumb = await sharp(data, { failOn: 'none' })
+    .resize({ width: 512, withoutEnlargement: true })
+    .webp({ quality: 78 })
+    .toBuffer();
+  return { stored, thumb, width, height };
+}
+
+/** Create a drawing attachment: stroke vectors + their PNG render. */
+export async function uploadDrawing(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  noteId: string,
+  data: Buffer,
+  drawing: DrawingData,
+): Promise<Attachment> {
+  const { note } = await assertNoteAccess(db, userId, noteId);
+  assertNotTrashed(note);
+
+  const [row] = await db
+    .select({ n: count() })
+    .from(attachments)
+    .where(eq(attachments.noteId, noteId));
+  if ((row?.n ?? 0) >= LIMITS.attachmentsPerNoteMax) {
+    throw new AppError(400, 'attachment_limit_reached', 'Attachment limit reached');
+  }
+
+  const { stored, thumb, width, height } = await processDrawingPng(data);
+  const storageKey = storage.newKey('png');
+  const thumbKey = storage.newKey('webp');
+  await storage.write('attachments', storageKey, stored);
+  await storage.write('thumbs', thumbKey, thumb);
+
+  const [created] = await db
+    .insert(attachments)
+    .values({
+      noteId,
+      kind: 'drawing',
+      storageKey,
+      thumbKey,
+      mime: 'image/png',
+      size: stored.length,
+      width,
+      height,
+      drawingData: drawing,
+    })
+    .returning();
+  await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  return toAttachmentDto(created!);
+}
+
+/** Replace a drawing's strokes + render in place (same attachment id). */
+export async function updateDrawing(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  attachmentId: string,
+  data: Buffer,
+  drawing: DrawingData,
+): Promise<{ attachment: Attachment; noteId: string }> {
+  const att = await findForUser(db, userId, attachmentId);
+  if (att.kind !== 'drawing') throw errors.notFound();
+  const { note } = await assertNoteAccess(db, userId, att.noteId);
+  assertNotTrashed(note);
+
+  const { stored, thumb, width, height } = await processDrawingPng(data);
+  const storageKey = storage.newKey('png');
+  const thumbKey = storage.newKey('webp');
+  await storage.write('attachments', storageKey, stored);
+  await storage.write('thumbs', thumbKey, thumb);
+
+  const [updated] = await db
+    .update(attachments)
+    .set({
+      storageKey,
+      thumbKey,
+      mime: 'image/png',
+      size: stored.length,
+      width,
+      height,
+      drawingData: drawing,
+      updatedAt: new Date(),
+    })
+    .where(eq(attachments.id, attachmentId))
+    .returning();
+  // Old files go only after the row points at the new ones (readers never 404).
+  await storage.remove('attachments', att.storageKey);
+  if (att.thumbKey) await storage.remove('thumbs', att.thumbKey);
+  await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, att.noteId));
+  return { attachment: toAttachmentDto(updated!), noteId: att.noteId };
+}
+
+/** Stroke vectors for re-editing an existing drawing. */
+export async function getDrawingData(
+  db: Db,
+  userId: string,
+  attachmentId: string,
+): Promise<DrawingData> {
+  const att = await findForUser(db, userId, attachmentId);
+  if (att.kind !== 'drawing' || att.drawingData == null) throw errors.notFound();
+  return att.drawingData as DrawingData;
 }
 
 /**
@@ -370,6 +497,8 @@ export async function copyAttachments(
       size: row.size,
       width: row.width,
       height: row.height,
+      // Copied drawings stay editable in the copy.
+      drawingData: row.drawingData,
     });
   }
 }

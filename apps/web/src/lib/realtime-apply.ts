@@ -113,6 +113,10 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
         ? n.attachments
         : [...n.attachments, p.attachment],
     })),
+  'attachment.updated': (qc, p) =>
+    mergeIfKnown(qc, p.noteId, (n) => ({
+      attachments: n.attachments.map((a) => (a.id === p.attachment.id ? p.attachment : a)),
+    })),
   'attachment.removed': (qc, p) =>
     mergeIfKnown(qc, p.noteId, (n) => ({
       attachments: n.attachments.filter((a) => a.id !== p.attachmentId),

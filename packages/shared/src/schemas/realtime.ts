@@ -42,6 +42,7 @@ export type WsEvent =
   | { type: 'reminder.fired'; payload: { noteId: string; title: string; remindAt: string } }
   | { type: 'reminder.dismissed'; payload: { noteId: string } }
   | { type: 'attachment.added'; payload: { noteId: string; attachment: Attachment } }
+  | { type: 'attachment.updated'; payload: { noteId: string; attachment: Attachment } }
   | { type: 'attachment.removed'; payload: { noteId: string; attachmentId: string } }
   | { type: 'collaborator.added'; payload: { noteId: string; collaborator: Collaborator } }
   | { type: 'collaborator.removed'; payload: { noteId: string; userId: string } }
