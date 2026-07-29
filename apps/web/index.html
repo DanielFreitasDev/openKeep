@@ -6,18 +6,8 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>OpenKeep</title>
-    <script>
-      // Pre-hydration theme: avoids a flash of the wrong theme.
-      (() => {
-        try {
-          const t = localStorage.getItem('openkeep-theme') || 'system';
-          const dark =
-            t === 'dark' ||
-            (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.classList.toggle('dark', dark);
-        } catch {}
-      })();
-    </script>
+    <!-- Pre-hydration theme (external: prod CSP is `script-src 'self'`). -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
