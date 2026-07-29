@@ -1,3 +1,31 @@
+# [1.8.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.7.1...v1.8.0) (2026-07-29)
+
+
+### Bug Fixes
+
+* bottom sheets dismiss on outside tap ([7365d04](https://github.com/DanielFreitasDev/openKeep/commit/7365d04159013a55ce7a8dd3aaf97c660c4b9c3f))
+* clear the selection when clicking empty grid space ([5e5790f](https://github.com/DanielFreitasDev/openKeep/commit/5e5790fd6d5eb91932045edb741e4870174afafa))
+* keep the search bar theme swap instant ([cd05189](https://github.com/DanielFreitasDev/openKeep/commit/cd051896783a0219a5a2750eeb56d843a669bea6))
+
+
+### Features
+
+* drawing attachments api ([a58c038](https://github.com/DanielFreitasDev/openKeep/commit/a58c03816636bde4a18a45bb45137e7cf909eb3c))
+* keep-style drawing editor ([cf65c42](https://github.com/DanielFreitasDev/openKeep/commit/cf65c4233b77cfdc365336bda77252a62145421d))
+* keep-style refresh sync indicator and search focus elevation ([4ee7608](https://github.com/DanielFreitasDev/openKeep/commit/4ee76084f902c1878c6f90dba4772568141b7ecc))
+* morph the editor open from its card, keep-style ([b59457a](https://github.com/DanielFreitasDev/openKeep/commit/b59457a6376dd971f0bb4f226f542ab1ac1101a2))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.8.0
+```
+
+Or download `compose.yml` below (image pinned to `1.8.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.8.0/docs/DEPLOYMENT.md).
+
 ## [1.7.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.7.0...v1.7.1) (2026-07-29)
 
 
