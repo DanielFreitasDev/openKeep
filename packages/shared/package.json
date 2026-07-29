@@ -1,6 +1,6 @@
 {
   "name": "@openkeep/shared",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "description": "Shared Zod schemas, API types and constants for OpenKeep",
   "license": "MIT",

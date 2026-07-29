@@ -1,3 +1,21 @@
+## [1.7.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.7.0...v1.7.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* preview composer images before the note is saved ([97a3312](https://github.com/DanielFreitasDev/openKeep/commit/97a33126a3a906d5b93cfd29fc5e5dcb35a92e21)), closes [#1](https://github.com/DanielFreitasDev/openKeep/issues/1)
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.7.1
+```
+
+Or download `compose.yml` below (image pinned to `1.7.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.7.1/docs/DEPLOYMENT.md).
+
 # [1.7.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.6.0...v1.7.0) (2026-07-29)
 
 
