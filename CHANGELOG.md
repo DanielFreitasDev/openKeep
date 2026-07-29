@@ -1,3 +1,28 @@
+# [1.6.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.5.0...v1.6.0) (2026-07-29)
+
+
+### Bug Fixes
+
+* show offline state and surface failed note saves ([60b138a](https://github.com/DanielFreitasDev/openKeep/commit/60b138a80d34d9dfbf1e07f61aa606f48a4c702e))
+
+
+### Features
+
+* keep local drafts of unsaved note edits and restore them ([74eda8c](https://github.com/DanielFreitasDev/openKeep/commit/74eda8c74a25e35a7a68b2f448ddeb22c9b31c26))
+* queue offline note saves and replay them on reconnect ([d8f537a](https://github.com/DanielFreitasDev/openKeep/commit/d8f537a2fc2aefb0b79325b0f9ef887004454f4c))
+* serve the app shell for offline SPA navigations ([26a9214](https://github.com/DanielFreitasDev/openKeep/commit/26a92142a63a54f6b6bbafb2a93c11fffe6feaf7))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.6.0
+```
+
+Or download `compose.yml` below (image pinned to `1.6.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.6.0/docs/DEPLOYMENT.md).
+
 # [1.5.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.4.0...v1.5.0) (2026-07-29)
 
 
