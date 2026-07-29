@@ -259,14 +259,15 @@ export function Composer() {
 
   const addImages = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setImages((prev) => [
-      ...prev,
-      ...Array.from(files).map((file) => ({
-        key: crypto.randomUUID(),
-        file,
-        url: URL.createObjectURL(file),
-      })),
-    ]);
+    // Read the FileList here, not inside the state updater: the caller resets
+    // the input right after (`value = ''`), which empties the live FileList
+    // before React would run a lazy updater — the picked files would vanish.
+    const picked = Array.from(files).map((file) => ({
+      key: crypto.randomUUID(),
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    setImages((prev) => [...prev, ...picked]);
     setExpanded(true);
   };
 

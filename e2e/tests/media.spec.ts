@@ -42,6 +42,35 @@ test('editor image upload renders on card; delete removes it', async ({ page }) 
   await page.keyboard.press('Escape');
 });
 
+test('composer previews a picked image before the note is saved', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await page.getByLabel('Title', { exact: true }).fill('Preview note');
+  await page.getByRole('textbox', { name: 'Take a note…' }).fill('body typed before the image');
+
+  const composer = page.locator('main');
+  const chooser = page.waitForEvent('filechooser');
+  await composer.getByRole('button', { name: 'Add image' }).click();
+  await (await chooser).setFiles({ name: 'dot.png', mimeType: 'image/png', buffer: PNG });
+
+  // Local preview, no upload yet — the note does not exist server-side.
+  const preview = composer.locator('img[src^="blob:"]');
+  await expect(preview).toBeVisible();
+
+  // Removing it drops the preview; re-picking brings a fresh one back.
+  await preview.hover();
+  await composer.getByRole('button', { name: 'Remove image' }).click();
+  await expect(composer.locator('img[src^="blob:"]')).toHaveCount(0);
+
+  const rechooser = page.waitForEvent('filechooser');
+  await composer.getByRole('button', { name: 'Add image' }).click();
+  await (await rechooser).setFiles({ name: 'dot.png', mimeType: 'image/png', buffer: PNG });
+  await expect(composer.locator('img[src^="blob:"]')).toBeVisible();
+
+  // Saving uploads the held file and the card shows the stored thumb.
+  await composer.getByRole('button', { name: 'Close' }).click();
+  await expect(cardRootByTitle(page, 'Preview note').locator('img[src*="/thumb"]')).toBeVisible();
+});
+
 test('composer "New note with image" creates an image note', async ({ page }) => {
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'New note with image' }).click();
