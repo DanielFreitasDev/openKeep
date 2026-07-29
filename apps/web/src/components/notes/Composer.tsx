@@ -422,24 +422,8 @@ export function Composer() {
               accept="image/jpeg,image/png,image/gif,image/webp"
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0];
+                addImages(e.target.files);
                 e.target.value = '';
-                if (!file) return;
-                const id = m.newNoteId();
-                void m.create
-                  .mutateAsync({
-                    id,
-                    type: 'text',
-                    title: '',
-                    bodyHtml: '',
-                    items: [],
-                    pinned: false,
-                    color: 'default',
-                    background: 'none',
-                  })
-                  .then(() => attachmentM.upload.mutate({ noteId: id, file }))
-                  // Failure feedback (toast + retry) comes from the mutation's onError.
-                  .catch(() => null);
               }}
             />
           </div>

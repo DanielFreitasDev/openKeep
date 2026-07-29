@@ -71,10 +71,17 @@ test('composer previews a picked image before the note is saved', async ({ page 
   await expect(cardRootByTitle(page, 'Preview note').locator('img[src*="/thumb"]')).toBeVisible();
 });
 
-test('composer "New note with image" creates an image note', async ({ page }) => {
+test('composer "New note with image" expands with the image held', async ({ page }) => {
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'New note with image' }).click();
   await (await chooser).setFiles({ name: 'seed.png', mimeType: 'image/png', buffer: PNG });
 
+  // The composer expands showing a local preview — the note does not exist yet.
+  const composer = page.locator('main');
+  await expect(composer.locator('img[src^="blob:"]')).toBeVisible();
+  await expect(page.locator('[data-note-id]')).toHaveCount(0);
+
+  // Saving uploads the held file and the card shows the stored thumb.
+  await composer.getByRole('button', { name: 'Close' }).click();
   await expect(page.locator('[data-note-id] img[src*="/thumb"]')).toBeVisible();
 });
