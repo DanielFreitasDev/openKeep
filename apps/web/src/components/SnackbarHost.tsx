@@ -1,4 +1,4 @@
-import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
+import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import { useTranslation } from 'react-i18next';
 import { useSnackbarStore } from '../stores/snackbar.js';
 import { IconButton } from './IconButton.js';

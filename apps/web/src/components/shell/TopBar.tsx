@@ -1,9 +1,9 @@
-import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
-import gridViewSvg from '@material-symbols/svg-500/outlined/grid_view.svg?raw';
-import menuSvg from '@material-symbols/svg-500/outlined/menu.svg?raw';
-import refreshSvg from '@material-symbols/svg-500/outlined/refresh.svg?raw';
-import searchSvg from '@material-symbols/svg-500/outlined/search.svg?raw';
-import viewAgendaSvg from '@material-symbols/svg-500/outlined/view_agenda.svg?raw';
+import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
+import gridViewSvg from '@material-symbols/svg-700/outlined/grid_view.svg?raw';
+import menuSvg from '@material-symbols/svg-700/outlined/menu.svg?raw';
+import refreshSvg from '@material-symbols/svg-700/outlined/refresh.svg?raw';
+import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
+import viewAgendaSvg from '@material-symbols/svg-700/outlined/view_agenda.svg?raw';
 import type { UserSettings } from '@openkeep/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';

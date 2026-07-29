@@ -1,4 +1,4 @@
-import archiveSvg from '@material-symbols/svg-500/outlined/archive.svg?raw';
+import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';

@@ -1,4 +1,4 @@
-import addSvg from '@material-symbols/svg-500/outlined/add.svg?raw';
+import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';

@@ -1,10 +1,10 @@
 import { Dialog } from '@base-ui/react/dialog';
-import addSvg from '@material-symbols/svg-500/outlined/add.svg?raw';
-import checkSvg from '@material-symbols/svg-500/outlined/check.svg?raw';
-import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
-import deleteSvg from '@material-symbols/svg-500/outlined/delete.svg?raw';
-import editSvg from '@material-symbols/svg-500/outlined/edit.svg?raw';
-import labelSvg from '@material-symbols/svg-500/outlined/label.svg?raw';
+import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
+import checkSvg from '@material-symbols/svg-700/outlined/check.svg?raw';
+import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
+import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
+import editSvg from '@material-symbols/svg-700/outlined/edit.svg?raw';
+import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
 import type { Label } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';

@@ -1,18 +1,18 @@
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
-import addAlertSvg from '@material-symbols/svg-500/outlined/add_alert.svg?raw';
-import archiveSvg from '@material-symbols/svg-500/outlined/archive.svg?raw';
-import checkboxSvg from '@material-symbols/svg-500/outlined/check_box.svg?raw';
-import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
-import formatSvg from '@material-symbols/svg-500/outlined/format_color_text.svg?raw';
-import imageSvg from '@material-symbols/svg-500/outlined/image.svg?raw';
-import pinSvg from '@material-symbols/svg-500/outlined/keep.svg?raw';
-import pinFilledSvg from '@material-symbols/svg-500/outlined/keep-fill.svg?raw';
-import moreSvg from '@material-symbols/svg-500/outlined/more_vert.svg?raw';
-import paletteSvg from '@material-symbols/svg-500/outlined/palette.svg?raw';
-import personAddSvg from '@material-symbols/svg-500/outlined/person_add.svg?raw';
-import redoSvg from '@material-symbols/svg-500/outlined/redo.svg?raw';
-import undoSvg from '@material-symbols/svg-500/outlined/undo.svg?raw';
+import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
+import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
+import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
+import formatSvg from '@material-symbols/svg-700/outlined/format_color_text.svg?raw';
+import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
+import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
+import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
+import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
+import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
+import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
+import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
+import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import type { Collaborator, NoteBackground, NoteColor, SetReminder } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { EditorContent, useEditor } from '@tiptap/react';
@@ -384,7 +384,7 @@ export function Composer() {
                 placeholder={t('title')}
                 aria-label={t('title')}
                 maxLength={999}
-                className="w-full bg-transparent px-4 pt-3 pb-2 font-semibold text-[1.125rem] text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="w-full bg-transparent px-4 pt-3 pb-2 font-semibold text-[1.25rem] text-on-surface outline-none placeholder:text-on-surface-variant"
               />
               <div className="pt-1.5 pr-1.5">
                 <IconButton

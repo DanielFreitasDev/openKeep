@@ -1,4 +1,4 @@
-import labelSvg from '@material-symbols/svg-500/outlined/label.svg?raw';
+import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';

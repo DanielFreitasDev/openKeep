@@ -1,5 +1,5 @@
-import checkedSvg from '@material-symbols/svg-500/outlined/check_box.svg?raw';
-import uncheckedSvg from '@material-symbols/svg-500/outlined/check_box_outline_blank.svg?raw';
+import checkedSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
+import uncheckedSvg from '@material-symbols/svg-700/outlined/check_box_outline_blank.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../Icon.js';

@@ -1,4 +1,4 @@
-import lightbulbSvg from '@material-symbols/svg-500/outlined/lightbulb.svg?raw';
+import lightbulbSvg from '@material-symbols/svg-700/outlined/lightbulb.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';

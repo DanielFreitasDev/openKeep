@@ -1,9 +1,9 @@
-import archiveSvg from '@material-symbols/svg-500/outlined/archive.svg?raw';
-import deleteSvg from '@material-symbols/svg-500/outlined/delete.svg?raw';
-import editSvg from '@material-symbols/svg-500/outlined/edit.svg?raw';
-import labelSvg from '@material-symbols/svg-500/outlined/label.svg?raw';
-import lightbulbSvg from '@material-symbols/svg-500/outlined/lightbulb.svg?raw';
-import notificationsSvg from '@material-symbols/svg-500/outlined/notifications.svg?raw';
+import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
+import editSvg from '@material-symbols/svg-700/outlined/edit.svg?raw';
+import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
+import lightbulbSvg from '@material-symbols/svg-700/outlined/lightbulb.svg?raw';
+import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';

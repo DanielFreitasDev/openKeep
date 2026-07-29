@@ -1,17 +1,17 @@
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
-import addAlertSvg from '@material-symbols/svg-500/outlined/add_alert.svg?raw';
-import archiveSvg from '@material-symbols/svg-500/outlined/archive.svg?raw';
-import checkCircleSvg from '@material-symbols/svg-500/outlined/check_circle.svg?raw';
-import deleteForeverSvg from '@material-symbols/svg-500/outlined/delete_forever.svg?raw';
-import imageSvg from '@material-symbols/svg-500/outlined/image.svg?raw';
-import pinSvg from '@material-symbols/svg-500/outlined/keep.svg?raw';
-import pinFilledSvg from '@material-symbols/svg-500/outlined/keep-fill.svg?raw';
-import moreSvg from '@material-symbols/svg-500/outlined/more_vert.svg?raw';
-import paletteSvg from '@material-symbols/svg-500/outlined/palette.svg?raw';
-import personAddSvg from '@material-symbols/svg-500/outlined/person_add.svg?raw';
-import restoreSvg from '@material-symbols/svg-500/outlined/restore_from_trash.svg?raw';
-import unarchiveSvg from '@material-symbols/svg-500/outlined/unarchive.svg?raw';
+import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
+import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import checkCircleSvg from '@material-symbols/svg-700/outlined/check_circle.svg?raw';
+import deleteForeverSvg from '@material-symbols/svg-700/outlined/delete_forever.svg?raw';
+import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
+import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
+import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
+import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
+import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
+import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
+import restoreSvg from '@material-symbols/svg-700/outlined/restore_from_trash.svg?raw';
+import unarchiveSvg from '@material-symbols/svg-700/outlined/unarchive.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
@@ -145,7 +145,7 @@ export function NoteCard({ note }: { note: FullNote }) {
         <NoteImages note={note} />
         <div className="px-4 pt-3 pb-2">
           {note.title && (
-            <div className="mb-1.5 break-words pr-7 font-semibold text-[1.0625rem] text-on-surface leading-6">
+            <div className="mb-1.5 break-words pr-7 font-semibold text-[1.1875rem] text-on-surface leading-7">
               {note.title}
             </div>
           )}

@@ -1,4 +1,4 @@
-import publicSvg from '@material-symbols/svg-500/outlined/public.svg?raw';
+import publicSvg from '@material-symbols/svg-700/outlined/public.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { extractUrls } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';

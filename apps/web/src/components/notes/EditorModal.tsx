@@ -1,17 +1,17 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
-import addAlertSvg from '@material-symbols/svg-500/outlined/add_alert.svg?raw';
-import archiveSvg from '@material-symbols/svg-500/outlined/archive.svg?raw';
-import formatSvg from '@material-symbols/svg-500/outlined/format_color_text.svg?raw';
-import imageSvg from '@material-symbols/svg-500/outlined/image.svg?raw';
-import pinSvg from '@material-symbols/svg-500/outlined/keep.svg?raw';
-import pinFilledSvg from '@material-symbols/svg-500/outlined/keep-fill.svg?raw';
-import moreSvg from '@material-symbols/svg-500/outlined/more_vert.svg?raw';
-import paletteSvg from '@material-symbols/svg-500/outlined/palette.svg?raw';
-import personAddSvg from '@material-symbols/svg-500/outlined/person_add.svg?raw';
-import redoSvg from '@material-symbols/svg-500/outlined/redo.svg?raw';
-import undoSvg from '@material-symbols/svg-500/outlined/undo.svg?raw';
+import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
+import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import formatSvg from '@material-symbols/svg-700/outlined/format_color_text.svg?raw';
+import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
+import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
+import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
+import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
+import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
+import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
+import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
+import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -248,7 +248,7 @@ function EditorBody({
                 e.target.style.height = 'auto';
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
-              className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.5rem] text-on-surface leading-8 outline-none placeholder:text-on-surface-variant"
+              className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant"
             />
             {!trashed && (
               <div className="pt-2.5 pr-2">
