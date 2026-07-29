@@ -27,6 +27,7 @@ import {
   uncheckAllApi,
   updateCachedItems,
 } from '../../lib/items-api.js';
+import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton } from '../IconButton.js';
 import type { ChecklistRow } from './checklist-logic.js';
@@ -69,6 +70,7 @@ export function ChecklistEditor({
 }: ChecklistEditorProps) {
   const { t } = useTranslation('editor');
   const queryClient = useQueryClient();
+  const show = useSnackbarStore((s) => s.show);
   const noteId = note.id;
 
   const [rows, setRows] = useState<ChecklistRow[]>(() =>
@@ -144,10 +146,11 @@ export function ChecklistEditor({
             cacheUpsert(result.item);
             for (const c of result.cascaded) cacheUpsert(c);
           })
+          .catch(() => show({ message: t('common:saveFailed') }))
           .finally(() => endPatch(key));
       });
     },
-    [withServerId, noteId, cacheUpsert, beginPatch, endPatch],
+    [withServerId, noteId, cacheUpsert, beginPatch, endPatch, show, t],
   );
 
   const scheduleTextSync = useCallback(
@@ -197,12 +200,13 @@ export function ChecklistEditor({
         })
         .catch(() => {
           setRows((prev) => prev.filter((r) => r.key !== key));
+          show({ message: t('common:saveFailed') });
           return null;
         });
       creations.current.set(key, creation);
       return key;
     },
-    [noteId, cacheUpsert],
+    [noteId, cacheUpsert, show, t],
   );
 
   const changeText = useCallback(
@@ -229,12 +233,13 @@ export function ChecklistEditor({
             cacheUpsert(result.item);
             for (const c of result.cascaded) cacheUpsert(c);
           })
+          .catch(() => show({ message: t('common:saveFailed') }))
           .finally(() => {
             for (const k of affected) endPatch(k);
           });
       });
     },
-    [withServerId, noteId, cacheUpsert, beginPatch, endPatch],
+    [withServerId, noteId, cacheUpsert, beginPatch, endPatch, show, t],
   );
 
   const setIndent = useCallback(
@@ -261,10 +266,12 @@ export function ChecklistEditor({
       if (timer) clearTimeout(timer);
       textTimers.current.delete(key);
       withServerId(key, (id) => {
-        void deleteItemApi(noteId, id).then(() => cacheRemove(id));
+        void deleteItemApi(noteId, id)
+          .then(() => cacheRemove(id))
+          .catch(() => show({ message: t('common:saveFailed') }));
       });
     },
-    [withServerId, noteId, cacheRemove],
+    [withServerId, noteId, cacheRemove, show, t],
   );
 
   const splitRow = useCallback(

@@ -60,7 +60,14 @@ export function useNoteMutations() {
       setNotes((old) => upsertNote(old, optimistic));
     },
     onSuccess: (note) => setNotes((old) => upsertNote(old, note)),
-    onError: (_e, input) => setNotes((old) => removeNote(old, input.id)),
+    onError: (_e, input) => {
+      setNotes((old) => removeNote(old, input.id));
+      show({
+        message: t('common:saveFailed'),
+        actionLabel: t('common:retry'),
+        onAction: () => create.mutate(input),
+      });
+    },
   });
 
   const patchContent = useMutation({
@@ -76,6 +83,13 @@ export function useNoteMutations() {
           updatedAt: result.updatedAt,
         }),
       ),
+    onError: (_e, vars) => {
+      show({
+        message: t('common:saveFailed'),
+        actionLabel: t('common:retry'),
+        onAction: () => patchContent.mutate(vars),
+      });
+    },
   });
 
   const patchState = useMutation({
@@ -85,6 +99,13 @@ export function useNoteMutations() {
     onSuccess: (result) => {
       const { id, ...state } = result;
       setNotes((old) => mergeNote(old, id, state));
+    },
+    onError: (_e, vars) => {
+      show({
+        message: t('common:saveFailed'),
+        actionLabel: t('common:retry'),
+        onAction: () => patchState.mutate(vars),
+      });
     },
   });
 

@@ -7,6 +7,7 @@ import { EditorModal } from '../components/notes/EditorModal.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
 import { ApiTokensDialog } from '../components/shell/ApiTokensDialog.js';
 import { ImportExportDialog } from '../components/shell/ImportExportDialog.js';
+import { OfflineBanner } from '../components/shell/OfflineBanner.js';
 import { SelectionBar } from '../components/shell/SelectionBar.js';
 import { SettingsDialog } from '../components/shell/SettingsDialog.js';
 import { ShortcutsDialog } from '../components/shell/ShortcutsDialog.js';
@@ -17,6 +18,7 @@ import { useMarqueeSelection } from '../hooks/use-marquee-selection.js';
 import { usePushRegistration } from '../hooks/use-push.js';
 import { useRealtime } from '../hooks/use-realtime.js';
 import { useReminderToasts } from '../hooks/use-reminder-toasts.js';
+import { useUnsavedGuard } from '../hooks/use-unsaved-guard.js';
 import { sessionQuery } from '../lib/queries.js';
 import { useUiStore } from '../stores/ui.js';
 
@@ -46,6 +48,7 @@ function ShellLayout() {
   useReminderToasts();
   usePushRegistration();
   useAppKeys();
+  useUnsavedGuard();
   return (
     <div className="min-h-full">
       <TopBar />
@@ -59,6 +62,7 @@ function ShellLayout() {
         <Outlet />
       </main>
       <MarqueeOverlay box={marquee} />
+      <OfflineBanner />
       <EditorModal />
       <SettingsDialog />
       <EditLabelsDialog />

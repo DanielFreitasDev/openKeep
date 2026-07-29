@@ -173,6 +173,7 @@ export function Composer() {
         color: draft.color,
         background: draft.background,
       })
+      // Failure feedback (toast + retry) comes from the mutation's onError.
       .catch(() => null);
     if (!note) return;
 
@@ -351,7 +352,9 @@ export function Composer() {
                     color: 'default',
                     background: 'none',
                   })
-                  .then(() => attachmentM.upload.mutate({ noteId: id, file }));
+                  .then(() => attachmentM.upload.mutate({ noteId: id, file }))
+                  // Failure feedback (toast + retry) comes from the mutation's onError.
+                  .catch(() => null);
               }}
             />
           </div>

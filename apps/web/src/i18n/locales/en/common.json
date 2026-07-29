@@ -12,6 +12,7 @@
   "create": "Create",
   "error": "Something went wrong",
   "offline": "You are offline. Changes can't be saved right now.",
+  "saveFailed": "Changes could not be saved.",
   "updateAvailable": "A new version is available",
   "reload": "Reload"
 }
