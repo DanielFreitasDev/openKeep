@@ -1,3 +1,21 @@
+## [1.3.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.3.0...v1.3.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* preserve every Takeout attachment and its note's edit date ([dc5f503](https://github.com/DanielFreitasDev/openKeep/commit/dc5f5039fd24b9c4d0d383fdec3f7e56ead3a9b3))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.3.1
+```
+
+Or download `compose.yml` below (image pinned to `1.3.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.3.1/docs/DEPLOYMENT.md).
+
 # [1.3.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.2.1...v1.3.0) (2026-07-29)
 
 
