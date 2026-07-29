@@ -33,6 +33,7 @@ import { NoteImages } from './NoteImages.js';
 import { NoteReminderChip } from './ReminderChip.js';
 import { NoteReminderPicker } from './ReminderPicker.js';
 import { NoteShareDialog } from './ShareDialog.js';
+import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
@@ -63,6 +64,7 @@ export function NoteCard({ note }: { note: FullNote }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
 
   const trashed = note.trashedAt !== null;
 
@@ -295,6 +297,9 @@ export function NoteCard({ note }: { note: FullNote }) {
                     <Menu.Item className={menuItemClass} onClick={() => m.copy.mutate(note.id)}>
                       {t('makeACopy')}
                     </Menu.Item>
+                    <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
+                      {t('editor:versionHistory')}
+                    </Menu.Item>
                     <Menu.Item
                       className={menuItemClass}
                       onClick={() =>
@@ -325,6 +330,10 @@ export function NoteCard({ note }: { note: FullNote }) {
       />
 
       {showShare && <NoteShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
+
+      {showVersions && (
+        <VersionHistoryDialog noteId={note.id} open={showVersions} onOpenChange={setShowVersions} />
+      )}
 
       {showLabelPicker && (
         <Popover.Root open onOpenChange={(o) => !o && setShowLabelPicker(false)}>

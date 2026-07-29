@@ -141,6 +141,36 @@ test('editor autosave survives reload', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('version history: first edit is recorded and restorable from the card menu', async ({
+  page,
+}) => {
+  await composeNote(page, { title: 'Versioned', body: 'original text' });
+
+  // Editing the note captures the state it had before the edit.
+  await cardByTitle(page, 'Versioned').click();
+  const editorBody = page.getByRole('dialog').locator('.tiptap');
+  await editorBody.click();
+  await editorBody.pressSequentially(' plus more');
+  await page.waitForTimeout(900); // > 500ms debounce + request
+  await page.keyboard.press('Escape');
+
+  // The entry is reachable from the collapsed card, not only from the editor.
+  await cardRootByTitle(page, 'Versioned').hover();
+  await cardRootByTitle(page, 'Versioned')
+    .getByRole('button', { name: 'More', exact: true })
+    .click();
+  await page.getByRole('menuitem', { name: 'Version history' }).click();
+
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Version history' });
+  const entry = dialog.getByRole('button', { name: 'Restore' }).first();
+  await expect(entry).toBeVisible();
+  // Stamped down to the second (e.g. "…, 9:41:07 AM").
+  await expect(dialog.getByText(/\d{1,2}:\d{2}:\d{2}/)).toBeVisible();
+
+  await entry.click();
+  await expect(page.getByText('original text', { exact: true })).toBeVisible();
+});
+
 test('colors apply on card in light AND dark themes', async ({ page }) => {
   await composeNote(page, { title: 'Colorful', body: 'paint me' });
 
