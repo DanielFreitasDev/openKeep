@@ -39,6 +39,9 @@ interface UiState {
   sidebarOpen: boolean;
   activeDialog: ActiveDialog;
   focusedNoteId: string | null;
+  /** Note currently open in the editor modal — its card hides content but keeps its footprint. */
+  openEditorNoteId: string | null;
+  setOpenEditorNoteId: (id: string | null) => void;
   /** Small-screen overlay drawer (hamburger on mobile). */
   mobileDrawerOpen: boolean;
   setMobileDrawerOpen: (open: boolean) => void;
@@ -57,6 +60,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   sidebarOpen: true,
   activeDialog: null,
   focusedNoteId: null,
+  openEditorNoteId: null,
+  setOpenEditorNoteId: (openEditorNoteId) => set({ openEditorNoteId }),
   mobileDrawerOpen: false,
   setMobileDrawerOpen: (mobileDrawerOpen) => set({ mobileDrawerOpen }),
   viewNoteIds: [],

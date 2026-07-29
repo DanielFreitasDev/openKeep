@@ -27,18 +27,20 @@ import type { FullNote } from '@openkeep/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
+import { takeEditorOrigin } from '../../lib/editor-origin.js';
 import { removeNote } from '../../lib/note-selectors.js';
 import { deleteNoteForever, notesQuery, trashNote } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
 import { noteExtensions } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
+import { useUiStore } from '../../stores/ui.js';
 import { BottomSheet, SheetItem } from '../BottomSheet.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
@@ -63,6 +65,14 @@ const menuItemClass =
 const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
 type MobileSheet = 'add' | 'palette' | 'more' | 'reminder' | 'labels' | null;
+
+/** Morph only for the desktop modal (mobile is full-screen) with motion allowed. */
+function isDesktopMorph(): boolean {
+  return (
+    window.matchMedia('(min-width: 768px)').matches &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 function htmlIsBlank(html: string): boolean {
   return (
@@ -196,7 +206,73 @@ function EditorBody({
   const checklistRef = useRef<ChecklistHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+  const closingRef = useRef(false);
   const attachmentM = useAttachmentMutations();
+  const setOpenEditorNoteId = useUiStore((s) => s.setOpenEditorNoteId);
+
+  // The open note's card keeps its grid footprint with hidden content (Keep
+  // web) — flagged before paint so the card never flashes under the morph.
+  useLayoutEffect(() => {
+    setOpenEditorNoteId(note.id);
+    return () => setOpenEditorNoteId(null);
+  }, [note.id, setOpenEditorNoteId]);
+
+  // Morph open from the clicked card's rect (desktop; deep links skip this).
+  // Base UI mounts the popup a beat after the dialog tree, so the morph runs
+  // from the popup's ref callback — the moment the node lands in the DOM.
+  const morphedInRef = useRef(false);
+  const attachPopup = (node: HTMLDivElement | null) => {
+    popupRef.current = node;
+    if (!node || morphedInRef.current) return;
+    morphedInRef.current = true;
+    const from = takeEditorOrigin(note.id);
+    if (!from || !isDesktopMorph()) return;
+    const to = node.getBoundingClientRect();
+    if (to.width === 0 || to.height === 0) return;
+    node.animate(
+      [
+        {
+          transformOrigin: '0 0',
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${
+            from.width / to.width
+          }, ${from.height / to.height})`,
+        },
+        { transformOrigin: '0 0', transform: 'none' },
+      ],
+      { duration: 195, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+    );
+  };
+
+  /** Morph back onto the card, then run the actual close. */
+  const animateClose = (after: () => void) => {
+    const popup = popupRef.current;
+    const from = document.querySelector(`[data-note-id="${note.id}"]`)?.getBoundingClientRect();
+    if (!popup || !from || !isDesktopMorph()) {
+      after();
+      return;
+    }
+    const to = popup.getBoundingClientRect();
+    popup.style.pointerEvents = 'none';
+    backdropRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 160,
+      fill: 'forwards',
+    });
+    const anim = popup.animate(
+      [
+        { transformOrigin: '0 0', transform: 'none' },
+        {
+          transformOrigin: '0 0',
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${
+            from.width / to.width
+          }, ${from.height / to.height})`,
+        },
+      ],
+      { duration: 160, easing: 'cubic-bezier(0.3, 0, 1, 1)', fill: 'forwards' },
+    );
+    anim.finished.catch(() => undefined).finally(after);
+  };
 
   const noteIdRef = useRef(note.id);
   const autosave = useAutosave(
@@ -349,12 +425,14 @@ function EditorBody({
   }, []);
 
   const flushAndClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     if (discardUntouched()) {
       onClose();
       return;
     }
     autosave.flush();
-    onClose();
+    animateClose(onClose);
   };
 
   const toggleArchive = () => {
@@ -384,8 +462,12 @@ function EditorBody({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-(--scrim) max-md:hidden" />
+        <Dialog.Backdrop
+          ref={backdropRef}
+          className="editor-scrim fixed inset-0 z-40 bg-(--scrim) max-md:hidden"
+        />
         <Dialog.Popup
+          ref={attachPopup}
           aria-label={note.title || t('notePlaceholder')}
           className="fixed inset-0 z-40 flex flex-col pt-[env(safe-area-inset-top)] outline-none md:inset-auto md:top-[8vh] md:left-1/2 md:max-h-[84vh] md:w-[min(96vw,600px)] md:-translate-x-1/2 md:rounded-lg md:border md:pt-0 md:shadow-(--elevation-3)"
           style={{

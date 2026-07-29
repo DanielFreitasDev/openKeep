@@ -18,6 +18,7 @@ import { memo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { setEditorOrigin } from '../../lib/editor-origin.js';
 import { useSelectionStore } from '../../stores/selection.js';
 import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
@@ -65,6 +66,8 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
   const isSelected = useSelectionStore((s) => s.selected.has(note.id));
   const selectionActive = useSelectionStore((s) => s.selected.size > 0);
   const isFocused = useUiStore((s) => s.focusedNoteId === note.id);
+  const isOpenInEditor = useUiStore((s) => s.openEditorNoteId === note.id);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -106,6 +109,10 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
       toggleSelect(note.id);
       return;
     }
+    // The editor morphs open from this card's rect (the masonry wrapper owns
+    // the real footprint, the card root is its only child).
+    const source = rootRef.current?.closest('[data-note-id]') ?? rootRef.current;
+    if (source) setEditorOrigin(note.id, source.getBoundingClientRect());
     void navigate({
       to: '.',
       search: (old: Record<string, unknown>) => ({ ...old, note: note.id }),
@@ -120,7 +127,9 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
 
   return (
     <div
+      ref={rootRef}
       data-selected={isSelected || undefined}
+      data-editor-open={isOpenInEditor || undefined}
       className={`group relative flex flex-col rounded-lg border transition-shadow duration-100 hover:shadow-(--elevation-2) max-md:select-none max-md:rounded-xl ${
         isSelected ? 'ring-2 ring-(--on-surface)' : isFocused ? 'ring-2 ring-(--primary)' : ''
       }`}
