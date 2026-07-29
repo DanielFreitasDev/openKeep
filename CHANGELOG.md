@@ -1,3 +1,21 @@
+## [1.8.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.0...v1.8.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* expand the composer with the picked image instead of silently saving ([c448863](https://github.com/DanielFreitasDev/openKeep/commit/c448863ca6af72ded869004b9b71438c882353b6))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.8.1
+```
+
+Or download `compose.yml` below (image pinned to `1.8.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.8.1/docs/DEPLOYMENT.md).
+
 # [1.8.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.7.1...v1.8.0) (2026-07-29)
 
 
