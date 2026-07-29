@@ -41,6 +41,9 @@ test('an edit made offline survives an offline reload and syncs after reconnect'
   await dialog.getByLabel('Title', { exact: true }).fill('PWA offline edited');
   await page.waitForTimeout(900); // debounce flush → paused mutation → outbox write
   await dialog.getByRole('button', { name: 'Close' }).click();
+  // The editor morphs back onto its card; reloading mid-morph would keep
+  // ?note= in the URL and boot straight back into the editor.
+  await expect(dialog).toHaveCount(0);
 
   // Reload while still offline: the SW serves the shell and the cached
   // corpus, and the local draft paints the edit over it — nothing is lost.

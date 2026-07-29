@@ -51,6 +51,8 @@ test('checklist lifecycle: compose list, split, check to completed, uncheck all,
   await expect(dialog.getByRole('textbox', { name: 'List item' })).toHaveCount(2);
 
   await page.keyboard.press('Escape');
+  // The editor morphs back onto its card — wait it out before reading the card.
+  await expect(dialog).toHaveCount(0);
   // Card shows remaining items.
   await expect(page.getByText('Milk')).toBeVisible();
   await expect(page.getByText('ead')).toBeVisible();

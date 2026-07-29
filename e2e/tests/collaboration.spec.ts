@@ -56,6 +56,8 @@ test('sharing: live content sync between two users; per-user color isolation', a
   await expect(collabEditor.getByLabel('Title')).toHaveValue('Team plan v2', { timeout: 5000 });
   await expect(collabEditor.getByText('plus live edits')).toBeVisible({ timeout: 5000 });
   await collab.keyboard.press('Escape');
+  // The editor morphs back onto its card — wait it out before reading the card.
+  await expect(collabEditor).toHaveCount(0);
 
   // …and so does the card.
   await expect(collab.getByText('plus live edits')).toBeVisible({ timeout: 5000 });
