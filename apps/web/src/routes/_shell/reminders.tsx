@@ -1,4 +1,4 @@
-import notificationsSvg from '@material-symbols/svg-400/outlined/notifications.svg?raw';
+import notificationsSvg from '@material-symbols/svg-500/outlined/notifications.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';

@@ -186,7 +186,7 @@ importers:
       '@fontsource/roboto':
         specifier: 5.3.0
         version: 5.3.0
-      '@material-symbols/svg-400':
+      '@material-symbols/svg-500':
         specifier: 0.45.9
         version: 0.45.9
       '@openkeep/shared':
@@ -1907,8 +1907,8 @@ packages:
     resolution: {integrity: sha512-9I2Zn6+NJLfaGoz9jN3lpwDgAYvfGeNYdbAIjJOqzs4Tpc+VU3Jqq4IofSUBKajiDS8k9fZIg18/z13mpk1bsA==}
     engines: {node: '>=8'}
 
-  '@material-symbols/svg-400@0.45.9':
-    resolution: {integrity: sha512-zVe6N/1m+1dSW+Hh89pflVjQO46sRsxVgqVkQ+9Wbm8rOdtcIxZQhFKfMulS1B9a9p/b/QKP+w1Y/VqdVYuyWw==}
+  '@material-symbols/svg-500@0.45.9':
+    resolution: {integrity: sha512-L28a/MXxSLqDyv6QOxvgXUtJnXq62B7V+4wJyk+aeAqM6ob5+EHJu002ljmdSpWf1XlK5BiS7rfAF2D038us1A==}
 
   '@modelcontextprotocol/client@2.0.0':
     resolution: {integrity: sha512-8f1OghQ2rjzIOfqgUCP+8GiUWqRs89njoWLNqAe8kWmDePv3s1fZXseej+QXemssEuuOvLLmLO/kqM3IQHtISw==}
@@ -7967,7 +7967,7 @@ snapshots:
 
   '@lukeed/ms@2.0.2': {}
 
-  '@material-symbols/svg-400@0.45.9': {}
+  '@material-symbols/svg-500@0.45.9': {}
 
   '@modelcontextprotocol/client@2.0.0':
     dependencies:

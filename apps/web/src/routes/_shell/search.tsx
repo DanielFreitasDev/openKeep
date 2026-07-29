@@ -1,10 +1,10 @@
-import brushSvg from '@material-symbols/svg-400/outlined/brush.svg?raw';
-import checkboxSvg from '@material-symbols/svg-400/outlined/check_box.svg?raw';
-import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
-import linkSvg from '@material-symbols/svg-400/outlined/link.svg?raw';
-import audioSvg from '@material-symbols/svg-400/outlined/mic.svg?raw';
-import notificationsSvg from '@material-symbols/svg-400/outlined/notifications.svg?raw';
-import searchSvg from '@material-symbols/svg-400/outlined/search.svg?raw';
+import brushSvg from '@material-symbols/svg-500/outlined/brush.svg?raw';
+import checkboxSvg from '@material-symbols/svg-500/outlined/check_box.svg?raw';
+import imageSvg from '@material-symbols/svg-500/outlined/image.svg?raw';
+import linkSvg from '@material-symbols/svg-500/outlined/link.svg?raw';
+import audioSvg from '@material-symbols/svg-500/outlined/mic.svg?raw';
+import notificationsSvg from '@material-symbols/svg-500/outlined/notifications.svg?raw';
+import searchSvg from '@material-symbols/svg-500/outlined/search.svg?raw';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';

@@ -1,5 +1,5 @@
-import checkSvg from '@material-symbols/svg-400/outlined/check.svg?raw';
-import dropletSvg from '@material-symbols/svg-400/outlined/water_drop.svg?raw';
+import checkSvg from '@material-symbols/svg-500/outlined/check.svg?raw';
+import dropletSvg from '@material-symbols/svg-500/outlined/water_drop.svg?raw';
 import type { NoteBackground, NoteColor } from '@openkeep/shared';
 import { NOTE_BACKGROUNDS, NOTE_COLORS } from '@openkeep/shared';
 import { useTranslation } from 'react-i18next';

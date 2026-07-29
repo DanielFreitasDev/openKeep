@@ -1,10 +1,10 @@
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
-import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
-import closeSvg from '@material-symbols/svg-400/outlined/close.svg?raw';
-import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
-import moreSvg from '@material-symbols/svg-400/outlined/more_vert.svg?raw';
-import paletteSvg from '@material-symbols/svg-400/outlined/palette.svg?raw';
+import archiveSvg from '@material-symbols/svg-500/outlined/archive.svg?raw';
+import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
+import pinSvg from '@material-symbols/svg-500/outlined/keep.svg?raw';
+import moreSvg from '@material-symbols/svg-500/outlined/more_vert.svg?raw';
+import paletteSvg from '@material-symbols/svg-500/outlined/palette.svg?raw';
 import type { NoteColor } from '@openkeep/shared';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';

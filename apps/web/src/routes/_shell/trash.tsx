@@ -1,4 +1,4 @@
-import deleteSvg from '@material-symbols/svg-400/outlined/delete.svg?raw';
+import deleteSvg from '@material-symbols/svg-500/outlined/delete.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';

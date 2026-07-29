@@ -1,4 +1,4 @@
-import closeSvg from '@material-symbols/svg-400/outlined/close.svg?raw';
+import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';

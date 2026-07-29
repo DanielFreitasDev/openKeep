@@ -1,5 +1,5 @@
 import { Menu } from '@base-ui/react/menu';
-import settingsSvg from '@material-symbols/svg-400/outlined/settings.svg?raw';
+import settingsSvg from '@material-symbols/svg-500/outlined/settings.svg?raw';
 import { useTranslation } from 'react-i18next';
 import { isDarkEffective, useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';

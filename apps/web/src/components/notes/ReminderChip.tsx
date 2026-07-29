@@ -1,6 +1,6 @@
 import { Popover } from '@base-ui/react/popover';
-import notificationsSvg from '@material-symbols/svg-400/outlined/notifications.svg?raw';
-import updateSvg from '@material-symbols/svg-400/outlined/update.svg?raw';
+import notificationsSvg from '@material-symbols/svg-500/outlined/notifications.svg?raw';
+import updateSvg from '@material-symbols/svg-500/outlined/update.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';

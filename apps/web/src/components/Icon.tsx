@@ -1,5 +1,5 @@
 interface IconProps {
-  /** Raw SVG markup from a @material-symbols/svg-400 `?raw` import. */
+  /** Raw SVG markup from a @material-symbols/svg-500 `?raw` import. */
   svg: string;
   /** Accessible name; omit ONLY when the parent control is already labeled. */
   label?: string;

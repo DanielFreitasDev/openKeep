@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog';
-import downloadSvg from '@material-symbols/svg-400/outlined/download.svg?raw';
-import historySvg from '@material-symbols/svg-400/outlined/history.svg?raw';
+import downloadSvg from '@material-symbols/svg-500/outlined/download.svg?raw';
+import historySvg from '@material-symbols/svg-500/outlined/history.svg?raw';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { formatVersionStamp } from '../../lib/dates.js';

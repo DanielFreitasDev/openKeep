@@ -3,10 +3,10 @@ import {
   dropTargetForElements,
   monitorForElements,
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
-import addSvg from '@material-symbols/svg-400/outlined/add.svg?raw';
-import closeSvg from '@material-symbols/svg-400/outlined/close.svg?raw';
-import dragSvg from '@material-symbols/svg-400/outlined/drag_indicator.svg?raw';
-import chevronSvg from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?raw';
+import addSvg from '@material-symbols/svg-500/outlined/add.svg?raw';
+import closeSvg from '@material-symbols/svg-500/outlined/close.svg?raw';
+import dragSvg from '@material-symbols/svg-500/outlined/drag_indicator.svg?raw';
+import chevronSvg from '@material-symbols/svg-500/outlined/keyboard_arrow_down.svg?raw';
 import type { FullNote, NoteItem } from '@openkeep/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import {
