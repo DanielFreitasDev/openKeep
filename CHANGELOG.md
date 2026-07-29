@@ -1,3 +1,21 @@
+## [1.2.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.2.0...v1.2.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* apply the pre-hydration theme under the production CSP ([5c90eab](https://github.com/DanielFreitasDev/openKeep/commit/5c90eab9a639883af575f0dae0ec97bd44c96ede))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.2.1
+```
+
+Or download `compose.yml` below (image pinned to `1.2.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.2.1/docs/DEPLOYMENT.md).
+
 # [1.2.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.1.2...v1.2.0) (2026-07-29)
 
 
