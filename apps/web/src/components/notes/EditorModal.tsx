@@ -2,18 +2,29 @@ import { Dialog } from '@base-ui/react/dialog';
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
 import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
+import addBoxSvg from '@material-symbols/svg-700/outlined/add_box.svg?raw';
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import arrowBackSvg from '@material-symbols/svg-700/outlined/arrow_back.svg?raw';
+import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
+import checkboxBlankSvg from '@material-symbols/svg-700/outlined/check_box_outline_blank.svg?raw';
+import contentCopySvg from '@material-symbols/svg-700/outlined/content_copy.svg?raw';
+import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
+import deleteSweepSvg from '@material-symbols/svg-700/outlined/delete_sweep.svg?raw';
 import formatSvg from '@material-symbols/svg-700/outlined/format_color_text.svg?raw';
+import historySvg from '@material-symbols/svg-700/outlined/history.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
+import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
+import photoCameraSvg from '@material-symbols/svg-700/outlined/photo_camera.svg?raw';
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
+import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import type { FullNote } from '@openkeep/shared';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
@@ -23,9 +34,12 @@ import { useAutosave } from '../../hooks/use-autosave.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
-import { notesQuery } from '../../lib/notes-api.js';
+import { removeNote } from '../../lib/note-selectors.js';
+import { deleteNoteForever, notesQuery, trashNote } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
 import { noteExtensions } from '../../lib/tiptap.js';
+import { useSnackbarStore } from '../../stores/snackbar.js';
+import { BottomSheet, SheetItem } from '../BottomSheet.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
 import { NoteLabelChips } from '../labels/LabelChips.js';
@@ -48,6 +62,24 @@ const menuItemClass =
 
 const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
+type MobileSheet = 'add' | 'palette' | 'more' | 'reminder' | 'labels' | null;
+
+function htmlIsBlank(html: string): boolean {
+  return (
+    html
+      .replace(/<[^>]+>/g, '')
+      .replaceAll('&nbsp;', ' ')
+      .trim() === ''
+  );
+}
+
+/** Body html → plain text for the Web Share sheet (server-sanitized input). */
+function htmlToPlainText(html: string): string {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.innerText;
+}
+
 function EditorReminderPop({ note }: { note: FullNote }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   return (
@@ -58,25 +90,61 @@ function EditorReminderPop({ note }: { note: FullNote }) {
   );
 }
 
+/** Keep-app editor chrome buttons: top-bar rounded squares, bottom-bar circles. */
+function MobileAction({
+  svg,
+  label,
+  active,
+  round,
+  onClick,
+}: {
+  svg: string;
+  label: string;
+  active?: boolean;
+  round?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className={`flex h-11 w-11 flex-none items-center justify-center text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-(--primary) ${
+        round ? 'rounded-full' : 'rounded-xl'
+      } ${active ? 'bg-accent-container' : 'bg-(--surface-hover)'}`}
+    >
+      <Icon svg={svg} size={20} />
+    </button>
+  );
+}
+
 /** Route-driven editor: open when ?note=<id> is present on any shell route. */
 export function EditorModal() {
-  const search = useSearch({ strict: false }) as { note?: string };
+  const search = useSearch({ strict: false }) as { note?: string; new?: boolean };
   const navigate = useNavigate();
   const noteId = search.note;
 
   const close = () => {
     void navigate({
       to: '.',
-      search: (old: Record<string, unknown>) => ({ ...old, note: undefined }),
+      search: (old: Record<string, unknown>) => ({ ...old, note: undefined, new: undefined }),
       resetScroll: false,
     });
   };
 
   if (!noteId) return null;
-  return <EditorDialog key={noteId} noteId={noteId} onClose={close} />;
+  return <EditorDialog key={noteId} noteId={noteId} isNew={search.new === true} onClose={close} />;
 }
 
-function EditorDialog({ noteId, onClose }: { noteId: string; onClose: () => void }) {
+function EditorDialog({
+  noteId,
+  isNew,
+  onClose,
+}: {
+  noteId: string;
+  isNew: boolean;
+  onClose: () => void;
+}) {
   const { t, i18n } = useTranslation('editor');
   const m = useNoteMutations();
   const { data: notes, isSuccess } = useQuery(notesQuery);
@@ -88,17 +156,21 @@ function EditorDialog({ noteId, onClose }: { noteId: string; onClose: () => void
   }, [isSuccess, note, onClose]);
 
   if (!note) return null;
-  return <EditorBody note={note} onClose={onClose} t={t} lang={i18n.language} m={m} />;
+  return (
+    <EditorBody note={note} isNew={isNew} onClose={onClose} t={t} lang={i18n.language} m={m} />
+  );
 }
 
 function EditorBody({
   note,
+  isNew,
   onClose,
   t,
   lang,
   m,
 }: {
   note: FullNote;
+  isNew: boolean;
   onClose: () => void;
   t: (k: string, o?: Record<string, unknown>) => string;
   lang: string;
@@ -109,6 +181,8 @@ function EditorBody({
   // Block grid/base single-char shortcuts while the editor is open.
   useKeyScope('editor', EMPTY_BINDINGS);
   const { data: settings } = useQuery(settingsQuery);
+  const queryClient = useQueryClient();
+  const show = useSnackbarStore((s) => s.show);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
@@ -117,9 +191,11 @@ function EditorBody({
     seed: '',
   });
   const [showShare, setShowShare] = useState(false);
+  const [sheet, setSheet] = useState<MobileSheet>(null);
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
   const checklistRef = useRef<ChecklistHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentM = useAttachmentMutations();
 
   const noteIdRef = useRef(note.id);
@@ -131,6 +207,7 @@ function EditorBody({
     note.id,
   );
 
+  const bodyEmptyRef = useRef(htmlIsBlank(note.bodyHtml));
   const editor = useEditor({
     extensions: noteExtensions(t('notePlaceholder')),
     content: note.bodyHtml,
@@ -147,6 +224,7 @@ function EditorBody({
       },
     },
     onUpdate: ({ editor: ed }) => {
+      bodyEmptyRef.current = ed.isEmpty;
       autosave.markDirty('bodyHtml', ed.getHTML());
     },
   });
@@ -162,6 +240,7 @@ function EditorBody({
       !autosave.isDirty('bodyHtml')
     ) {
       editor.commands.setContent(note.bodyHtml);
+      bodyEmptyRef.current = editor.isEmpty;
     }
   }, [isList, editor, note.bodyHtml, autosave]);
 
@@ -196,12 +275,103 @@ function EditorBody({
       editor.getHTML() !== note.bodyHtml
     ) {
       editor.commands.setContent(note.bodyHtml);
+      bodyEmptyRef.current = editor.isEmpty;
     }
   }, [isList, editor, note.bodyHtml, autosave, m.patchContent.isPending]);
 
+  // A brand-new text note (mobile FAB) starts writing in the body, like Keep.
+  useEffect(() => {
+    if (isNew && !isList && !trashed) editor?.commands.focus('end');
+  }, [isNew, isList, trashed, editor]);
+
+  /**
+   * Untouched-note discard (mobile FAB creates the note before the editor
+   * opens). Emptiness reads live sources — the DOM title and TipTap's own
+   * update stream — because autosave may not have flushed yet; everything
+   * else comes from the freshest render of the note.
+   */
+  const noteSnapRef = useRef(note);
+  noteSnapRef.current = note;
+  const isListRef = useRef(isList);
+  isListRef.current = isList;
+  const discardedRef = useRef(false);
+
+  const discardUntouched = (): boolean => {
+    if (discardedRef.current || !isNew) return false;
+    const n = noteSnapRef.current;
+    if (n.trashedAt !== null) return false;
+    const titleEmpty = (titleRef.current?.value ?? n.title).trim() === '';
+    const bodyEmpty = isListRef.current
+      ? n.items.every((i) => i.text.trim() === '')
+      : bodyEmptyRef.current;
+    const untouched =
+      titleEmpty &&
+      bodyEmpty &&
+      n.attachments.length === 0 &&
+      !n.reminder &&
+      n.labelIds.length === 0;
+    if (!untouched) return false;
+    discardedRef.current = true;
+    show({ message: t('notes:emptyNoteDiscarded') });
+    const removeFromCache = () =>
+      queryClient.setQueryData(notesQuery.queryKey, (old: FullNote[] | undefined) =>
+        removeNote(old, n.id),
+      );
+    removeFromCache();
+    // Delete forever requires the trash hop, and the FAB's outbox create may
+    // still be in flight (a 404 only means the note has not landed yet) — so
+    // trash → delete, retrying bounded. The create ack upserts the note back
+    // into the cache meanwhile; remove it again once the delete sticks.
+    const attempt = (tries: number) => {
+      trashNote(n.id)
+        .then(() => deleteNoteForever(n.id))
+        .then(removeFromCache)
+        .catch(() => {
+          if (tries < 5) setTimeout(() => attempt(tries + 1), 800 * (tries + 1));
+        });
+    };
+    attempt(0);
+    return true;
+  };
+
+  // Android back / swipe closes by history pop (this component just unmounts),
+  // so the discard must also run from unmount cleanup. A cleanup while the
+  // URL still points at this note is NOT a close — that is StrictMode's dev
+  // remount (or a re-key) — so only a URL that moved on counts.
+  const discardRef = useRef(discardUntouched);
+  discardRef.current = discardUntouched;
+  useEffect(() => {
+    const id = noteIdRef.current;
+    return () => {
+      if (new URLSearchParams(window.location.search).get('note') === id) return;
+      void discardRef.current();
+    };
+  }, []);
+
   const flushAndClose = () => {
+    if (discardUntouched()) {
+      onClose();
+      return;
+    }
     autosave.flush();
     onClose();
+  };
+
+  const toggleArchive = () => {
+    autosave.flush();
+    if (note.archived) m.unarchiveWithUndo(note);
+    else {
+      m.archiveWithUndo(note);
+      onClose();
+    }
+  };
+
+  const shareNote = () => {
+    const body = isList
+      ? note.items.map((i) => `${i.checked ? '☑' : '☐'} ${i.text}`).join('\n')
+      : htmlToPlainText(note.bodyHtml);
+    const text = note.title ? `${note.title}\n\n${body}` : body;
+    void navigator.share({ text }).catch(() => undefined);
   };
 
   const isDefaultColor = note.color === 'default';
@@ -214,10 +384,10 @@ function EditorBody({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-(--scrim)" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-(--scrim) max-md:hidden" />
         <Dialog.Popup
           aria-label={note.title || t('notePlaceholder')}
-          className="-translate-x-1/2 fixed top-[8vh] left-1/2 z-40 flex max-h-[84vh] w-[min(96vw,600px)] flex-col rounded-lg border shadow-(--elevation-3) outline-none"
+          className="fixed inset-0 z-40 flex flex-col pt-[env(safe-area-inset-top)] outline-none md:inset-auto md:top-[8vh] md:left-1/2 md:max-h-[84vh] md:w-[min(96vw,600px)] md:-translate-x-1/2 md:rounded-lg md:border md:pt-0 md:shadow-(--elevation-3)"
           style={{
             background: `var(--note-${note.color})`,
             borderColor: isDefaultColor ? 'var(--outline-variant)' : 'transparent',
@@ -235,11 +405,44 @@ function EditorBody({
         >
           <NoteBackgroundArt background={note.background} />
 
+          {/* Mobile top bar: back + pin / reminder / archive (Keep-app chrome). */}
+          <div className="flex flex-none items-center px-1.5 pt-1.5 pb-0.5 md:hidden">
+            <IconButton
+              svg={arrowBackSvg}
+              label={t('common:back')}
+              size={44}
+              iconSize={22}
+              className="text-on-surface"
+              onClick={flushAndClose}
+            />
+            {!trashed && (
+              <div className="ml-auto flex items-center gap-2 pr-1">
+                <MobileAction
+                  svg={note.pinned ? pinFilledSvg : pinSvg}
+                  label={note.pinned ? t('notes:unpinNote') : t('notes:pinNote')}
+                  active={note.pinned}
+                  onClick={() => m.togglePin(note)}
+                />
+                <MobileAction
+                  svg={addAlertSvg}
+                  label={t('reminders:addReminder')}
+                  onClick={() => setSheet('reminder')}
+                />
+                <MobileAction
+                  svg={archiveSvg}
+                  label={note.archived ? t('notes:unarchiveNote') : t('shell:navArchive')}
+                  active={note.archived}
+                  onClick={toggleArchive}
+                />
+              </div>
+            )}
+          </div>
+
           <div className="max-h-[38vh] flex-none overflow-y-auto">
             <NoteImages note={note} editable={!trashed} />
           </div>
 
-          <div className="flex items-start">
+          <div className="flex flex-none items-start">
             <textarea
               ref={titleRef}
               defaultValue={note.title}
@@ -256,7 +459,7 @@ function EditorBody({
               className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant"
             />
             {!trashed && (
-              <div className="pt-2.5 pr-2">
+              <div className="pt-2.5 pr-2 max-md:hidden">
                 <IconButton
                   svg={note.pinned ? pinFilledSvg : pinSvg}
                   label={note.pinned ? t('notes:unpinNote') : t('notes:pinNote')}
@@ -269,7 +472,15 @@ function EditorBody({
             )}
           </div>
 
-          <div className="min-h-[46px] flex-1 overflow-y-auto px-4 pb-3">
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: tapping the empty area below the text focuses the body (mobile) */}
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: pointer affordance only — keyboard users are already inside the editor */}
+          <div
+            className="min-h-[46px] flex-1 overflow-y-auto px-4 pb-3"
+            onClick={(e) => {
+              if (!isList && !trashed && e.target === e.currentTarget)
+                editor?.commands.focus('end');
+            }}
+          >
             {isList ? (
               <ChecklistEditor
                 note={note}
@@ -287,7 +498,7 @@ function EditorBody({
           <NoteReminderChip note={note} />
           <NoteLabelChips note={note} removable />
 
-          <div className="px-4 pb-1 text-right">
+          <div className="px-4 pb-1 text-right max-md:hidden">
             <span
               className="cursor-default text-on-surface-variant text-xs"
               data-tooltip={formatCreatedTooltip(note.createdAt, lang)}
@@ -298,7 +509,9 @@ function EditorBody({
 
           {showFormatBar && !trashed && editor && <FormatBar editor={editor} />}
 
-          <div className="flex items-center gap-0.5 px-2 py-1.5">
+          <div
+            className={`flex flex-none items-center gap-0.5 px-2 py-1.5 ${trashed ? '' : 'max-md:hidden'}`}
+          >
             {trashed ? (
               <>
                 <span className="pl-2 text-on-surface-variant text-sm">
@@ -392,31 +605,13 @@ function EditorBody({
                   className="text-on-surface-variant"
                   onClick={() => fileInputRef.current?.click()}
                 />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) attachmentM.upload.mutate({ noteId: note.id, file });
-                    e.target.value = '';
-                  }}
-                />
                 <IconButton
                   svg={archiveSvg}
                   label={note.archived ? t('notes:unarchiveNote') : t('shell:navArchive')}
                   size={38}
                   iconSize={19}
                   className="text-on-surface-variant"
-                  onClick={() => {
-                    autosave.flush();
-                    if (note.archived) m.unarchiveWithUndo(note);
-                    else {
-                      m.archiveWithUndo(note);
-                      onClose();
-                    }
-                  }}
+                  onClick={toggleArchive}
                 />
                 <Menu.Root>
                   <Menu.Trigger
@@ -516,6 +711,222 @@ function EditorBody({
               {t('common:close')}
             </button>
           </div>
+
+          {/* Mobile bottom bar: add / palette / format on the left, ⋮ right. */}
+          {!trashed && (
+            <div className="flex flex-none items-center gap-2 px-3 pt-1 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:hidden">
+              <MobileAction
+                round
+                svg={addBoxSvg}
+                label={t('addToNote')}
+                onClick={() => setSheet('add')}
+              />
+              <MobileAction
+                round
+                svg={paletteSvg}
+                label={t('notes:backgroundOptions')}
+                onClick={() => setSheet('palette')}
+              />
+              {!isList && (
+                <MobileAction
+                  round
+                  svg={formatSvg}
+                  label={t('formattingOptions')}
+                  active={showFormatBar}
+                  onClick={() => setShowFormatBar((v) => !v)}
+                />
+              )}
+              <div className="ml-auto">
+                <MobileAction
+                  round
+                  svg={moreSvg}
+                  label={t('notes:more')}
+                  onClick={() => setSheet('more')}
+                />
+              </div>
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) attachmentM.upload.mutate({ noteId: note.id, file });
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) attachmentM.upload.mutate({ noteId: note.id, file });
+              e.target.value = '';
+            }}
+          />
+
+          {/* Mobile bottom sheets (triggers all live under md:hidden). */}
+          <BottomSheet
+            open={sheet === 'add'}
+            onOpenChange={(o) => !o && setSheet(null)}
+            label={t('addToNote')}
+          >
+            <SheetItem
+              svg={photoCameraSvg}
+              label={t('takePhoto')}
+              onClick={() => {
+                setSheet(null);
+                cameraInputRef.current?.click();
+              }}
+            />
+            <SheetItem
+              svg={imageSvg}
+              label={t('notes:addImage')}
+              onClick={() => {
+                setSheet(null);
+                fileInputRef.current?.click();
+              }}
+            />
+            {!isList && (
+              <SheetItem
+                svg={checkboxSvg}
+                label={t('checkboxes')}
+                onClick={() => {
+                  setSheet(null);
+                  m.convert.mutate({ id: note.id, to: 'list' });
+                }}
+              />
+            )}
+          </BottomSheet>
+
+          <BottomSheet
+            open={sheet === 'palette'}
+            onOpenChange={(o) => !o && setSheet(null)}
+            label={t('notes:backgroundOptions')}
+          >
+            <div className="px-3 pb-1">
+              <ColorPicker
+                color={note.color}
+                background={note.background}
+                onColor={(color) => m.patchState.mutate({ id: note.id, patch: { color } })}
+                onBackground={(background) =>
+                  m.patchState.mutate({ id: note.id, patch: { background } })
+                }
+              />
+            </div>
+          </BottomSheet>
+
+          <BottomSheet
+            open={sheet === 'reminder'}
+            onOpenChange={(o) => !o && setSheet(null)}
+            label={t('reminders:addReminder')}
+          >
+            <NoteReminderPicker note={note} onDone={() => setSheet(null)} />
+          </BottomSheet>
+
+          <BottomSheet
+            open={sheet === 'labels'}
+            onOpenChange={(o) => !o && setSheet(null)}
+            label={note.labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
+          >
+            <NoteLabelPicker note={note} initialFilter="" />
+          </BottomSheet>
+
+          <BottomSheet
+            open={sheet === 'more'}
+            onOpenChange={(o) => !o && setSheet(null)}
+            label={t('notes:more')}
+          >
+            <div className="border-(--outline-variant) border-b px-6 pt-1 pb-3 text-on-surface-variant text-sm">
+              {t('edited', { time: formatEdited(note.updatedAt, lang) })}
+            </div>
+            <SheetItem
+              svg={deleteSvg}
+              label={t('notes:deleteNote')}
+              onClick={() => {
+                setSheet(null);
+                autosave.flush();
+                m.trashWithUndo(note);
+                onClose();
+              }}
+            />
+            <SheetItem
+              svg={contentCopySvg}
+              label={t('notes:makeACopy')}
+              onClick={() => {
+                setSheet(null);
+                autosave.flush();
+                m.copy.mutate(note.id);
+              }}
+            />
+            {'share' in navigator && (
+              <SheetItem
+                svg={shareSvg}
+                label={t('send')}
+                onClick={() => {
+                  setSheet(null);
+                  shareNote();
+                }}
+              />
+            )}
+            <SheetItem
+              svg={personAddSvg}
+              label={t('sharing:collaborator')}
+              onClick={() => {
+                setSheet(null);
+                setShowShare(true);
+              }}
+            />
+            <SheetItem
+              svg={labelSvg}
+              label={note.labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
+              onClick={() => setSheet('labels')}
+            />
+            <SheetItem
+              svg={historySvg}
+              label={t('versionHistory')}
+              onClick={() => {
+                setSheet(null);
+                setShowVersions(true);
+              }}
+            />
+            {isList && (
+              <SheetItem
+                svg={checkboxSvg}
+                label={t('hideCheckboxes')}
+                onClick={() => {
+                  setSheet(null);
+                  m.convert.mutate({ id: note.id, to: 'text' });
+                }}
+              />
+            )}
+            {isList && note.items.some((i) => i.checked) && (
+              <>
+                <SheetItem
+                  svg={checkboxBlankSvg}
+                  label={t('uncheckAllItems')}
+                  onClick={() => {
+                    setSheet(null);
+                    checklistRef.current?.uncheckAll();
+                  }}
+                />
+                <SheetItem
+                  svg={deleteSweepSvg}
+                  label={t('deleteCheckedItems')}
+                  onClick={() => {
+                    setSheet(null);
+                    checklistRef.current?.deleteChecked();
+                  }}
+                />
+              </>
+            )}
+          </BottomSheet>
 
           <ConfirmDialog
             open={confirmDelete}
