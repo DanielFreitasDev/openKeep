@@ -74,7 +74,7 @@ export function TopBar() {
         </Link>
 
         <search className="mx-2 min-w-0 max-w-[720px] flex-1 sm:mx-4">
-          <div className="search-elevated flex h-12 items-center rounded-lg bg-surface-container transition-[background-color,box-shadow] duration-150">
+          <div className="search-elevated flex h-12 items-center rounded-lg bg-surface-container transition-shadow duration-150">
             <IconButton
               svg={searchSvg}
               label={t('searchPlaceholder')}
