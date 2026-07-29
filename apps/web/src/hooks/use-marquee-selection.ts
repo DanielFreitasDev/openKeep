@@ -162,7 +162,14 @@ export function useMarqueeSelection(containerRef: RefObject<HTMLElement | null>)
 
     const onPointerUp = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.pointerId) return;
+      // Keep: a plain left-click on the empty grid background (a press that
+      // never became a drag) clears the selection — the marquee only adds, so
+      // this is the mouse user's way out short of the ✕ button.
+      const plainLeftClick = !drag.active && e.type === 'pointerup' && e.button === 0;
       stop(false);
+      if (plainLeftClick && useSelectionStore.getState().selected.size > 0) {
+        useSelectionStore.getState().clear();
+      }
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
