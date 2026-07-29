@@ -25,8 +25,6 @@
   "emptyNoteDiscarded": "Empty note discarded",
   "emptyStateNotes": "Notes you add appear here",
   "emptyStateArchive": "Your archived notes appear here",
-  "completedItemsSummary_one": "+ {{count}} completed item",
-  "completedItemsSummary_other": "+ {{count}} completed items",
   "color_default": "Default",
   "color_coral": "Coral",
   "color_peach": "Peach",

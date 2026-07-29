@@ -85,6 +85,32 @@ test('indent rules: first item cannot indent; Tab indents; parent check cascades
   await page.keyboard.press('Escape');
 });
 
+test('card checkboxes tick items without opening the note', async ({ page }) => {
+  await page.getByRole('button', { name: 'New list' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Tick me');
+  const firstRow = page.getByRole('textbox', { name: 'List item' }).last();
+  await firstRow.fill('Milk');
+  await firstRow.press('Enter');
+  await page.getByRole('textbox', { name: 'List item' }).last().fill('Bread');
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  // Ticking straight from the closed card: no editor, item moves to Completed.
+  const card = cardRootByTitle(page, 'Tick me');
+  await card.getByRole('checkbox', { name: 'Milk' }).click();
+  await expect(card.getByText('1 Completed item', { exact: true })).toBeVisible();
+  await expect(card.getByRole('checkbox', { name: 'Milk' })).toBeChecked();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // Unticking works from the Completed group too, and the change is persisted.
+  await card.getByRole('checkbox', { name: 'Milk' }).click();
+  await expect(card.getByText('Completed item')).toHaveCount(0);
+  await card.getByRole('checkbox', { name: 'Bread' }).click();
+  await page.reload();
+  await expect(
+    cardRootByTitle(page, 'Tick me').getByRole('checkbox', { name: 'Bread' }),
+  ).toBeChecked();
+});
+
 test('convert text ↔ list from the card menu', async ({ page }) => {
   await page.getByLabel('Take a note…').click();
   await page.getByLabel('Title', { exact: true }).fill('Convert me');

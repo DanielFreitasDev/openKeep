@@ -1,3 +1,4 @@
+import type { NoteItem } from '@openkeep/shared';
 import { positionBetween } from '@openkeep/shared';
 
 /** Local checklist row: `id` is null until the server confirms creation. */
@@ -71,6 +72,27 @@ export function applyCheck(
     rows: rows.map((r) => (affected.has(r.key) ? { ...r, checked } : r)),
     cascadedKeys: [...affected].filter((k) => k !== key),
   };
+}
+
+/**
+ * `applyCheck` over raw items — the card preview toggles boxes without the
+ * editor's local row state, and must cascade identically.
+ */
+export function checkItemWithCascade(
+  items: NoteItem[],
+  itemId: string,
+  checked: boolean,
+): NoteItem[] {
+  const { rows } = applyCheck(
+    items.map((i) => ({ ...i, key: i.id })),
+    itemId,
+    checked,
+  );
+  const nextChecked = new Map(rows.map((r) => [r.key, r.checked]));
+  return items.map((i) => {
+    const next = nextChecked.get(i.id) ?? i.checked;
+    return next === i.checked ? i : { ...i, checked: next };
+  });
 }
 
 export interface DisplayGroups {

@@ -154,7 +154,12 @@ export function NoteCard({ note }: { note: FullNote }) {
           {isEmpty ? (
             <div className="py-3 text-[1rem] text-on-surface-variant">{t('emptyNote')}</div>
           ) : (
-            <NoteBody note={note} />
+            <NoteBody
+              note={note}
+              onToggleItem={(itemId, checked) =>
+                m.toggleItem.mutate({ noteId: note.id, itemId, checked })
+              }
+            />
           )}
         </div>
       </div>

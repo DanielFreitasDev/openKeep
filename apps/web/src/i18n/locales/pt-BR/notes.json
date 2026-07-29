@@ -25,8 +25,6 @@
   "emptyNoteDiscarded": "Nota vazia descartada",
   "emptyStateNotes": "As notas que você adicionar aparecem aqui",
   "emptyStateArchive": "Suas notas arquivadas aparecem aqui",
-  "completedItemsSummary_one": "+ {{count}} item concluído",
-  "completedItemsSummary_other": "+ {{count}} itens concluídos",
   "color_default": "Padrão",
   "color_coral": "Coral",
   "color_peach": "Pêssego",

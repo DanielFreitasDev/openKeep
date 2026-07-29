@@ -2,7 +2,13 @@ import type { CreateNote, FullNote, PatchNoteContent, PatchNoteState } from '@op
 import { newId, positionBefore } from '@openkeep/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { deleteCheckedApi, uncheckAllApi } from '../lib/items-api.js';
+import { checkItemWithCascade } from '../components/notes/checklist-logic.js';
+import {
+  deleteCheckedApi,
+  patchItemApi,
+  uncheckAllApi,
+  updateCachedItems,
+} from '../lib/items-api.js';
 import { mergeNote, removeNote, upsertNote } from '../lib/note-selectors.js';
 import * as apiNotes from '../lib/notes-api.js';
 import { notesQuery } from '../lib/notes-api.js';
@@ -120,6 +126,31 @@ export function useNoteMutations() {
     onSuccess: (res) => setNotes((old) => mergeNote(old, res.noteId, { items: res.items })),
   });
 
+  /**
+   * Ticking a box straight from a card (Keep does not make you open the note).
+   * The editor drives its own local rows, so this path only touches the cache.
+   */
+  const toggleItem = useMutation({
+    mutationFn: ({
+      noteId,
+      itemId,
+      checked,
+    }: {
+      noteId: string;
+      itemId: string;
+      checked: boolean;
+    }) => patchItemApi(noteId, itemId, { checked }),
+    onMutate: ({ noteId, itemId, checked }) =>
+      updateCachedItems(queryClient, noteId, (items) =>
+        checkItemWithCascade(items, itemId, checked),
+      ),
+    onSuccess: (result, { noteId }) =>
+      updateCachedItems(queryClient, noteId, (items) => {
+        const acked = new Map([result.item, ...result.cascaded].map((i) => [i.id, i]));
+        return items.map((i) => acked.get(i.id) ?? i);
+      }),
+  });
+
   const deleteChecked = useMutation({
     mutationFn: (id: string) => deleteCheckedApi(id),
     onSuccess: (res) => setNotes((old) => mergeNote(old, res.noteId, { items: res.items })),
@@ -205,6 +236,7 @@ export function useNoteMutations() {
     copy,
     convert,
     uncheckAll,
+    toggleItem,
     deleteChecked,
     archiveWithUndo,
     unarchiveWithUndo,
