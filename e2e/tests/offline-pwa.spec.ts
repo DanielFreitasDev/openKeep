@@ -20,7 +20,12 @@ test('an edit made offline survives an offline reload and syncs after reconnect'
   await signUpFreshUser(context);
   await page.goto('/');
   await expect(page.getByLabel('Take a note…')).toBeVisible();
-  await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+  // The e2e tsconfig is Node-flavored; Node's Navigator type has no serviceWorker.
+  await page.evaluate(() =>
+    (
+      navigator as unknown as { serviceWorker: { ready: Promise<unknown> } }
+    ).serviceWorker.ready.then(() => undefined),
+  );
   // The first load is not SW-controlled (no clientsClaim); reload under control.
   await page.reload();
   await composeNote(page, { title: 'PWA offline', body: 'first' });
