@@ -1,3 +1,24 @@
+# [1.7.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.6.0...v1.7.0) (2026-07-29)
+
+
+### Features
+
+* 2-up mobile grid and app-style cards with long-press selection ([2615ffb](https://github.com/DanielFreitasDev/openKeep/commit/2615ffbbedf2fe8ed744f4d894c4e2b932684fcb))
+* expandable create fab replaces the composer on mobile ([de8bd16](https://github.com/DanielFreitasDev/openKeep/commit/de8bd164340df92f465641eb50e3d02d4efab588))
+* full-screen mobile editor with keep-app bottom sheets ([557bb31](https://github.com/DanielFreitasDev/openKeep/commit/557bb311754802560511b2dadb25f2bf2a20b4b3))
+* keep-android search-pill top bar and full-height mobile drawer ([d384df4](https://github.com/DanielFreitasDev/openKeep/commit/d384df464e2e0fa671a5f70ea6ed52bf0b7caa25))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.7.0
+```
+
+Or download `compose.yml` below (image pinned to `1.7.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.7.0/docs/DEPLOYMENT.md).
+
 # [1.6.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.5.0...v1.6.0) (2026-07-29)
 
 
