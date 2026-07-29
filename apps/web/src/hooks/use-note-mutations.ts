@@ -1,15 +1,23 @@
-import type { CreateNote, FullNote, PatchNoteContent, PatchNoteState } from '@openkeep/shared';
-import { newId, positionBefore } from '@openkeep/shared';
+import type {
+  CreateNote,
+  FullNote,
+  NoteContentResult,
+  NoteStateResult,
+  PatchNoteContent,
+  PatchNoteState,
+} from '@openkeep/shared';
+import { newId } from '@openkeep/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { checkItemWithCascade } from '../components/notes/checklist-logic.js';
-import { clearAckedDraftFields, clearComposerDraftIfNote, removeNoteDraft } from '../lib/drafts.js';
+import { removeNoteDraft } from '../lib/drafts.js';
 import {
   deleteCheckedApi,
   patchItemApi,
   uncheckAllApi,
   updateCachedItems,
 } from '../lib/items-api.js';
+import { noteMutationKeys } from '../lib/note-mutation-defaults.js';
 import { mergeNote, removeNote, upsertNote } from '../lib/note-selectors.js';
 import * as apiNotes from '../lib/notes-api.js';
 import { notesQuery } from '../lib/notes-api.js';
@@ -28,94 +36,23 @@ export function useNoteMutations() {
   const setNotes = (updater: (list: FullNote[] | undefined) => FullNote[]) =>
     queryClient.setQueryData(notesQuery.queryKey, updater);
 
-  const create = useMutation({
-    mutationFn: (input: CreateNote & { id: string }) => apiNotes.createNote(input),
-    onMutate: (input) => {
-      const list = queryClient.getQueryData(notesQuery.queryKey);
-      const minPos = list
-        ?.map((n) => n.position)
-        .sort()
-        .at(0);
-      const now = new Date().toISOString();
-      const optimistic: FullNote = {
-        id: input.id,
-        type: input.type ?? 'text',
-        title: input.title ?? '',
-        bodyHtml: input.bodyHtml ?? '',
-        hasLinks: false,
-        items: [],
-        labelIds: [],
-        attachments: [],
-        reminder: null,
-        collaborators: [],
-        role: 'owner',
-        pinned: input.pinned ?? false,
-        archived: false,
-        color: input.color ?? 'default',
-        background: input.background ?? 'none',
-        position: positionBefore(minPos ?? null),
-        trashedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-      setNotes((old) => upsertNote(old, optimistic));
-    },
-    onSuccess: (note) => {
-      setNotes((old) => upsertNote(old, note));
-      clearComposerDraftIfNote(note.id);
-    },
-    onError: (_e, input) => {
-      setNotes((old) => removeNote(old, input.id));
-      show({
-        message: t('common:saveFailed'),
-        actionLabel: t('common:retry'),
-        onAction: () => create.mutate(input),
-      });
-    },
+  // create/patchContent/patchState are the offline outbox: their lifecycle
+  // (optimistic merge, ack merge, draft clearing, failure toast) is registered
+  // once in note-mutation-defaults.ts so a queued mutation can be resumed
+  // after a reload — components hold only the key.
+  const create = useMutation<FullNote, Error, CreateNote & { id: string }>({
+    mutationKey: noteMutationKeys.create,
   });
 
-  const patchContent = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: PatchNoteContent }) =>
-      apiNotes.patchNoteContent(id, patch),
-    onMutate: ({ id, patch }) => {
-      setNotes((old) => mergeNote(old, id, patch));
-      return { sentAt: Date.now() };
-    },
-    onSuccess: (result, { patch }, ctx) => {
-      setNotes((old) =>
-        mergeNote(old, result.id, {
-          title: result.title,
-          bodyHtml: result.bodyHtml,
-          hasLinks: result.hasLinks,
-          updatedAt: result.updatedAt,
-        }),
-      );
-      clearAckedDraftFields(result.id, patch, ctx?.sentAt ?? Date.now());
-    },
-    onError: (_e, vars) => {
-      show({
-        message: t('common:saveFailed'),
-        actionLabel: t('common:retry'),
-        onAction: () => patchContent.mutate(vars),
-      });
-    },
-  });
+  const patchContent = useMutation<
+    NoteContentResult,
+    Error,
+    { id: string; patch: PatchNoteContent },
+    { sentAt: number }
+  >({ mutationKey: noteMutationKeys.patchContent });
 
-  const patchState = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: PatchNoteState }) =>
-      apiNotes.patchNoteState(id, patch),
-    onMutate: ({ id, patch }) => setNotes((old) => mergeNote(old, id, patch)),
-    onSuccess: (result) => {
-      const { id, ...state } = result;
-      setNotes((old) => mergeNote(old, id, state));
-    },
-    onError: (_e, vars) => {
-      show({
-        message: t('common:saveFailed'),
-        actionLabel: t('common:retry'),
-        onAction: () => patchState.mutate(vars),
-      });
-    },
+  const patchState = useMutation<NoteStateResult, Error, { id: string; patch: PatchNoteState }>({
+    mutationKey: noteMutationKeys.patchState,
   });
 
   const trash = useMutation({
