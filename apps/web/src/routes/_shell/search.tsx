@@ -77,7 +77,7 @@ function SearchView() {
   const nothing = hasAny && active.length === 0 && archived.length === 0;
 
   return (
-    <div className="px-6 py-6">
+    <div className="px-3 py-4 md:px-6 md:py-6">
       {/* Active filter chips */}
       {(params.type || params.label || params.color) && (
         <div className="mx-auto mb-6 flex max-w-[960px] flex-wrap items-center gap-2">

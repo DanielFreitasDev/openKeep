@@ -72,7 +72,36 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
 
   const trashed = note.trashedAt !== null;
 
+  /**
+   * Long-press (touch) toggles selection — the Keep-app gesture; mobile cards
+   * carry no hover toolbar or checkbox. Any real movement cancels (scroll and
+   * drag win), and the click the browser fires after the press is swallowed
+   * by timestamp so it cannot also open the note.
+   */
+  const longPress = useRef({ timer: 0, firedAt: 0, x: 0, y: 0 });
+  const cancelLongPress = () => window.clearTimeout(longPress.current.timer);
+  const armLongPress = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch' || trashed) return;
+    longPress.current.x = e.clientX;
+    longPress.current.y = e.clientY;
+    window.clearTimeout(longPress.current.timer);
+    longPress.current.timer = window.setTimeout(() => {
+      longPress.current.firedAt = Date.now();
+      navigator.vibrate?.(10);
+      toggleSelect(note.id);
+    }, 450);
+  };
+  const trackLongPress = (e: React.PointerEvent) => {
+    if (
+      Math.abs(e.clientX - longPress.current.x) > 10 ||
+      Math.abs(e.clientY - longPress.current.y) > 10
+    )
+      cancelLongPress();
+  };
+  const justLongPressed = () => Date.now() - longPress.current.firedAt < 700;
+
   const openEditor = () => {
+    if (justLongPressed()) return;
     if (selectionActive) {
       toggleSelect(note.id);
       return;
@@ -92,7 +121,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
   return (
     <div
       data-selected={isSelected || undefined}
-      className={`group relative flex flex-col rounded-lg border transition-shadow duration-100 hover:shadow-(--elevation-2) ${
+      className={`group relative flex flex-col rounded-lg border transition-shadow duration-100 hover:shadow-(--elevation-2) max-md:select-none max-md:rounded-xl ${
         isSelected ? 'ring-2 ring-(--on-surface)' : isFocused ? 'ring-2 ring-(--primary)' : ''
       }`}
       style={{
@@ -102,7 +131,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
     >
       {!trashed && (
         <div
-          className={`absolute -top-2 -left-2 z-20 transition-opacity duration-100 ${
+          className={`absolute -top-2 -left-2 z-20 transition-opacity duration-100 max-md:hidden ${
             isSelected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
           }`}
         >
@@ -122,7 +151,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
       <NoteBackgroundArt background={note.background} />
 
       {!trashed && (
-        <div className="absolute top-1 right-1 z-10 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">
+        <div className="absolute top-1 right-1 z-10 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100 max-md:hidden">
           <IconButton
             svg={note.pinned ? pinFilledSvg : pinSvg}
             label={note.pinned ? t('unpinNote') : t('pinNote')}
@@ -146,12 +175,19 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
             openEditor();
           }
         }}
-        className="relative min-h-[56px] cursor-default rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-(--primary)"
+        onPointerDown={armLongPress}
+        onPointerMove={trackLongPress}
+        onPointerUp={cancelLongPress}
+        onPointerCancel={cancelLongPress}
+        onContextMenu={(e) => {
+          if (justLongPressed()) e.preventDefault();
+        }}
+        className="relative min-h-[56px] cursor-default rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-(--primary) max-md:rounded-t-xl"
       >
         <NoteImages note={note} />
         <div className="px-4 pt-3 pb-2">
           {note.title && (
-            <div className="mb-1.5 break-words pr-7 font-semibold text-[1.1875rem] text-on-surface leading-7">
+            <div className="mb-1.5 break-words pr-7 font-semibold text-[1.1875rem] text-on-surface leading-7 max-md:pr-0 max-md:text-[1rem] max-md:leading-6">
               {note.title}
             </div>
           )}
@@ -185,7 +221,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
         </ul>
       )}
 
-      <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100">
+      <div className="relative flex h-[38px] items-center gap-0.5 px-1.5 pb-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover:opacity-100 max-md:hidden">
         {trashed ? (
           <>
             <IconButton

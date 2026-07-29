@@ -206,9 +206,18 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   }, [measureVersion, animate]);
 
   const isNarrow = containerW <= 600 && containerW > 0;
-  const cols = viewMode === 'list' || isNarrow ? 1 : columnsForWidth(containerW);
-  const cardW =
-    viewMode === 'list' && !isNarrow ? Math.min(600, containerW) : isNarrow ? containerW : CARD_W;
+  // Phone layout mirrors the Keep app: grid is a fixed 2-up with a tighter
+  // gutter, list is one full-width column. Wide containers keep Keep-web's
+  // fixed 240px columns.
+  const gutter = isNarrow ? 12 : GUTTER;
+  const cols = viewMode === 'list' ? 1 : isNarrow ? 2 : columnsForWidth(containerW);
+  const cardW = isNarrow
+    ? viewMode === 'list'
+      ? containerW
+      : Math.floor((containerW - gutter) / 2)
+    : viewMode === 'list'
+      ? Math.min(600, containerW)
+      : CARD_W;
 
   // While dragging within this section, lay out the preview order instead.
   const orderedForLayout = useMemo(() => {
@@ -230,8 +239,8 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
       heightOf.set(n.id, h);
       return { id: n.id, height: h };
     });
-    return { layout: layoutMasonry(items, cols, cardW, GUTTER), heights: heightOf };
-  }, [orderedForLayout, cols, cardW, measureVersion]);
+    return { layout: layoutMasonry(items, cols, cardW, gutter), heights: heightOf };
+  }, [orderedForLayout, cols, cardW, gutter, measureVersion]);
 
   // Follow the scroll in BAND_STEP jumps: within a step the current slice
   // still covers the viewport, so no re-render is needed.
@@ -309,7 +318,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     [cardObserver, dndSection],
   );
 
-  const innerW = cols === 1 ? cardW : gridWidth(cols, cardW, GUTTER);
+  const innerW = cols === 1 ? cardW : gridWidth(cols, cardW, gutter);
 
   return (
     <div ref={containerRef} className="w-full">

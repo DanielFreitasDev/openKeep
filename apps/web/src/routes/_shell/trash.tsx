@@ -27,7 +27,7 @@ function TrashView() {
   const isEmpty = isSuccess && (trashed?.length ?? 0) === 0;
 
   return (
-    <div className="px-6 py-4">
+    <div className="px-3 py-4 md:px-6">
       <div className="mx-auto mb-4 flex max-w-[960px] items-center justify-center gap-4">
         <p className="text-on-surface text-sm italic">{t('banner')}</p>
         {!isEmpty && (

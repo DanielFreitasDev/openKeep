@@ -27,7 +27,7 @@ function RemindersView() {
     return <EmptyView svg={notificationsSvg} text={t('emptyState')} />;
   }
   return (
-    <div className="px-6 py-8">
+    <div className="px-3 py-4 md:px-6 md:py-8">
       <NotesGrid notes={withReminders ?? []} viewMode={settings?.viewMode ?? 'grid'} />
     </div>
   );
