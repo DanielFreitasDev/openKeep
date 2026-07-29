@@ -1,2 +1,2 @@
 /** Release version — single source for package stamps and the OpenAPI info. */
-export const APP_VERSION = '1.2.1';
+export const APP_VERSION = '1.3.0';
