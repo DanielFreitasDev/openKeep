@@ -3,6 +3,7 @@ import { newId, positionBefore } from '@openkeep/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { checkItemWithCascade } from '../components/notes/checklist-logic.js';
+import { clearAckedDraftFields, clearComposerDraftIfNote, removeNoteDraft } from '../lib/drafts.js';
 import {
   deleteCheckedApi,
   patchItemApi,
@@ -59,7 +60,10 @@ export function useNoteMutations() {
       };
       setNotes((old) => upsertNote(old, optimistic));
     },
-    onSuccess: (note) => setNotes((old) => upsertNote(old, note)),
+    onSuccess: (note) => {
+      setNotes((old) => upsertNote(old, note));
+      clearComposerDraftIfNote(note.id);
+    },
     onError: (_e, input) => {
       setNotes((old) => removeNote(old, input.id));
       show({
@@ -73,8 +77,11 @@ export function useNoteMutations() {
   const patchContent = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: PatchNoteContent }) =>
       apiNotes.patchNoteContent(id, patch),
-    onMutate: ({ id, patch }) => setNotes((old) => mergeNote(old, id, patch)),
-    onSuccess: (result) =>
+    onMutate: ({ id, patch }) => {
+      setNotes((old) => mergeNote(old, id, patch));
+      return { sentAt: Date.now() };
+    },
+    onSuccess: (result, { patch }, ctx) => {
       setNotes((old) =>
         mergeNote(old, result.id, {
           title: result.title,
@@ -82,7 +89,9 @@ export function useNoteMutations() {
           hasLinks: result.hasLinks,
           updatedAt: result.updatedAt,
         }),
-      ),
+      );
+      clearAckedDraftFields(result.id, patch, ctx?.sentAt ?? Date.now());
+    },
     onError: (_e, vars) => {
       show({
         message: t('common:saveFailed'),
@@ -113,7 +122,10 @@ export function useNoteMutations() {
     mutationFn: (id: string) => apiNotes.trashNote(id),
     onMutate: (id) =>
       setNotes((old) => mergeNote(old, id, { trashedAt: new Date().toISOString(), pinned: false })),
-    onSuccess: (note) => setNotes((old) => upsertNote(old, note)),
+    onSuccess: (note) => {
+      setNotes((old) => upsertNote(old, note));
+      removeNoteDraft(note.id);
+    },
   });
 
   const restore = useMutation({
@@ -124,7 +136,10 @@ export function useNoteMutations() {
 
   const deleteForever = useMutation({
     mutationFn: (id: string) => apiNotes.deleteNoteForever(id),
-    onMutate: (id) => setNotes((old) => removeNote(old, id)),
+    onMutate: (id) => {
+      setNotes((old) => removeNote(old, id));
+      removeNoteDraft(id);
+    },
   });
 
   const emptyTrashMut = useMutation({

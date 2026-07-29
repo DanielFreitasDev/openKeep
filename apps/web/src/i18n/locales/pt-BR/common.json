@@ -13,6 +13,7 @@
   "error": "Algo deu errado",
   "offline": "Você está off-line. Não é possível salvar alterações agora.",
   "saveFailed": "Não foi possível salvar as alterações.",
+  "restoringUnsaved": "Restaurando alterações não salvas…",
   "updateAvailable": "Uma nova versão está disponível",
   "reload": "Recarregar"
 }

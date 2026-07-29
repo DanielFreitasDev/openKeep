@@ -24,6 +24,7 @@ import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
+import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
 import { sessionQuery } from '../../lib/queries.js';
 import { noteExtensions } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
@@ -90,6 +91,12 @@ export function Composer() {
   const newNoteImageRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Draft mirror: the note id is fixed on the first mirrored write so a
+  // create that never lands can be replayed (or deduped via 409) at next boot.
+  const draftIdRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
+  const [draftTick, setDraftTick] = useState(0);
+
   const editor = useEditor({
     extensions: noteExtensions(t('takeANote')),
     editorProps: {
@@ -106,7 +113,59 @@ export function Composer() {
         return false;
       },
     },
+    onUpdate: () => setDraftTick((n) => n + 1),
   });
+
+  // Mirror the in-progress draft (trailing 300 ms). Cleared on create ack,
+  // explicit discard or empty-note discard — never by reset(), which runs
+  // before the create resolves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: draftTick re-arms the mirror when the TipTap body (non-React state) changes
+  useEffect(() => {
+    if (!expanded) return;
+    const timer = setTimeout(() => {
+      const bodyHtml = mode === 'text' && editor && !editor.isEmpty ? editor.getHTML() : '';
+      const items = listRows
+        .map((r) => r.text)
+        .filter((x) => x.trim() !== '')
+        .map((text) => ({ text, checked: false, indent: 0 as const }));
+      const hasContent = title.trim() !== '' || bodyHtml !== '' || items.length > 0;
+      if (!hasContent) {
+        if (!savingRef.current) clearComposerDraft();
+        return;
+      }
+      draftIdRef.current ??= m.newNoteId();
+      saveComposerDraft({
+        note: {
+          id: draftIdRef.current,
+          type: mode,
+          title: title.trim(),
+          bodyHtml,
+          items,
+          pinned,
+          color,
+          background,
+        },
+        labelIds,
+        reminder,
+        invites,
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [
+    expanded,
+    mode,
+    title,
+    listRows,
+    pinned,
+    color,
+    background,
+    reminder,
+    labelIds,
+    invites,
+    draftTick,
+    editor,
+    m.newNoteId,
+  ]);
 
   const reset = () => {
     setExpanded(false);
@@ -154,14 +213,20 @@ export function Composer() {
       (mode === 'text' ? bodyHtml !== '' : items.length > 0) ||
       draft.files.length > 0;
     const wasExpanded = expanded;
+    // Reuse the mirrored draft id so the queued create and the draft agree;
+    // savingRef keeps the mirror-clear path quiet while reset() empties state.
+    savingRef.current = true;
+    const id = draftIdRef.current ?? m.newNoteId();
+    draftIdRef.current = null;
     reset();
 
     if (!hasContent) {
+      savingRef.current = false;
+      clearComposerDraft();
       if (wasExpanded) show({ message: t('emptyNoteDiscarded') });
       return;
     }
 
-    const id = m.newNoteId();
     const note = await m.create
       .mutateAsync({
         id,
@@ -175,6 +240,7 @@ export function Composer() {
       })
       // Failure feedback (toast + retry) comes from the mutation's onError.
       .catch(() => null);
+    savingRef.current = false;
     if (!note) return;
 
     if (draft.reminder) reminderM.set.mutate({ noteId: id, body: draft.reminder });
@@ -580,7 +646,14 @@ export function Composer() {
                       data-composer-popover
                       className="min-w-44 rounded-lg border border-(--outline-variant) bg-surface py-1.5 shadow-(--elevation-3)"
                     >
-                      <Menu.Item className={menuItemClass} onClick={reset}>
+                      <Menu.Item
+                        className={menuItemClass}
+                        onClick={() => {
+                          reset();
+                          clearComposerDraft();
+                          draftIdRef.current = null;
+                        }}
+                      >
                         {t('deleteNote')}
                       </Menu.Item>
                       <Menu.Item className={menuItemClass} onClick={() => setLabelPickerOpen(true)}>

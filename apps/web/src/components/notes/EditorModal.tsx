@@ -123,9 +123,13 @@ function EditorBody({
   const attachmentM = useAttachmentMutations();
 
   const noteIdRef = useRef(note.id);
-  const autosave = useAutosave((patch) => {
-    m.patchContent.mutate({ id: noteIdRef.current, patch });
-  });
+  const autosave = useAutosave(
+    (patch) => {
+      m.patchContent.mutate({ id: noteIdRef.current, patch });
+    },
+    500,
+    note.id,
+  );
 
   const editor = useEditor({
     extensions: noteExtensions(t('notePlaceholder')),

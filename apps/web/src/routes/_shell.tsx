@@ -14,6 +14,7 @@ import { ShortcutsDialog } from '../components/shell/ShortcutsDialog.js';
 import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
 import { useAppKeys } from '../hooks/use-app-keys.jsx';
+import { useDraftRestore } from '../hooks/use-draft-restore.js';
 import { useMarqueeSelection } from '../hooks/use-marquee-selection.js';
 import { usePushRegistration } from '../hooks/use-push.js';
 import { useRealtime } from '../hooks/use-realtime.js';
@@ -49,6 +50,7 @@ function ShellLayout() {
   usePushRegistration();
   useAppKeys();
   useUnsavedGuard();
+  useDraftRestore();
   return (
     <div className="min-h-full">
       <TopBar />

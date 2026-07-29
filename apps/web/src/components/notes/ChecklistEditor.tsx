@@ -19,6 +19,7 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { clearDraftItems, saveNoteDraftItems } from '../../lib/drafts.js';
 import {
   createItemApi,
   deleteCheckedApi,
@@ -94,6 +95,8 @@ export function ChecklistEditor({
   const listRef = useRef<HTMLDivElement | null>(null);
   /** Rows with a PATCH in flight — the remote merge must not revert them. */
   const pendingPatch = useRef(new Map<string, number>());
+  /** True after any local edit — gates the draft mirror below. */
+  const dirtiedRef = useRef(false);
 
   const beginPatch = useCallback((key: string) => {
     pendingPatch.current.set(key, (pendingPatch.current.get(key) ?? 0) + 1);
@@ -181,10 +184,45 @@ export function ChecklistEditor({
     [patchServer],
   );
 
+  // Mirror local rows to the draft store after any local edit; the boot-time
+  // reconcile replays whatever never reached the server (see drafts.ts).
+  useEffect(() => {
+    if (!dirtiedRef.current || readOnly) return;
+    saveNoteDraftItems(
+      noteId,
+      rows.map((r) => ({
+        id: r.id,
+        key: r.key,
+        text: r.text,
+        checked: r.checked,
+        indent: r.indent,
+        position: r.position,
+      })),
+    );
+  }, [rows, noteId, readOnly]);
+
+  // On close, drop the mirror only when nothing is left unsynced — otherwise
+  // it stays for the boot-time reconcile to deliver.
+  useEffect(
+    () => () => {
+      if (
+        dirtiedRef.current &&
+        navigator.onLine &&
+        rowsRef.current.every((r) => r.id !== null) &&
+        textTimers.current.size === 0 &&
+        pendingPatch.current.size === 0
+      ) {
+        clearDraftItems(noteId);
+      }
+    },
+    [noteId],
+  );
+
   // ---------------------------------------------------------------- ops
 
   const addRow = useCallback(
     (afterKey: string | null, seedText = '', indent: 0 | 1 = 0, caret = 0) => {
+      dirtiedRef.current = true;
       const key = crypto.randomUUID();
       const position = positionAfterRow(rowsRef.current, afterKey);
       const row: ChecklistRow = { key, id: null, text: seedText, checked: false, indent, position };
@@ -199,7 +237,8 @@ export function ChecklistEditor({
           return item.id;
         })
         .catch(() => {
-          setRows((prev) => prev.filter((r) => r.key !== key));
+          // Keep the row local (id null): typing continues and the draft
+          // mirror recreates it at next boot; it just can't sync this session.
           show({ message: t('common:saveFailed') });
           return null;
         });
@@ -211,6 +250,7 @@ export function ChecklistEditor({
 
   const changeText = useCallback(
     (key: string, text: string) => {
+      dirtiedRef.current = true;
       setRows((prev) => prev.map((r) => (r.key === key ? { ...r, text } : r)));
       scheduleTextSync(key, text);
     },
@@ -219,6 +259,7 @@ export function ChecklistEditor({
 
   const toggleCheck = useCallback(
     (key: string, checked: boolean) => {
+      dirtiedRef.current = true;
       // Cascaded rows (parent auto-check) are pending too until the ack lands,
       // so the remote merge can't briefly revert them.
       const next = applyCheck(rowsRef.current, key, checked).rows;
@@ -245,6 +286,7 @@ export function ChecklistEditor({
   const setIndent = useCallback(
     (key: string, indent: 0 | 1) => {
       if (indent === 1 && !canIndent(rowsRef.current, key)) return;
+      dirtiedRef.current = true;
       setRows((prev) => prev.map((r) => (r.key === key ? { ...r, indent } : r)));
       patchServer(key, { indent });
     },
@@ -253,6 +295,7 @@ export function ChecklistEditor({
 
   const removeRow = useCallback(
     (key: string, focusPrev = false) => {
+      dirtiedRef.current = true;
       const ordered = [...rowsRef.current].sort(byPosition);
       const idx = ordered.findIndex((r) => r.key === key);
       const prev = ordered[idx - 1];
@@ -305,12 +348,14 @@ export function ChecklistEditor({
     () => ({
       hasChecked: () => rowsRef.current.some((r) => r.checked),
       uncheckAll: () => {
+        dirtiedRef.current = true;
         setRows((prev) => prev.map((r) => ({ ...r, checked: false })));
         void uncheckAllApi(noteId).then((res) =>
           updateCachedItems(queryClient, noteId, () => res.items),
         );
       },
       deleteChecked: () => {
+        dirtiedRef.current = true;
         setRows((prev) => prev.filter((r) => !r.checked));
         void deleteCheckedApi(noteId).then((res) =>
           updateCachedItems(queryClient, noteId, () => res.items),
