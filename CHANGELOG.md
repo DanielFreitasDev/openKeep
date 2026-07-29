@@ -1,3 +1,21 @@
+# [1.2.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.1.2...v1.2.0) (2026-07-29)
+
+
+### Features
+
+* add provider icons to the OAuth login buttons ([20bbed7](https://github.com/DanielFreitasDev/openKeep/commit/20bbed7b32319588af49e3847df44849d57c411f))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.2.0
+```
+
+Or download `compose.yml` below (image pinned to `1.2.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.2.0/docs/DEPLOYMENT.md).
+
 ## [1.1.2](https://github.com/DanielFreitasDev/openKeep/compare/v1.1.1...v1.1.2) (2026-07-28)
 
 
