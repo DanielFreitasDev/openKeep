@@ -42,7 +42,7 @@ test('keyboard-only journey: ? help, j/k focus, Enter open, Ctrl+Enter close, e 
 
   // / focuses search (navigating to the search route).
   await page.keyboard.press('/');
-  await expect(page.getByPlaceholder('Search')).toBeFocused();
+  await expect(page.getByPlaceholder('Search', { exact: true })).toBeFocused();
   await expect(page).toHaveURL(/\/search/);
 });
 
