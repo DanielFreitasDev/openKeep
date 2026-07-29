@@ -1,7 +1,11 @@
 /// <reference lib="webworker" />
 import { ExpirationPlugin } from 'workbox-expiration';
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
+import {
+  cleanupOutdatedCaches,
+  createHandlerBoundToURL,
+  precacheAndRoute,
+} from 'workbox-precaching';
+import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope;
@@ -9,6 +13,10 @@ declare let self: ServiceWorkerGlobalScope;
 // App shell + assets (fonts, backgrounds) — injected at build time.
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
+
+// SPA navigations (any route, e.g. /archive) fall back to the precached shell,
+// so an offline reload boots the app instead of failing the navigation.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
 
 // API reads: network-first with a 3s timeout, cache fallback (offline reads).
 registerRoute(
