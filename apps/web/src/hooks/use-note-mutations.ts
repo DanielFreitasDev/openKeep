@@ -157,6 +157,19 @@ export function useNoteMutations() {
     });
   };
 
+  /** Bulk trash (selection bar + Delete key): one snackbar restores them all. */
+  const trashManyWithUndo = (ids: string[]) => {
+    if (ids.length === 0) return;
+    for (const id of ids) trash.mutate(id);
+    show({
+      message: t('notesTrashed', { count: ids.length }),
+      actionLabel: t('common:undo'),
+      onAction: () => {
+        for (const id of ids) restore.mutate(id);
+      },
+    });
+  };
+
   const restoreWithUndo = (note: FullNote) => {
     restore.mutate(note.id);
     show({
@@ -196,6 +209,7 @@ export function useNoteMutations() {
     archiveWithUndo,
     unarchiveWithUndo,
     trashWithUndo,
+    trashManyWithUndo,
     restoreWithUndo,
     togglePin,
     newNoteId: newId,

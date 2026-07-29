@@ -18,6 +18,8 @@
   "noteArchived": "Nota arquivada",
   "noteUnarchived": "Nota desarquivada",
   "noteTrashed": "Nota movida para a lixeira",
+  "notesTrashed_one": "Nota movida para a lixeira",
+  "notesTrashed_other": "{{count}} notas movidas para a lixeira",
   "noteRestored": "Nota restaurada",
   "noteUnarchivedAndPinned": "Nota desarquivada e fixada",
   "emptyNoteDiscarded": "Nota vazia descartada",

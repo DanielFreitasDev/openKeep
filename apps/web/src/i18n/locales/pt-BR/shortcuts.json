@@ -16,6 +16,7 @@
   "toggleView": "Alternar entre lista e grade",
   "archiveNote": "Arquivar nota",
   "trashNote": "Mover nota para a lixeira",
+  "trashSelection": "Mover notas selecionadas para a lixeira",
   "togglePin": "Fixar ou desafixar nota",
   "selectNote": "Selecionar nota",
   "openNote": "Abrir nota",

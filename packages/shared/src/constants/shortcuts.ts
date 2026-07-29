@@ -121,6 +121,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'trashNote',
     group: 'actions',
   },
+  {
+    id: 'trash-selection',
+    keys: ['delete', 'backspace'],
+    display: 'Delete',
+    scope: 'grid',
+    labelKey: 'trashSelection',
+    group: 'actions',
+  },
   { id: 'pin', keys: ['f'], display: 'f', scope: 'grid', labelKey: 'togglePin', group: 'actions' },
   {
     id: 'select',

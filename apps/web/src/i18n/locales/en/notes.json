@@ -18,6 +18,8 @@
   "noteArchived": "Note archived",
   "noteUnarchived": "Note unarchived",
   "noteTrashed": "Note trashed",
+  "notesTrashed_one": "Note trashed",
+  "notesTrashed_other": "{{count}} notes trashed",
   "noteRestored": "Note restored",
   "noteUnarchivedAndPinned": "Note unarchived and pinned",
   "emptyNoteDiscarded": "Empty note discarded",

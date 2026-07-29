@@ -16,6 +16,7 @@
   "toggleView": "Toggle between list and grid view",
   "archiveNote": "Archive note",
   "trashNote": "Trash note",
+  "trashSelection": "Trash selected notes",
   "togglePin": "Pin or unpin note",
   "selectNote": "Select note",
   "openNote": "Open note",

@@ -45,8 +45,9 @@ export function SelectionBar() {
       clear();
     },
     trash: () => {
-      for (const n of picked) m.trash.mutate(n.id);
+      const ids = picked.map((n) => n.id);
       clear();
+      m.trashManyWithUndo(ids);
     },
     copy: () => {
       for (const n of picked) m.copy.mutate(n.id);

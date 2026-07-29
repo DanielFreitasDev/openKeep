@@ -84,6 +84,18 @@ export function useAppKeys() {
       },
     };
 
+    // Delete/Backspace trash the whole selection — the checkbox toolbar's
+    // "Delete note" without reaching for the overflow menu.
+    const trashSelection = () => {
+      const selection = useSelectionStore.getState();
+      if (selection.selected.size === 0) return;
+      const ids = notesNow()
+        .filter((n) => selection.selected.has(n.id) && n.trashedAt === null)
+        .map((n) => n.id);
+      selection.clear();
+      m.trashManyWithUndo(ids);
+    };
+
     const grid: Record<string, () => void> = {
       j: () => moveFocus(1),
       k: () => moveFocus(-1),
@@ -118,6 +130,8 @@ export function useAppKeys() {
         if (focused) useSelectionStore.getState().toggle(focused.id);
       },
       'mod+a': () => useSelectionStore.getState().selectMany(useUiStore.getState().viewNoteIds),
+      delete: trashSelection,
+      backspace: trashSelection,
       escape: () => {
         const selection = useSelectionStore.getState();
         if (selection.selected.size > 0) selection.clear();

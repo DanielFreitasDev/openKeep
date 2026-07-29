@@ -88,6 +88,25 @@ test('multi-select: x + Ctrl+A + bulk archive via the selection bar', async ({ p
   await expect(page.getByText('1 selected')).toHaveCount(0);
 });
 
+test('Delete trashes the whole selection with one undo snackbar', async ({ page }) => {
+  await composeNote(page, { title: 'Doomed one', body: '1' });
+  await composeNote(page, { title: 'Doomed two', body: '2' });
+  await page.getByRole('button', { name: 'Refresh' }).focus();
+
+  await page.keyboard.press('Control+a');
+  await expect(page.getByText('2 selected')).toBeVisible();
+
+  await page.keyboard.press('Delete');
+  await expect(page.getByText('2 notes trashed')).toBeVisible();
+  await expect(cardByTitle(page, 'Doomed one')).toHaveCount(0);
+  await expect(cardByTitle(page, 'Doomed two')).toHaveCount(0);
+
+  // Undo brings both back.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(cardByTitle(page, 'Doomed one')).toBeVisible();
+  await expect(cardByTitle(page, 'Doomed two')).toBeVisible();
+});
+
 test('drag-reorder persists across reload', async ({ page }) => {
   await composeNote(page, { title: 'Alpha', body: 'a' });
   await composeNote(page, { title: 'Beta', body: 'b' });
