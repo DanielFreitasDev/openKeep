@@ -145,7 +145,7 @@ export function NoteCard({ note }: { note: FullNote }) {
         <NoteImages note={note} />
         <div className="px-4 pt-3 pb-2">
           {note.title && (
-            <div className="mb-1.5 break-words pr-7 font-medium text-[1rem] text-on-surface leading-6">
+            <div className="mb-1.5 break-words pr-7 font-semibold text-[1.0625rem] text-on-surface leading-6">
               {note.title}
             </div>
           )}

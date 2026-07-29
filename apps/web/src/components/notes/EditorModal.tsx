@@ -248,7 +248,7 @@ function EditorBody({
                 e.target.style.height = 'auto';
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
-              className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-medium text-[1.375rem] text-on-surface leading-7 outline-none placeholder:text-on-surface-variant"
+              className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.5rem] text-on-surface leading-8 outline-none placeholder:text-on-surface-variant"
             />
             {!trashed && (
               <div className="pt-2.5 pr-2">

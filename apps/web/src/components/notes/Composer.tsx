@@ -383,7 +383,7 @@ export function Composer() {
                 placeholder={t('title')}
                 aria-label={t('title')}
                 maxLength={999}
-                className="w-full bg-transparent px-4 pt-3 pb-2 font-medium text-[1rem] text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="w-full bg-transparent px-4 pt-3 pb-2 font-semibold text-[1.125rem] text-on-surface outline-none placeholder:text-on-surface-variant"
               />
               <div className="pt-1.5 pr-1.5">
                 <IconButton
