@@ -157,6 +157,22 @@ body {
   pointer-events: none;
 }
 
+/* Keep web: the focused search field lifts onto a white sheet in BOTH themes
+   (dark mode included — the bar goes white with dark text, like Keep). */
+.search-elevated:focus-within {
+  background: #fff;
+  box-shadow: var(--elevation-2);
+}
+.search-elevated:focus-within input {
+  color: #202124;
+}
+.search-elevated:focus-within input::placeholder {
+  color: #5f6368;
+}
+.search-elevated:focus-within .msym {
+  color: #5f6368;
+}
+
 /* Card enter animation (Keep-like fade + scale); exits stay immediate.
    Animates the card itself (first child) — the wrapper's transform is the
    masonry position and must not be touched. */

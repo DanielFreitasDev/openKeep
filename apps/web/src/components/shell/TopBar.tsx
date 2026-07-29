@@ -1,13 +1,16 @@
 import arrowBackSvg from '@material-symbols/svg-700/outlined/arrow_back.svg?raw';
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
+import cloudDoneSvg from '@material-symbols/svg-700/outlined/cloud_done.svg?raw';
 import gridViewSvg from '@material-symbols/svg-700/outlined/grid_view.svg?raw';
 import menuSvg from '@material-symbols/svg-700/outlined/menu.svg?raw';
+import progressActivitySvg from '@material-symbols/svg-700/outlined/progress_activity.svg?raw';
 import refreshSvg from '@material-symbols/svg-700/outlined/refresh.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
 import viewAgendaSvg from '@material-symbols/svg-700/outlined/view_agenda.svg?raw';
 import type { UserSettings } from '@openkeep/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { patchSettings, settingsQuery } from '../../lib/queries.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -71,7 +74,7 @@ export function TopBar() {
         </Link>
 
         <search className="mx-2 min-w-0 max-w-[720px] flex-1 sm:mx-4">
-          <div className="flex h-12 items-center rounded-lg bg-surface-container transition-shadow focus-within:bg-surface focus-within:shadow-(--elevation-2)">
+          <div className="search-elevated flex h-12 items-center rounded-lg bg-surface-container transition-[background-color,box-shadow] duration-150">
             <IconButton
               svg={searchSvg}
               label={t('searchPlaceholder')}
@@ -100,11 +103,7 @@ export function TopBar() {
         </search>
 
         <div className="ml-auto flex items-center gap-1">
-          <IconButton
-            svg={refreshSvg}
-            label={t('refresh')}
-            onClick={() => void queryClient.invalidateQueries()}
-          />
+          <SyncButton />
           {viewToggleButton()}
           <SettingsMenu />
           <div className="ml-1 mr-2">
@@ -170,5 +169,42 @@ export function TopBar() {
         </div>
       </header>
     </>
+  );
+}
+
+/**
+ * Keep-web refresh: the arrow becomes a spinner while queries refetch, then a
+ * cloud-done check for a beat before settling back to the arrow.
+ */
+function SyncButton() {
+  const { t } = useTranslation('shell');
+  const queryClient = useQueryClient();
+  const [phase, setPhase] = useState<'idle' | 'syncing' | 'done'>('idle');
+  const timerRef = useRef(0);
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  const refresh = () => {
+    if (phase !== 'idle') return;
+    setPhase('syncing');
+    const started = Date.now();
+    void queryClient.invalidateQueries().finally(() => {
+      // The spinner must be seen even when the refetch is near-instant.
+      const wait = Math.max(0, 650 - (Date.now() - started));
+      timerRef.current = window.setTimeout(() => {
+        setPhase('done');
+        timerRef.current = window.setTimeout(() => setPhase('idle'), 1400);
+      }, wait);
+    });
+  };
+
+  return (
+    <IconButton
+      svg={phase === 'syncing' ? progressActivitySvg : phase === 'done' ? cloudDoneSvg : refreshSvg}
+      label={t('refresh')}
+      className={
+        phase === 'syncing' ? '[&_.msym]:animate-spin motion-reduce:[&_.msym]:animate-none' : ''
+      }
+      onClick={refresh}
+    />
   );
 }
