@@ -99,7 +99,9 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setActiveDialog('edit-labels')}
-          className={`w-full ${itemClass(expanded)}`}
+          // `w-full` only while expanded: on the rail it would beat the item's
+          // own `w-12` and push the icon off the column the links sit on.
+          className={`${expanded ? 'w-full' : ''} ${itemClass(expanded)}`}
         >
           <Icon svg={editSvg} size={24} />
           {expanded && <span className="truncate">{t('editLabels')}</span>}
