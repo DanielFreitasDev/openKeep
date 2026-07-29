@@ -30,7 +30,7 @@ export function ColorPicker({ color, background, onColor, onBackground }: ColorP
               role="radio"
               aria-checked={selected}
               aria-label={t(`color_${c}`)}
-              title={t(`color_${c}`)}
+              data-tooltip={t(`color_${c}`)}
               onClick={() => onColor(c)}
               className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-transform hover:scale-110 ${
                 selected
@@ -61,7 +61,7 @@ export function ColorPicker({ color, background, onColor, onBackground }: ColorP
               role="radio"
               aria-checked={selected}
               aria-label={t(`background_${b}`)}
-              title={t(`background_${b}`)}
+              data-tooltip={t(`background_${b}`)}
               onClick={() => onBackground(b)}
               className={`relative h-10 w-10 overflow-hidden rounded-full border-2 ${
                 selected ? 'border-(--primary)' : 'border-(--outline)'

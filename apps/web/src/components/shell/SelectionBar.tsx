@@ -69,7 +69,7 @@ export function SelectionBar() {
         <Popover.Root>
           <Popover.Trigger
             aria-label={t('backgroundOptions')}
-            title={t('backgroundOptions')}
+            data-tooltip={t('backgroundOptions')}
             className={iconButtonClass}
             style={{ width: 48, height: 48 }}
           >
@@ -84,7 +84,7 @@ export function SelectionBar() {
                       key={c}
                       type="button"
                       aria-label={t(`color_${c}`)}
-                      title={t(`color_${c}`)}
+                      data-tooltip={t(`color_${c}`)}
                       className="h-8 w-8 rounded-full border border-(--outline) transition-transform hover:scale-110"
                       style={{ background: `var(--note-${c})` }}
                       onClick={() => bulk.color(c)}
@@ -99,7 +99,7 @@ export function SelectionBar() {
         <Menu.Root>
           <Menu.Trigger
             aria-label={t('more')}
-            title={t('more')}
+            data-tooltip={t('more')}
             className={iconButtonClass}
             style={{ width: 48, height: 48 }}
           >

@@ -34,7 +34,7 @@ export function ReminderChip({
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
           aria-label={t('editReminder')}
-          title={t('editReminder')}
+          data-tooltip={t('editReminder')}
           onClick={(e) => e.stopPropagation()}
           className={`inline-flex h-6 max-w-full items-center gap-1 rounded-full bg-(--surface-hover) px-2.5 font-medium text-[0.6875rem] ${
             reminder.done ? 'text-on-surface-variant line-through' : 'text-on-surface-variant'

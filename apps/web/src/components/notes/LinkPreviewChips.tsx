@@ -44,7 +44,7 @@ function PreviewChip({ url }: { url: string }) {
       rel="noreferrer noopener"
       onClick={(e) => e.stopPropagation()}
       className="flex items-center gap-2 rounded-lg border border-(--outline-variant) bg-surface/60 px-2 py-1.5 hover:bg-(--surface-hover)"
-      title={data.title ?? url}
+      data-tooltip={data.title ?? url}
     >
       {data.faviconUrl ? (
         <img

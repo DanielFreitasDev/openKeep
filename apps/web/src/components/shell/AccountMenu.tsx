@@ -25,7 +25,7 @@ export function AccountMenu() {
     <Menu.Root>
       <Menu.Trigger
         aria-label={t('account')}
-        title={t('account')}
+        data-tooltip={t('account')}
         className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-medium text-on-primary text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--primary)"
       >
         {initial}

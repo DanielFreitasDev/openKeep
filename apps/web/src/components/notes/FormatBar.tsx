@@ -77,7 +77,7 @@ function FormatButton({
       type="button"
       aria-label={label}
       aria-pressed={active}
-      title={label}
+      data-tooltip={label}
       onClick={onClick}
       className={`flex h-9 min-w-9 items-center justify-center rounded px-1.5 text-on-surface-variant text-sm hover:bg-(--surface-hover) ${
         active ? 'bg-(--surface-hover) text-on-surface' : ''

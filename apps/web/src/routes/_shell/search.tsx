@@ -147,7 +147,7 @@ function SearchView() {
                 key={c}
                 type="button"
                 aria-label={t(`notes:color_${c}`)}
-                title={t(`notes:color_${c}`)}
+                data-tooltip={t(`notes:color_${c}`)}
                 className="h-9 w-9 rounded-full border border-(--outline) transition-transform hover:scale-110"
                 style={{ background: `var(--note-${c})` }}
                 onClick={() => setParam({ color: c })}

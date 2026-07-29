@@ -285,7 +285,7 @@ function EditorBody({
           <div className="px-4 pb-1 text-right">
             <span
               className="cursor-default text-on-surface-variant text-xs"
-              title={formatCreatedTooltip(note.createdAt, lang)}
+              data-tooltip={formatCreatedTooltip(note.createdAt, lang)}
             >
               {t('edited', { time: formatEdited(note.updatedAt, lang) })}
             </span>
@@ -329,7 +329,7 @@ function EditorBody({
                 <Popover.Root>
                   <Popover.Trigger
                     aria-label={t('reminders:addReminder')}
-                    title={t('reminders:addReminder')}
+                    data-tooltip={t('reminders:addReminder')}
                     className={iconButtonClass}
                     style={{ width: 38, height: 38 }}
                   >
@@ -356,7 +356,7 @@ function EditorBody({
                 <Popover.Root>
                   <Popover.Trigger
                     aria-label={t('notes:backgroundOptions')}
-                    title={t('notes:backgroundOptions')}
+                    data-tooltip={t('notes:backgroundOptions')}
                     className={iconButtonClass}
                     style={{ width: 38, height: 38 }}
                   >
@@ -416,7 +416,7 @@ function EditorBody({
                 <Menu.Root>
                   <Menu.Trigger
                     aria-label={t('notes:more')}
-                    title={t('notes:more')}
+                    data-tooltip={t('notes:more')}
                     className={iconButtonClass}
                     style={{ width: 38, height: 38 }}
                   >

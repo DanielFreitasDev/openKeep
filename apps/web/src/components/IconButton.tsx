@@ -26,7 +26,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       ref={ref}
       type={type ?? 'button'}
       aria-label={label}
-      title={label}
+      data-tooltip={label}
       className={`${iconButtonClass} ${className ?? ''}`}
       style={{ width: size, height: size }}
       {...rest}

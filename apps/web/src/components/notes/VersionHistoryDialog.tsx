@@ -61,7 +61,7 @@ export function VersionHistoryDialog({ noteId, open, onOpenChange }: VersionHist
                   href={versionDownloadUrl(noteId, v.id)}
                   download
                   aria-label={t('downloadVersion')}
-                  title={t('downloadVersion')}
+                  data-tooltip={t('downloadVersion')}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-(--surface-hover)"
                 >
                   <Icon svg={downloadSvg} size={18} />

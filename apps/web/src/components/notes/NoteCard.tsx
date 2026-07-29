@@ -165,7 +165,7 @@ export function NoteCard({ note }: { note: FullNote }) {
           {note.collaborators.slice(0, 4).map((c) => (
             <li
               key={c.userId}
-              title={`${c.name} <${c.email}>`}
+              data-tooltip={`${c.name} <${c.email}>`}
               className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-medium text-[0.625rem] text-on-primary"
             >
               {(c.name || c.email).charAt(0).toUpperCase()}
@@ -199,7 +199,7 @@ export function NoteCard({ note }: { note: FullNote }) {
             <Popover.Root>
               <Popover.Trigger
                 aria-label={t('reminders:addReminder')}
-                title={t('reminders:addReminder')}
+                data-tooltip={t('reminders:addReminder')}
                 className={iconButtonClass}
                 style={{ width: 34, height: 34 }}
               >
@@ -225,7 +225,7 @@ export function NoteCard({ note }: { note: FullNote }) {
             <Popover.Root>
               <Popover.Trigger
                 aria-label={t('backgroundOptions')}
-                title={t('backgroundOptions')}
+                data-tooltip={t('backgroundOptions')}
                 className={iconButtonClass}
                 style={{ width: 34, height: 34 }}
               >
@@ -279,7 +279,7 @@ export function NoteCard({ note }: { note: FullNote }) {
             <Menu.Root>
               <Menu.Trigger
                 aria-label={t('more')}
-                title={t('more')}
+                data-tooltip={t('more')}
                 className={iconButtonClass}
                 style={{ width: 34, height: 34 }}
               >

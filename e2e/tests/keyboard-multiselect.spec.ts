@@ -107,6 +107,15 @@ test('Delete trashes the whole selection with one undo snackbar', async ({ page 
   await expect(cardByTitle(page, 'Doomed two')).toBeVisible();
 });
 
+test('hovering a toolbar button shows the custom tooltip', async ({ page }) => {
+  await expect(page.getByTestId('tooltip')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Refresh' }).hover();
+  await expect(page.getByTestId('tooltip')).toHaveText('Refresh');
+  // Moving off the anchor dismisses it.
+  await page.getByLabel('Take a note…').hover();
+  await expect(page.getByTestId('tooltip')).toHaveCount(0);
+});
+
 test('drag-reorder persists across reload', async ({ page }) => {
   await composeNote(page, { title: 'Alpha', body: 'a' });
   await composeNote(page, { title: 'Beta', body: 'b' });

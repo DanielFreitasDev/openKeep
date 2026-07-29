@@ -482,7 +482,7 @@ export function Composer() {
               <Popover.Root>
                 <Popover.Trigger
                   aria-label={t('reminders:addReminder')}
-                  title={t('reminders:addReminder')}
+                  data-tooltip={t('reminders:addReminder')}
                   className={iconButtonClass}
                   style={{ width: 36, height: 36 }}
                 >
@@ -512,7 +512,7 @@ export function Composer() {
               <Popover.Root>
                 <Popover.Trigger
                   aria-label={t('backgroundOptions')}
-                  title={t('backgroundOptions')}
+                  data-tooltip={t('backgroundOptions')}
                   className={iconButtonClass}
                   style={{ width: 36, height: 36 }}
                 >
@@ -564,7 +564,7 @@ export function Composer() {
               <Menu.Root>
                 <Menu.Trigger
                   aria-label={t('more')}
-                  title={t('more')}
+                  data-tooltip={t('more')}
                   className={iconButtonClass}
                   style={{ width: 36, height: 36 }}
                 >

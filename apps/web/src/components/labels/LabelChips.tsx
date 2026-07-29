@@ -40,7 +40,7 @@ export function LabelChips({
           <button
             type="button"
             className="truncate"
-            title={label.name}
+            data-tooltip={label.name}
             onClick={(e) => {
               e.stopPropagation();
               void navigate({ to: '/label/$labelName', params: { labelName: label.name } });

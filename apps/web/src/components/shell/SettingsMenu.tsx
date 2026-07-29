@@ -21,7 +21,7 @@ export function SettingsMenu() {
     <Menu.Root>
       <Menu.Trigger
         aria-label={t('settingsMenu')}
-        title={t('settingsMenu')}
+        data-tooltip={t('settingsMenu')}
         className={iconButtonClass}
         style={{ width: 48, height: 48 }}
       >
