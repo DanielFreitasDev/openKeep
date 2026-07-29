@@ -21,7 +21,14 @@ import {
 import type { TestApp } from './harness.js';
 import { createTestApp } from './harness.js';
 
-async function buildTakeoutZip(target: string, withImage: Buffer): Promise<void> {
+/** Edit stamp of `photo.json` — must survive attachment ingest. */
+const PHOTO_EDITED_USEC = 1721909200000000;
+
+async function buildTakeoutZip(
+  target: string,
+  withImage: Buffer,
+  withBrokenImage: Buffer,
+): Promise<void> {
   const out = fs.createWriteStream(target);
   const archive = new ZipArchive({ zlib: { level: 1 } });
   archive.pipe(out);
@@ -56,10 +63,15 @@ async function buildTakeoutZip(target: string, withImage: Buffer): Promise<void>
   note('photo.json', {
     title: 'Photo note',
     textContent: '',
-    attachments: [{ filePath: 'photo1.png', mimetype: 'image/png' }],
+    attachments: [
+      { filePath: 'photo1.png', mimetype: 'image/png' },
+      { filePath: 'photo2.jpg', mimetype: 'image/jpeg' },
+    ],
     createdTimestampUsec: 1721909100000000,
+    userEditedTimestampUsec: PHOTO_EDITED_USEC,
   });
   archive.append(withImage, { name: 'Takeout/Keep/photo1.png' });
+  archive.append(withBrokenImage, { name: 'Takeout/Keep/photo2.jpg' });
   archive.append('not a keep note', { name: 'Takeout/Other/readme.txt' });
 
   await archive.finalize();
@@ -95,8 +107,19 @@ describe('takeout import & export', () => {
 
     const zipDir = `${process.env.TMPDIR ?? '/tmp'}/openkeep-test-takeout`;
     fs.mkdirSync(zipDir, { recursive: true });
+    // Warning-level malformed JPEG (valid header, scan cut short) — the shape
+    // real Takeout photos arrive in; libvips only accepts it with failOn:'none'.
+    // Big enough that lopping off the tail lands inside the scan data rather
+    // than the header — a header-level cut is genuinely corrupt and must fail.
+    const fullJpeg = await sharp({
+      create: { width: 400, height: 400, channels: 3, background: { r: 200, g: 30, b: 90 } },
+    })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    const brokenJpeg = fullJpeg.subarray(0, Math.floor(fullJpeg.length * 0.6));
+
     const zipPath = path.join(zipDir, `takeout-${Date.now()}.zip`);
-    await buildTakeoutZip(zipPath, png);
+    await buildTakeoutZip(zipPath, png, brokenJpeg);
     const zipBuffer = fs.readFileSync(zipPath);
 
     // Upload through the API.
@@ -146,7 +169,10 @@ describe('takeout import & export', () => {
     expect(junk?.trashedAt).not.toBeNull();
 
     const photo = notes.find((n) => n.title === 'Photo note');
-    expect(photo?.attachments).toHaveLength(1);
+    // Both land — including the truncated JPEG Keep itself exports.
+    expect(photo?.attachments).toHaveLength(2);
+    // Ingesting media must not stamp "now" over the Takeout edit timestamp.
+    expect(new Date(photo!.updatedAt).getTime()).toBe(PHOTO_EDITED_USEC / 1000);
 
     // Re-import: everything skipped via fingerprints.
     const secondKey = t.storage.newKey('zip');

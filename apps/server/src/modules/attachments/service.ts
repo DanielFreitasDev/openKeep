@@ -91,6 +91,11 @@ export function sniffAudio(data: Buffer): { mime: string; ext: string } | null {
 /**
  * Upload pipeline: magic bytes decide the type (declared mime ignored, no
  * SVG), sharp re-encode strips EXIF and doubles as an integrity check.
+ *
+ * `failOn: 'none'` keeps that check at "must decode" rather than "must be
+ * pristine": phone cameras, messaging apps and Google's own Takeout JPEGs are
+ * routinely warning-level malformed (truncated scan, odd SOS params) yet
+ * render fine everywhere. A genuinely unreadable buffer still throws.
  */
 export async function uploadImage(
   db: Db,
@@ -98,7 +103,7 @@ export async function uploadImage(
   userId: string,
   noteId: string,
   data: Buffer,
-  opts: { allowTrashed?: boolean } = {},
+  opts: { allowTrashed?: boolean; touchNote?: boolean } = {},
 ): Promise<Attachment> {
   const { note } = await assertNoteAccess(db, userId, noteId);
   if (!opts.allowTrashed) assertNotTrashed(note);
@@ -121,7 +126,10 @@ export async function uploadImage(
 
   let meta: Metadata;
   try {
-    meta = await sharp(data, { animated: magic.mime === 'image/gif' }).metadata();
+    meta = await sharp(data, {
+      animated: magic.mime === 'image/gif',
+      failOn: 'none',
+    }).metadata();
   } catch {
     throw errors.unsupportedMediaType('Corrupt or unsupported image');
   }
@@ -134,12 +142,12 @@ export async function uploadImage(
   // Re-encode (EXIF stripped, auto-rotated); GIFs keep animation as-is.
   let stored = data;
   if (magic.mime !== 'image/gif') {
-    stored = await sharp(data)
+    stored = await sharp(data, { failOn: 'none' })
       .rotate()
       .toFormat(magic.ext as keyof FormatEnum)
       .toBuffer();
   }
-  const thumb = await sharp(data, { animated: false })
+  const thumb = await sharp(data, { animated: false, failOn: 'none' })
     .rotate()
     .resize({ width: 512, withoutEnlargement: true })
     .webp({ quality: 78 })
@@ -163,7 +171,11 @@ export async function uploadImage(
       height,
     })
     .returning();
-  await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  // Skipped on import: `notes.updatedAt` has `$onUpdate`, so touching the row
+  // here would stamp "now" over the Takeout `userEditedTimestampUsec`.
+  if (opts.touchNote !== false) {
+    await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  }
   return toAttachmentDto(created!);
 }
 
@@ -177,6 +189,7 @@ async function ingestAudio(
   userId: string,
   noteId: string,
   data: Buffer,
+  opts: { touchNote?: boolean } = {},
 ): Promise<Attachment> {
   if (data.length > LIMITS.audioMaxBytes) {
     throw errors.payloadTooLarge(`Audio can be at most ${LIMITS.audioMaxBytes / 1024 / 1024} MB`);
@@ -205,7 +218,9 @@ async function ingestAudio(
       size: data.length,
     })
     .returning();
-  await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  if (opts.touchNote !== false) {
+    await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  }
   return toAttachmentDto(created!);
 }
 
@@ -213,7 +228,8 @@ async function ingestAudio(
  * Import-time media dispatch: sniff the buffer (declared mime ignored, as
  * everywhere) and route to the image or audio pipeline. Runs with
  * `allowTrashed` — Takeout notes with `isTrashed` keep their media so a
- * restore brings them back intact.
+ * restore brings them back intact. `touchNote: false` preserves the imported
+ * edit timestamp (the note row was already stamped by the importer).
  */
 export async function importMediaAttachment(
   db: Db,
@@ -223,11 +239,14 @@ export async function importMediaAttachment(
   data: Buffer,
 ): Promise<Attachment> {
   if (MAGIC.some((m) => m.match(data))) {
-    return uploadImage(db, storage, userId, noteId, data, { allowTrashed: true });
+    return uploadImage(db, storage, userId, noteId, data, {
+      allowTrashed: true,
+      touchNote: false,
+    });
   }
   if (sniffAudio(data)) {
     await assertNoteAccess(db, userId, noteId);
-    return ingestAudio(db, storage, userId, noteId, data);
+    return ingestAudio(db, storage, userId, noteId, data, { touchNote: false });
   }
   throw errors.unsupportedMediaType('Unrecognized media format');
 }
