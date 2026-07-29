@@ -8,7 +8,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 |---|---|---|---|
 | Monorepo, CI, dev stack | — (infrastructure) | ✅ | M0 |
 | Email/password auth | Google account | ✅ 🔀 self-hosted auth (Better Auth; optional Google/GitHub OAuth) | M1 |
-| Top bar (hamburger, logo, search, refresh, view toggle, gear, account) | ✓ | ✅ (search input active in M4) | M1 |
+| Top bar (hamburger, logo, search, refresh, view toggle, gear, account) | ✓ | ✅ (search input active in M4; refresh morphs arrow → spinner → cloud-done; focused search lifts to a white sheet) | M1 |
 | Sidebar rail ↔ expanded, hover slide-out | ✓ | ✅ (labels added M4) | M1 |
 | Dark theme + distinct note-color palette | ✓ | ✅ tokens + toggle + follow-system | M1 |
 | Composer ("Take a note…", New list, New note with image) | ✓ | ✅ (list M3, image M5; expand on click/type; click-away saves) | M2 |
@@ -18,7 +18,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ✅ all six: remind, collaborator, color/background, add image, archive, more (+pin) | M2 |
 | 12 colors, light+dark | ✓ | ✅ verified via e2e in both themes | M2 |
 | 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
-| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
+| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; morphs open/closed from its card; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
 | Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 500ms debounce, dirty-field patches | M2 |
 | Archive view + undo snackbar | ✓ | ✅ inverse-mutation undo | M2 |
@@ -36,6 +36,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Search: instant, filter tiles (Types/Labels/Colors) | ✓ | ✅ client-side instant + server FTS endpoint (ts_headline snippet); all six type tiles. People filter deferred (see below) | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
+| Drawings: full-screen editor (pen/marker/highlighter, 28 colors × 8 sizes, stroke eraser + Clear page, grid paper, undo/redo, New drawing / Export as image / Delete current drawing), re-editable | ✓ | ✅ 🔀 vector strokes + ink-cropped PNG render, in-place re-save cache-busted; lasso/zoom/draw-on-image deferred (below) | post-1.0 |
 | Audio attachment playback | ✓ | ✅ player; Takeout import ingests audio (3gp/m4a/mp3/ogg/aac/amr/wav, magic-sniffed) — recording itself is post-1.0 | M5 |
 | Link preview chips + setting | ✓ | ✅ SSRF-safe pinned-IP fetch; browser loads images | M5 |
 | Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ✅ 🔀 native (per-user; DST-correct wall-clock recurrence incl. custom "every N days/weeks/months/years") | M6 |
@@ -44,7 +45,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
-| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ (hover check, x, Ctrl+A, bulk pin/color/archive/trash/copy; marquee deferred) | M8 |
+| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ 🔀 phones now mirror the Keep Android app instead (DECISIONS #23) | M8 |
 | Mobile (<768px): search-pill bar, 2-up grid, create FAB, full-screen editor + bottom sheets, long-press select, full-height drawer w/ Settings | Keep web has none (Android app UX) | ✅ 🔀 CSS-breakpoint layer over the same DOM; untouched FAB notes discarded on close; e2e `mobile.spec.ts` | post-1.0 |
@@ -61,8 +62,10 @@ the table above stays honest. Roughly in order of user impact:
 - **Search "People" filter** — no client tile/param and no `collaborator` filter
   on `/api/search`. The corpus carries collaborator data, so this is client
   selector + one SQL EXISTS away.
-- **Marquee (rubber-band) multi-select** — hover check, `x`, `Ctrl+A` and the
-  selection bar shipped; drag-to-select did not.
+- **Drawing tool extras** — the lasso select tool, canvas zoom/pan (Keep's
+  fit button), drawing on top of photos and the auto-extending canvas are not
+  in the drawing editor; the page size is fixed at creation and the grid
+  choice is saved per drawing.
 - **Bulk "Remind" and "Change labels"** in the selection bar — per-note flows
   exist; the bulk variants don't.
 - **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing

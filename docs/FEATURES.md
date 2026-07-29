@@ -74,6 +74,12 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 - Multiple images per note, stacked above the title; upload validation (magic bytes; ~10 MB, 25 MP caps); server thumbnails; delete on hover.
 - Audio attachments playback (recording is post-1.0).
 
+## Drawings
+
+- Full-screen Keep-style drawing editor: pen / marker / highlighter with Keep's 28-color palette and 8 stroke sizes, whole-stroke eraser (+ Clear page), grid paper (squares / dots / rules), undo/redo, and New drawing / Export as image / Delete current drawing.
+- Entry points: composer "New note with drawing", editor menu / mobile add sheet, FAB "Drawing"; tapping a drawing in the editor re-opens it with its strokes (vectors stored server-side next to the PNG render).
+- The note shows the render cropped to the ink, Keep-style; an untouched drawing is discarded ("Empty note discarded").
+
 ## Link previews
 
 - URLs in the body produce a preview chip (favicon, title, domain) at the bottom of card/editor.
@@ -82,7 +88,7 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 
 ## Multi-select
 
-- Checkmark appears top-left of cards on hover; marquee (rubber-band) selection *(deferred in v1.0)*; `Ctrl+A` selects all in view; `x` toggles the focused card.
+- Checkmark appears top-left of cards on hover; marquee (rubber-band) selection with the mouse (either button, add-only — a plain background click clears); `Ctrl+A` selects all in view; `x` toggles the focused card.
 - Selection top bar: "N selected" + Pin, Remind, Color, Archive, More (Delete, Change labels, Make a copy). Esc exits.
 
 ## Keyboard shortcuts
@@ -125,7 +131,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 
 ## Post-1.0 roadmap
 
-Drawings (pen/marker/highlighter/eraser/select/grid, draw on image, auto-extending canvas) · audio recording + optional transcription · OCR "Grab image text" · "Things" auto-classification · optional LLM "Help me create a list" · native `display: grid-lanes` masonry when cross-browser · full local-first offline.
+Drawing extras (lasso select, draw on image, zoom/pan + auto-extending canvas) · audio recording + optional transcription · OCR "Grab image text" · "Things" auto-classification · optional LLM "Help me create a list" · native `display: grid-lanes` masonry when cross-browser · full local-first offline.
 
 ## Out of scope
 
