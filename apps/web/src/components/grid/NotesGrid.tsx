@@ -240,6 +240,8 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
             <div
               key={note.id}
               data-note-id={note.id}
+              // Trashed cards carry no checkbox, so the marquee skips them too.
+              data-selectable={note.trashedAt === null ? '' : undefined}
               ref={cardRef}
               className={`${
                 animate && draggingId !== note.id

@@ -286,6 +286,7 @@ export function Composer() {
       {/* biome-ignore lint/a11y/noStaticElementInteractions: shortcuts bubble up from the inner inputs */}
       <div
         ref={rootRef}
+        data-no-marquee
         className="rounded-lg border shadow-(--elevation-2)"
         style={{
           background: `var(--note-${color})`,

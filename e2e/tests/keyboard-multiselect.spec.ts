@@ -107,6 +107,49 @@ test('Delete trashes the whole selection with one undo snackbar', async ({ page 
   await expect(cardByTitle(page, 'Doomed two')).toBeVisible();
 });
 
+test('drag-select: a marquee over the grid selects the cards it sweeps', async ({ page }) => {
+  await composeNote(page, { title: 'Sweep one', body: '1' });
+  await composeNote(page, { title: 'Sweep two', body: '2' });
+
+  const one = await cardRootByTitle(page, 'Sweep one').boundingBox();
+  const two = await cardRootByTitle(page, 'Sweep two').boundingBox();
+  if (!one || !two) throw new Error('cards not laid out');
+  // Start on the background just left of the leftmost card, sweep across both.
+  const start = { x: Math.min(one.x, two.x) - 12, y: Math.min(one.y, two.y) + 4 };
+  const end = {
+    x: Math.max(one.x + one.width, two.x + two.width) - 6,
+    y: Math.max(one.y + one.height, two.y + two.height) - 6,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await expect(page.getByTestId('marquee')).toBeVisible();
+  await expect(page.getByText('2 selected')).toBeVisible();
+
+  // Escape mid-drag restores the selection the drag started from.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('marquee')).toHaveCount(0);
+  await expect(page.getByText('2 selected')).toHaveCount(0);
+  await page.mouse.up();
+
+  // Right button drags the same way (Keep's gesture) — and the sweep adds to
+  // whatever was already selected.
+  await cardRootByTitle(page, 'Sweep one').hover();
+  await cardRootByTitle(page, 'Sweep one').getByRole('button', { name: 'Select note' }).click();
+  await expect(page.getByText('1 selected')).toBeVisible();
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await page.mouse.up({ button: 'right' });
+  await expect(page.getByTestId('marquee')).toHaveCount(0);
+  await expect(page.getByText('2 selected')).toBeVisible();
+
+  // The drag must not have opened any card.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('hovering a toolbar button shows the custom tooltip', async ({ page }) => {
   await expect(page.getByTestId('tooltip')).toHaveCount(0);
   await page.getByRole('button', { name: 'Refresh' }).hover();
