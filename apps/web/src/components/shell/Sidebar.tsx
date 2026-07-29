@@ -4,9 +4,10 @@ import editSvg from '@material-symbols/svg-700/outlined/edit.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
 import lightbulbSvg from '@material-symbols/svg-700/outlined/lightbulb.svg?raw';
 import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
+import settingsSvg from '@material-symbols/svg-700/outlined/settings.svg?raw';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -27,7 +28,9 @@ const NAV_ITEMS: NavItem[] = [
 
 /**
  * Keep sidebar: persistent expanded ↔ icon rail, with Gmail-style hover
- * slide-out (overlay, no content reflow) while collapsed.
+ * slide-out (overlay, no content reflow) while collapsed. On mobile it is the
+ * Keep-Android drawer instead: full height over the top bar, app header,
+ * labels section and a Settings entry (the mobile bar has no gear).
  */
 export function Sidebar() {
   const { t } = useTranslation('shell');
@@ -40,10 +43,23 @@ export function Sidebar() {
 
   const expanded = open || hovered || drawerOpen;
   const overlay = !open && hovered;
+  const closeDrawer = () => setDrawerOpen(false);
+
+  // The mobile drawer is a modal surface: Esc dismisses it like the scrim tap.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [drawerOpen, setDrawerOpen]);
 
   const itemClass = (isExpanded: boolean) =>
     `flex h-12 items-center text-on-surface text-sm font-medium outline-none ${
-      isExpanded ? 'mr-3 rounded-r-full pl-6 gap-8' : 'mx-3 w-12 justify-center rounded-full'
+      isExpanded
+        ? 'gap-8 pl-6 max-md:mx-3 max-md:rounded-full md:mr-3 md:rounded-r-full'
+        : 'mx-3 w-12 justify-center rounded-full'
     } hover:bg-(--surface-hover) focus-visible:bg-(--surface-hover)`;
 
   return (
@@ -51,25 +67,30 @@ export function Sidebar() {
       {drawerOpen && (
         // biome-ignore lint/a11y/noStaticElementInteractions: scrim dismiss is a pointer affordance; Esc handled by the drawer
         // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users dismiss the drawer with Esc, not the scrim
-        <div
-          className="fixed inset-0 z-20 bg-(--scrim) md:hidden"
-          onClick={() => setDrawerOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-(--scrim) md:hidden" onClick={closeDrawer} />
       )}
       <nav
         aria-label={t('mainMenu')}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`fixed top-(--topbar-h) bottom-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-surface pt-2 transition-[width] duration-150 ${
+        className={`fixed top-0 bottom-0 left-0 z-40 overflow-y-auto overflow-x-hidden bg-surface pt-2 transition-[width] duration-150 max-md:rounded-r-2xl md:top-(--topbar-h) md:z-20 ${
           drawerOpen ? 'block w-(--sidebar-w) shadow-(--elevation-3)' : 'hidden md:block'
         } ${expanded ? 'md:w-(--sidebar-w)' : 'md:w-(--rail-w)'} ${overlay ? 'md:shadow-(--elevation-2)' : ''}`}
       >
+        <div className="mb-1 flex h-12 items-center gap-2 px-5 md:hidden">
+          <img src="/favicon.svg" alt="" className="h-9 w-9 p-1" />
+          <span className="text-[20px] leading-none text-on-surface-variant">
+            {t('common:appName')}
+          </span>
+        </div>
+
         {NAV_ITEMS.slice(0, 2).map((item) => (
           <Link
             key={item.to}
             to={item.to}
             activeOptions={{ exact: item.to === '/' }}
             className={itemClass(expanded)}
+            onClick={closeDrawer}
             activeProps={{
               className: 'bg-accent-container hover:bg-accent-container',
               'aria-current': 'page',
@@ -80,12 +101,19 @@ export function Sidebar() {
           </Link>
         ))}
 
+        {labels && labels.length > 0 && (
+          <div className="mt-2 mb-1 border-(--outline-variant) border-t px-6 pt-3 font-medium text-on-surface-variant text-xs md:hidden">
+            {t('labelsSection')}
+          </div>
+        )}
+
         {labels?.map((label) => (
           <Link
             key={label.id}
             to="/label/$labelName"
             params={{ labelName: label.name }}
             className={itemClass(expanded)}
+            onClick={closeDrawer}
             activeProps={{
               className: 'bg-accent-container hover:bg-accent-container',
               'aria-current': 'page',
@@ -98,10 +126,13 @@ export function Sidebar() {
 
         <button
           type="button"
-          onClick={() => setActiveDialog('edit-labels')}
+          onClick={() => {
+            closeDrawer();
+            setActiveDialog('edit-labels');
+          }}
           // `w-full` only while expanded: on the rail it would beat the item's
           // own `w-12` and push the icon off the column the links sit on.
-          className={`${expanded ? 'w-full' : ''} ${itemClass(expanded)}`}
+          className={`${expanded ? 'max-md:w-[calc(100%-1.5rem)] md:w-full' : ''} ${itemClass(expanded)}`}
         >
           <Icon svg={editSvg} size={24} />
           {expanded && <span className="truncate">{t('editLabels')}</span>}
@@ -113,6 +144,7 @@ export function Sidebar() {
             to={item.to}
             activeOptions={{ exact: item.to === '/' }}
             className={itemClass(expanded)}
+            onClick={closeDrawer}
             activeProps={{
               className: 'bg-accent-container hover:bg-accent-container',
               'aria-current': 'page',
@@ -122,6 +154,20 @@ export function Sidebar() {
             {expanded && <span className="truncate">{t(item.labelKey)}</span>}
           </Link>
         ))}
+
+        <div className="mt-2 border-(--outline-variant) border-t pt-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              closeDrawer();
+              setActiveDialog('settings');
+            }}
+            className={`w-[calc(100%-1.5rem)] ${itemClass(true)}`}
+          >
+            <Icon svg={settingsSvg} size={24} />
+            <span className="truncate">{t('settings')}</span>
+          </button>
+        </div>
       </nav>
     </>
   );

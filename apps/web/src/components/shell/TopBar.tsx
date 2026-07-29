@@ -1,3 +1,4 @@
+import arrowBackSvg from '@material-symbols/svg-700/outlined/arrow_back.svg?raw';
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import gridViewSvg from '@material-symbols/svg-700/outlined/grid_view.svg?raw';
 import menuSvg from '@material-symbols/svg-700/outlined/menu.svg?raw';
@@ -18,11 +19,6 @@ export function TopBar() {
   const { t } = useTranslation('shell');
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const setDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
-  const drawerOpen = useUiStore((s) => s.mobileDrawerOpen);
-  const onHamburger = () => {
-    if (window.matchMedia('(max-width: 767px)').matches) setDrawerOpen(!drawerOpen);
-    else toggleSidebar();
-  };
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (st) => st.location.pathname });
@@ -51,62 +47,128 @@ export function TopBar() {
     onSuccess: (data) => queryClient.setQueryData(settingsQuery.queryKey, data),
   });
 
+  const viewToggleButton = (size?: number, iconSize?: number) => (
+    <IconButton
+      svg={viewMode === 'grid' ? viewAgendaSvg : gridViewSvg}
+      label={viewMode === 'grid' ? t('listView') : t('gridView')}
+      size={size}
+      iconSize={iconSize}
+      onClick={() => toggleView.mutate()}
+    />
+  );
+
   return (
-    <header className="fixed inset-x-0 top-0 z-30 flex h-(--topbar-h) items-center gap-1 border-b border-(--outline-variant) bg-surface px-2">
-      <IconButton svg={menuSvg} label={t('mainMenu')} onClick={onHamburger} />
+    <>
+      {/* Desktop: Keep-web bar (hamburger, logo, search field, actions). */}
+      <header className="fixed inset-x-0 top-0 z-30 hidden h-(--topbar-h) items-center gap-1 border-b border-(--outline-variant) bg-surface px-2 md:flex">
+        <IconButton svg={menuSvg} label={t('mainMenu')} onClick={toggleSidebar} />
 
-      <Link to="/" className="flex shrink-0 items-center gap-1 rounded px-1 outline-(--primary)">
-        <img src="/favicon.svg" alt="" className="h-10 w-10 p-1" />
-        <span className="hidden text-[22px] leading-none text-on-surface-variant md:inline">
-          {t('common:appName')}
-        </span>
-      </Link>
+        <Link to="/" className="flex shrink-0 items-center gap-1 rounded px-1 outline-(--primary)">
+          <img src="/favicon.svg" alt="" className="h-10 w-10 p-1" />
+          <span className="hidden text-[22px] leading-none text-on-surface-variant md:inline">
+            {t('common:appName')}
+          </span>
+        </Link>
 
-      <search className="mx-2 hidden min-w-0 max-w-[720px] flex-1 sm:mx-4 sm:block">
-        <div className="flex h-12 items-center rounded-lg bg-surface-container transition-shadow focus-within:bg-surface focus-within:shadow-(--elevation-2)">
-          <IconButton
-            svg={searchSvg}
-            label={t('searchPlaceholder')}
-            iconSize={22}
-            onClick={() => goSearch(searchValue)}
-          />
-          <input
-            type="text"
-            value={searchValue}
-            placeholder={t('searchPlaceholder')}
-            className="h-full w-full min-w-0 bg-transparent pr-2 text-base text-on-surface outline-none placeholder:text-on-surface-variant"
-            onFocus={() => {
-              if (!onSearchRoute) goSearch('');
-            }}
-            onChange={(e) => goSearch(e.target.value)}
-          />
-          {onSearchRoute && (
+        <search className="mx-2 min-w-0 max-w-[720px] flex-1 sm:mx-4">
+          <div className="flex h-12 items-center rounded-lg bg-surface-container transition-shadow focus-within:bg-surface focus-within:shadow-(--elevation-2)">
             <IconButton
-              svg={closeSvg}
-              label={t('clearSearch')}
-              iconSize={20}
-              onClick={() => void navigate({ to: '/' })}
+              svg={searchSvg}
+              label={t('searchPlaceholder')}
+              iconSize={22}
+              onClick={() => goSearch(searchValue)}
             />
+            <input
+              type="text"
+              value={searchValue}
+              placeholder={t('searchPlaceholder')}
+              className="h-full w-full min-w-0 bg-transparent pr-2 text-base text-on-surface outline-none placeholder:text-on-surface-variant"
+              onFocus={() => {
+                if (!onSearchRoute) goSearch('');
+              }}
+              onChange={(e) => goSearch(e.target.value)}
+            />
+            {onSearchRoute && (
+              <IconButton
+                svg={closeSvg}
+                label={t('clearSearch')}
+                iconSize={20}
+                onClick={() => void navigate({ to: '/' })}
+              />
+            )}
+          </div>
+        </search>
+
+        <div className="ml-auto flex items-center gap-1">
+          <IconButton
+            svg={refreshSvg}
+            label={t('refresh')}
+            onClick={() => void queryClient.invalidateQueries()}
+          />
+          {viewToggleButton()}
+          <SettingsMenu />
+          <div className="ml-1 mr-2">
+            <AccountMenu />
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile: Keep-Android pill — hamburger, hint, view toggle and avatar in
+          one rounded search bar; on /search it becomes the live input. */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-(--topbar-h) items-center bg-surface px-3 md:hidden">
+        <div className="flex h-12 w-full min-w-0 items-center rounded-full bg-surface-container pr-2 pl-0.5">
+          {onSearchRoute ? (
+            <>
+              <IconButton
+                svg={arrowBackSvg}
+                label={t('common:back')}
+                size={44}
+                iconSize={22}
+                onClick={() => void navigate({ to: '/' })}
+              />
+              <input
+                type="text"
+                value={searchValue}
+                placeholder={t('searchYourNotes')}
+                // biome-ignore lint/a11y/noAutofocus: opening the search screen focuses the query field (Keep app behavior)
+                autoFocus
+                className="h-full w-full min-w-0 bg-transparent text-[0.95rem] text-on-surface outline-none placeholder:text-on-surface-variant"
+                onChange={(e) => goSearch(e.target.value)}
+              />
+              {searchValue !== '' && (
+                <IconButton
+                  svg={closeSvg}
+                  label={t('clearSearch')}
+                  size={40}
+                  iconSize={20}
+                  onClick={() => goSearch('')}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <IconButton
+                svg={menuSvg}
+                label={t('mainMenu')}
+                size={44}
+                iconSize={22}
+                onClick={() => setDrawerOpen(true)}
+              />
+              <button
+                type="button"
+                className="h-full min-w-0 flex-1 truncate px-1 text-left text-[0.95rem] text-on-surface-variant outline-none"
+                onClick={() => goSearch('')}
+              >
+                {t('searchYourNotes')}
+              </button>
+              {viewToggleButton(44, 22)}
+              <div className="ml-1">
+                <AccountMenu />
+              </div>
+            </>
           )}
         </div>
-      </search>
-
-      <div className="ml-auto flex items-center gap-1">
-        <IconButton
-          svg={refreshSvg}
-          label={t('refresh')}
-          onClick={() => void queryClient.invalidateQueries()}
-        />
-        <IconButton
-          svg={viewMode === 'grid' ? viewAgendaSvg : gridViewSvg}
-          label={viewMode === 'grid' ? t('listView') : t('gridView')}
-          onClick={() => toggleView.mutate()}
-        />
-        <SettingsMenu />
-        <div className="ml-1 mr-2">
-          <AccountMenu />
-        </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }
