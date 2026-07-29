@@ -19,7 +19,13 @@ export function BottomSheet({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-(--scrim)" />
+        {/* Not Dialog.Backdrop: Base UI drops that on nested dialogs (the
+            editor modal is itself a Dialog), which left sheets with no scrim —
+            taps outside leaked into the editor and nothing dismissed. An owned
+            scrim keeps tap-outside-to-close working (Keep-app behavior). */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: scrim dismiss is a pointer affordance; Esc closes too */}
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users close the sheet with Esc, not the scrim */}
+        <div className="fixed inset-0 z-50 bg-(--scrim)" onClick={() => onOpenChange(false)} />
         <Dialog.Popup
           aria-label={label}
           className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-surface pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-(--elevation-3) outline-none"
