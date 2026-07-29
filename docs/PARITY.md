@@ -12,6 +12,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Sidebar rail ↔ expanded, hover slide-out | ✓ | ✅ (labels added M4) | M1 |
 | Dark theme + distinct note-color palette | ✓ | ✅ tokens + toggle + follow-system | M1 |
 | Composer ("Take a note…", New list, New note with image) | ✓ | ✅ (list M3, image M5; expand on click/type; click-away saves) | M2 |
+| Composer toolbar (collaborator, remind, format, color, image, archive, more, undo/redo) | ✓ | ✅ same row as the editor; reminder/labels/images/collaborators are held as a draft and applied right after the note is created | M2 |
 | "Empty note discarded" | ✓ | ✅ snackbar | M2 |
 | Masonry grid, PINNED/OTHERS sections | ✓ | ✅ shortest-column flow, 240px cards, FLIP moves | M2 |
 | Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ✅ all six: remind, collaborator, color/background, add image, archive, more (+pin) | M2 |

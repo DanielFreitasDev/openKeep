@@ -9,25 +9,25 @@ import { Icon } from '../Icon.js';
 
 /**
  * Label chips. On cards: up to `max`, then a "+N" chip; click navigates to the
- * label view. In the editor (`removable`) each chip gets an ✕ on hover.
+ * label view. Where `onRemove` is given (editor, composer) each chip gets an ✕
+ * on hover and all chips are shown.
  */
 export function LabelChips({
-  note,
+  labelIds,
   max = 3,
-  removable = false,
+  onRemove,
 }: {
-  note: FullNote;
+  labelIds: string[];
   max?: number;
-  removable?: boolean;
+  onRemove?: (labelId: string) => void;
 }) {
   const { t } = useTranslation('labels');
   const { data: labels } = useQuery(labelsQuery);
   const navigate = useNavigate();
-  const m = useLabelMutations();
 
-  if (note.labelIds.length === 0 || !labels) return null;
-  const mine = labels.filter((l) => note.labelIds.includes(l.id));
-  const shown = removable ? mine : mine.slice(0, max);
+  if (labelIds.length === 0 || !labels) return null;
+  const mine = labels.filter((l) => labelIds.includes(l.id));
+  const shown = onRemove ? mine : mine.slice(0, max);
   const overflow = mine.length - shown.length;
 
   return (
@@ -48,14 +48,14 @@ export function LabelChips({
           >
             {label.name}
           </button>
-          {removable && (
+          {onRemove && (
             <button
               type="button"
               aria-label={t('removeLabel', { name: label.name })}
               className="ml-1 hidden rounded-full group-hover/chip:inline-flex"
               onClick={(e) => {
                 e.stopPropagation();
-                m.setNoteLabel.mutate({ noteId: note.id, labelId: label.id, on: false });
+                onRemove(label.id);
               }}
             >
               <Icon svg={closeSvg} size={12} />
@@ -69,5 +69,29 @@ export function LabelChips({
         </span>
       )}
     </div>
+  );
+}
+
+/** Chips for a persisted note; `removable` unassigns the label. */
+export function NoteLabelChips({
+  note,
+  max,
+  removable = false,
+}: {
+  note: FullNote;
+  max?: number;
+  removable?: boolean;
+}) {
+  const m = useLabelMutations();
+  return (
+    <LabelChips
+      labelIds={note.labelIds}
+      max={max}
+      onRemove={
+        removable
+          ? (labelId) => m.setNoteLabel.mutate({ noteId: note.id, labelId, on: false })
+          : undefined
+      }
+    />
   );
 }

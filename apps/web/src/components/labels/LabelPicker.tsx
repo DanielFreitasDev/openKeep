@@ -10,13 +10,16 @@ import { Icon } from '../Icon.js';
 
 /**
  * Keep's "Label note" panel: filter/create input + checkbox list.
- * Rendered inside a Popover/Menu popup.
+ * Rendered inside a Popover/Menu popup. Controlled, so the composer can
+ * collect labels before the note exists.
  */
 export function LabelPicker({
-  note,
+  selectedIds,
+  onToggle,
   initialFilter = '',
 }: {
-  note: FullNote;
+  selectedIds: string[];
+  onToggle: (labelId: string, on: boolean) => void;
   initialFilter?: string;
 }) {
   const { t } = useTranslation('labels');
@@ -32,7 +35,7 @@ export function LabelPicker({
     const name = filter.trim();
     if (!name) return;
     const label = await m.create.mutateAsync(name).catch(() => null);
-    if (label) m.setNoteLabel.mutate({ noteId: note.id, labelId: label.id, on: true });
+    if (label) onToggle(label.id, true);
     setFilter('');
   };
 
@@ -55,7 +58,7 @@ export function LabelPicker({
       />
       <div className="max-h-64 overflow-y-auto">
         {visible.map((label) => {
-          const checked = note.labelIds.includes(label.id);
+          const checked = selectedIds.includes(label.id);
           return (
             <label
               key={label.id}
@@ -66,13 +69,7 @@ export function LabelPicker({
                 type="checkbox"
                 defaultChecked={checked}
                 className="h-4 w-4 accent-(--on-surface-variant)"
-                onChange={(e) =>
-                  m.setNoteLabel.mutate({
-                    noteId: note.id,
-                    labelId: label.id,
-                    on: e.target.checked,
-                  })
-                }
+                onChange={(e) => onToggle(label.id, e.target.checked)}
               />
               <span className="truncate">{label.name}</span>
             </label>
@@ -90,5 +87,23 @@ export function LabelPicker({
         </button>
       )}
     </div>
+  );
+}
+
+/** The picker wired to a persisted note's label assignments. */
+export function NoteLabelPicker({
+  note,
+  initialFilter,
+}: {
+  note: FullNote;
+  initialFilter?: string;
+}) {
+  const m = useLabelMutations();
+  return (
+    <LabelPicker
+      selectedIds={note.labelIds}
+      onToggle={(labelId, on) => m.setNoteLabel.mutate({ noteId: note.id, labelId, on })}
+      initialFilter={initialFilter}
+    />
   );
 }

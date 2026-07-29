@@ -1,68 +1,38 @@
 import { Dialog } from '@base-ui/react/dialog';
 import type { Collaborator, FullNote } from '@openkeep/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError, api } from '../../lib/api.js';
-import { mergeNote, removeNote } from '../../lib/note-selectors.js';
-import { notesQuery } from '../../lib/notes-api.js';
+import { useCollaboratorMutations } from '../../hooks/use-collaborator-mutations.js';
 import { sessionQuery } from '../../lib/queries.js';
-import { useSnackbarStore } from '../../stores/snackbar.js';
 
 interface ShareDialogProps {
-  note: FullNote;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  collaborators: Collaborator[];
+  isOwner: boolean;
+  inviting?: boolean;
+  onInvite: (email: string) => void;
+  onRemove: (userId: string) => void;
 }
 
-/** Keep's Collaborators dialog: single permission level, owner manages. */
-export function ShareDialog({ note, open, onOpenChange }: ShareDialogProps) {
+/**
+ * Keep's Collaborators dialog: single permission level, owner manages.
+ * Controlled, so the composer can collect collaborators before the note exists.
+ */
+export function ShareDialog({
+  open,
+  onOpenChange,
+  collaborators,
+  isOwner,
+  inviting = false,
+  onInvite,
+  onRemove,
+}: ShareDialogProps) {
   const { t } = useTranslation('sharing');
-  const queryClient = useQueryClient();
-  const show = useSnackbarStore((s) => s.show);
   const { data: session } = useQuery(sessionQuery);
   const [email, setEmail] = useState('');
   const myId = session?.user.id;
-
-  const invite = useMutation({
-    mutationFn: (targetEmail: string) =>
-      api<Collaborator>(`/api/notes/${note.id}/collaborators`, {
-        method: 'POST',
-        body: { email: targetEmail },
-      }),
-    onSuccess: (collaborator) => {
-      queryClient.setQueryData(notesQuery.queryKey, (old) =>
-        mergeNote(old, note.id, { collaborators: [...note.collaborators, collaborator] }),
-      );
-      setEmail('');
-    },
-    onError: (err) => {
-      show({
-        message:
-          err instanceof ApiError ? (err.problem.detail ?? err.problem.title) : t('inviteFailed'),
-      });
-    },
-  });
-
-  const remove = useMutation({
-    mutationFn: (userId: string) =>
-      api<undefined>(`/api/notes/${note.id}/collaborators/${userId}`, { method: 'DELETE' }),
-    onSuccess: (_d, userId) => {
-      if (userId === myId) {
-        // I left — the note disappears from my board.
-        queryClient.setQueryData(notesQuery.queryKey, (old) => removeNote(old, note.id));
-        onOpenChange(false);
-        return;
-      }
-      queryClient.setQueryData(notesQuery.queryKey, (old) =>
-        mergeNote(old, note.id, {
-          collaborators: note.collaborators.filter((c) => c.userId !== userId),
-        }),
-      );
-    },
-  });
-
-  const isOwner = note.role === 'owner';
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -74,7 +44,7 @@ export function ShareDialog({ note, open, onOpenChange }: ShareDialogProps) {
           </Dialog.Title>
 
           <div className="flex-1 overflow-y-auto px-4 pb-2">
-            {note.collaborators.map((c) => (
+            {collaborators.map((c) => (
               <div key={c.userId} className="flex items-center gap-3 rounded-lg px-2 py-2">
                 <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary font-medium text-on-primary text-sm">
                   {(c.name || c.email).charAt(0).toUpperCase()}
@@ -92,7 +62,7 @@ export function ShareDialog({ note, open, onOpenChange }: ShareDialogProps) {
                   <button
                     type="button"
                     className="rounded px-2 py-1 font-medium text-primary text-xs hover:bg-(--surface-hover)"
-                    onClick={() => remove.mutate(c.userId)}
+                    onClick={() => onRemove(c.userId)}
                   >
                     {c.userId === myId ? t('leave') : t('remove')}
                   </button>
@@ -105,7 +75,10 @@ export function ShareDialog({ note, open, onOpenChange }: ShareDialogProps) {
                 className="mt-2 flex items-center gap-2 px-2"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (email.trim()) invite.mutate(email.trim());
+                  if (email.trim()) {
+                    onInvite(email.trim());
+                    setEmail('');
+                  }
                 }}
               >
                 <input
@@ -118,7 +91,7 @@ export function ShareDialog({ note, open, onOpenChange }: ShareDialogProps) {
                 />
                 <button
                   type="submit"
-                  disabled={invite.isPending || email.trim() === ''}
+                  disabled={inviting || email.trim() === ''}
                   className="rounded px-3 py-2 font-medium text-primary text-sm hover:bg-(--surface-hover) disabled:opacity-40"
                 >
                   {t('invite')}
@@ -135,5 +108,31 @@ export function ShareDialog({ note, open, onOpenChange }: ShareDialogProps) {
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/** The dialog wired to a persisted note's collaborator mutations. */
+export function NoteShareDialog({
+  note,
+  open,
+  onOpenChange,
+}: {
+  note: FullNote;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const m = useCollaboratorMutations();
+  return (
+    <ShareDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      collaborators={note.collaborators}
+      isOwner={note.role === 'owner'}
+      inviting={m.invite.isPending}
+      onInvite={(email) => m.invite.mutate({ noteId: note.id, email })}
+      onRemove={(userId) =>
+        m.remove.mutate({ noteId: note.id, userId, onLeft: () => onOpenChange(false) })
+      }
+    />
   );
 }

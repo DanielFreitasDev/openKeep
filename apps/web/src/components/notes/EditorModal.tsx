@@ -15,9 +15,7 @@ import undoSvg from '@material-symbols/svg-400/outlined/undo.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Placeholder } from '@tiptap/extensions';
 import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
@@ -27,20 +25,22 @@ import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
+import { noteExtensions } from '../../lib/tiptap.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
-import { LabelChips } from '../labels/LabelChips.js';
-import { LabelPicker } from '../labels/LabelPicker.js';
+import { NoteLabelChips } from '../labels/LabelChips.js';
+import { NoteLabelPicker } from '../labels/LabelPicker.js';
 import type { ChecklistHandle } from './ChecklistEditor.js';
 import { ChecklistEditor } from './ChecklistEditor.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { FormatBar } from './FormatBar.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteImages } from './NoteImages.js';
-import { ReminderChip } from './ReminderChip.js';
-import { ReminderPicker } from './ReminderPicker.js';
-import { ShareDialog } from './ShareDialog.js';
+import { NoteReminderChip } from './ReminderChip.js';
+import { NoteReminderPicker } from './ReminderPicker.js';
+import { NoteShareDialog } from './ShareDialog.js';
 import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
@@ -53,7 +53,7 @@ function EditorReminderPop({ note }: { note: FullNote }) {
   return (
     <>
       <Popover.Close ref={closeRef} className="hidden" />
-      <ReminderPicker note={note} onDone={() => closeRef.current?.click()} />
+      <NoteReminderPicker note={note} onDone={() => closeRef.current?.click()} />
     </>
   );
 }
@@ -127,21 +127,7 @@ function EditorBody({
   });
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2] },
-        blockquote: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        code: false,
-        codeBlock: false,
-        horizontalRule: false,
-        strike: false,
-        link: false,
-      }),
-      Placeholder.configure({ placeholder: t('notePlaceholder') }),
-    ],
+    extensions: noteExtensions(t('notePlaceholder')),
     content: note.bodyHtml,
     editable: !trashed,
     editorProps: {
@@ -293,8 +279,8 @@ function EditorBody({
           </div>
 
           <LinkPreviewChips note={note} />
-          <ReminderChip note={note} />
-          <LabelChips note={note} removable />
+          <NoteReminderChip note={note} />
+          <NoteLabelChips note={note} removable />
 
           <div className="px-4 pb-1 text-right">
             <span
@@ -305,61 +291,7 @@ function EditorBody({
             </span>
           </div>
 
-          {showFormatBar && !trashed && editor && (
-            <div className="flex items-center gap-0.5 border-(--outline-variant) border-t px-2 py-1">
-              <FormatButton
-                label={t('formatH1')}
-                active={editor.isActive('heading', { level: 1 })}
-                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              >
-                H1
-              </FormatButton>
-              <FormatButton
-                label={t('formatH2')}
-                active={editor.isActive('heading', { level: 2 })}
-                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              >
-                H2
-              </FormatButton>
-              <FormatButton
-                label={t('formatNormal')}
-                active={editor.isActive('paragraph')}
-                onClick={() => editor.chain().focus().setParagraph().run()}
-              >
-                ¶
-              </FormatButton>
-              <span className="mx-1 h-5 w-px bg-(--outline-variant)" />
-              <FormatButton
-                label={t('formatBold')}
-                active={editor.isActive('bold')}
-                onClick={() => editor.chain().focus().toggleBold().run()}
-              >
-                <strong>B</strong>
-              </FormatButton>
-              <FormatButton
-                label={t('formatItalic')}
-                active={editor.isActive('italic')}
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-              >
-                <em>I</em>
-              </FormatButton>
-              <FormatButton
-                label={t('formatUnderline')}
-                active={editor.isActive('underline')}
-                onClick={() => editor.chain().focus().toggleUnderline().run()}
-              >
-                <u>U</u>
-              </FormatButton>
-              <span className="mx-1 h-5 w-px bg-(--outline-variant)" />
-              <FormatButton
-                label={t('formatClear')}
-                active={false}
-                onClick={() => editor.chain().focus().unsetAllMarks().setParagraph().run()}
-              >
-                ⌫
-              </FormatButton>
-            </div>
-          )}
+          {showFormatBar && !trashed && editor && <FormatBar editor={editor} />}
 
           <div className="flex items-center gap-0.5 px-2 py-1.5">
             {trashed ? (
@@ -597,7 +529,9 @@ function EditorBody({
               onOpenChange={setShowVersions}
             />
           )}
-          {showShare && <ShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
+          {showShare && (
+            <NoteShareDialog note={note} open={showShare} onOpenChange={setShowShare} />
+          )}
           {labelPicker.open && (
             <Popover.Root
               open
@@ -611,7 +545,7 @@ function EditorBody({
               <Popover.Portal>
                 <Popover.Positioner className="z-50" sideOffset={2}>
                   <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
-                    <LabelPicker note={note} initialFilter={labelPicker.seed} />
+                    <NoteLabelPicker note={note} initialFilter={labelPicker.seed} />
                   </Popover.Popup>
                 </Popover.Positioner>
               </Popover.Portal>
@@ -620,32 +554,5 @@ function EditorBody({
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
-  );
-}
-
-function FormatButton({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={active}
-      title={label}
-      onClick={onClick}
-      className={`flex h-9 min-w-9 items-center justify-center rounded px-1.5 text-on-surface-variant text-sm hover:bg-(--surface-hover) ${
-        active ? 'bg-(--surface-hover) text-on-surface' : ''
-      }`}
-    >
-      {children}
-    </button>
   );
 }

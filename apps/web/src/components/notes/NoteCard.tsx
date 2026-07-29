@@ -22,28 +22,28 @@ import { useSelectionStore } from '../../stores/selection.js';
 import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
-import { LabelChips } from '../labels/LabelChips.js';
-import { LabelPicker } from '../labels/LabelPicker.js';
+import { NoteLabelChips } from '../labels/LabelChips.js';
+import { NoteLabelPicker } from '../labels/LabelPicker.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteBody } from './NoteBody.js';
 import { NoteImages } from './NoteImages.js';
-import { ReminderChip } from './ReminderChip.js';
-import { ReminderPicker } from './ReminderPicker.js';
-import { ShareDialog } from './ShareDialog.js';
+import { NoteReminderChip } from './ReminderChip.js';
+import { NoteReminderPicker } from './ReminderPicker.js';
+import { NoteShareDialog } from './ShareDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
 
-/** ReminderPicker inside an uncontrolled popover: closes via a hidden Close. */
+/** The reminder picker inside an uncontrolled popover: closes via a hidden Close. */
 function ReminderPickerPop({ note }: { note: FullNote }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   return (
     <>
       <Popover.Close ref={closeRef} className="hidden" />
-      <ReminderPicker note={note} onDone={() => closeRef.current?.click()} />
+      <NoteReminderPicker note={note} onDone={() => closeRef.current?.click()} />
     </>
   );
 }
@@ -156,8 +156,8 @@ export function NoteCard({ note }: { note: FullNote }) {
       </div>
 
       <LinkPreviewChips note={note} />
-      <ReminderChip note={note} />
-      <LabelChips note={note} />
+      <NoteReminderChip note={note} />
+      <NoteLabelChips note={note} />
       {note.collaborators.length > 1 && (
         <ul className="flex gap-1 px-3 pb-1.5" aria-label={t('sharing:sharedWith')}>
           {note.collaborators.slice(0, 4).map((c) => (
@@ -324,7 +324,7 @@ export function NoteCard({ note }: { note: FullNote }) {
         onConfirm={() => m.deleteForever.mutate(note.id)}
       />
 
-      {showShare && <ShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
+      {showShare && <NoteShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
 
       {showLabelPicker && (
         <Popover.Root open onOpenChange={(o) => !o && setShowLabelPicker(false)}>
@@ -336,7 +336,7 @@ export function NoteCard({ note }: { note: FullNote }) {
           <Popover.Portal>
             <Popover.Positioner className="z-40" sideOffset={2}>
               <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
-                <LabelPicker note={note} />
+                <NoteLabelPicker note={note} />
               </Popover.Popup>
             </Popover.Positioner>
           </Popover.Portal>

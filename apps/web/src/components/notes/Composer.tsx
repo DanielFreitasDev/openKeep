@@ -1,85 +1,187 @@
+import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
+import addAlertSvg from '@material-symbols/svg-400/outlined/add_alert.svg?raw';
+import archiveSvg from '@material-symbols/svg-400/outlined/archive.svg?raw';
 import checkboxSvg from '@material-symbols/svg-400/outlined/check_box.svg?raw';
 import closeSvg from '@material-symbols/svg-400/outlined/close.svg?raw';
+import formatSvg from '@material-symbols/svg-400/outlined/format_color_text.svg?raw';
 import imageSvg from '@material-symbols/svg-400/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-400/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-400/outlined/keep-fill.svg?raw';
+import moreSvg from '@material-symbols/svg-400/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-400/outlined/palette.svg?raw';
-import type { NoteBackground, NoteColor } from '@openkeep/shared';
+import personAddSvg from '@material-symbols/svg-400/outlined/person_add.svg?raw';
+import redoSvg from '@material-symbols/svg-400/outlined/redo.svg?raw';
+import undoSvg from '@material-symbols/svg-400/outlined/undo.svg?raw';
+import type { Collaborator, NoteBackground, NoteColor, SetReminder } from '@openkeep/shared';
+import { useQuery } from '@tanstack/react-query';
+import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
+import { useCollaboratorMutations } from '../../hooks/use-collaborator-mutations.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
+import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
-import { plainTextToHtml } from '../../lib/html.js';
+import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
+import { sessionQuery } from '../../lib/queries.js';
+import { noteExtensions } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
+import { LabelChips } from '../labels/LabelChips.js';
+import { LabelPicker } from '../labels/LabelPicker.js';
 import { ColorPicker } from './ColorPicker.js';
+import { FormatBar } from './FormatBar.js';
+import { ReminderChip } from './ReminderChip.js';
+import { ReminderPicker } from './ReminderPicker.js';
+import { ShareDialog } from './ShareDialog.js';
+
+const menuItemClass =
+  'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
 
 const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
+/** An image chosen before the note exists; uploaded once it does. */
+interface PendingImage {
+  key: string;
+  file: File;
+  url: string;
+}
+
 /**
  * The Keep composer: collapsed "Take a note…" row that expands in place;
- * click-away saves; empty notes are discarded with a snackbar.
+ * click-away saves; empty notes are discarded with a snackbar. Expanded, it
+ * carries the same toolbar as the editor — everything that needs a note id
+ * (reminder, labels, images, collaborators) is held as a draft and applied
+ * right after the note is created.
  */
 export function Composer() {
   const { t } = useTranslation('notes');
   const m = useNoteMutations();
+  const reminderM = useReminderMutations();
+  const labelM = useLabelMutations();
+  const attachmentM = useAttachmentMutations();
+  const collaboratorM = useCollaboratorMutations();
   const show = useSnackbarStore((s) => s.show);
+  const { data: session } = useQuery(sessionQuery);
 
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<'text' | 'list'>('text');
   const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
   const [listRows, setListRows] = useState<{ key: string; text: string }[]>([]);
   const [pinned, setPinned] = useState(false);
   const [color, setColor] = useState<NoteColor>('default');
   const [background, setBackground] = useState<NoteBackground>('none');
+  const [reminder, setReminder] = useState<SetReminder | null>(null);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [images, setImages] = useState<PendingImage[]>([]);
+  const [invites, setInvites] = useState<string[]>([]);
+  const [showFormatBar, setShowFormatBar] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [labelPickerOpen, setLabelPickerOpen] = useState(false);
 
   // While composing, block grid/base shortcuts entirely (same as the editor
   // modal) — an open composer is an editing surface, not the board.
   useKeyScope('editor', EMPTY_BINDINGS, expanded);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   const collapsedRef = useRef<HTMLInputElement | null>(null);
+  const newNoteImageRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const attachmentM = useAttachmentMutations();
+
+  const editor = useEditor({
+    extensions: noteExtensions(t('takeANote')),
+    editorProps: {
+      // ProseMirror's contenteditable has no implicit role; name it so the
+      // expanded body stays the same "Take a note…" control as the collapsed row.
+      attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('takeANote') },
+      handleKeyDown: (_view, event) => {
+        // Keep's `#` quick-labeling: opens the label picker.
+        if (event.key === '#' && !event.ctrlKey && !event.metaKey) {
+          event.preventDefault();
+          setLabelPickerOpen(true);
+          return true;
+        }
+        return false;
+      },
+    },
+  });
 
   const reset = () => {
     setExpanded(false);
     setMode('text');
     setTitle('');
-    setBody('');
+    editor?.commands.clearContent();
     setListRows([]);
     setPinned(false);
     setColor('default');
     setBackground('none');
+    setReminder(null);
+    setLabelIds([]);
+    setInvites([]);
+    setImages((prev) => {
+      for (const img of prev) URL.revokeObjectURL(img.url);
+      return [];
+    });
+    setShowFormatBar(false);
+    setShowShare(false);
+    setLabelPickerOpen(false);
   };
 
-  const save = () => {
+  const save = async ({ archive = false } = {}) => {
     const items = listRows
       .map((r) => r.text)
       .filter((x) => x.trim() !== '')
       .map((text) => ({ text, checked: false, indent: 0 as const }));
+    const bodyHtml = mode === 'text' && editor && !editor.isEmpty ? editor.getHTML() : '';
+    // Snapshot the draft: reset() runs before the create resolves.
+    const draft = {
+      type: mode,
+      title: title.trim(),
+      bodyHtml,
+      items,
+      pinned,
+      color,
+      background,
+      reminder,
+      labelIds,
+      files: images.map((img) => img.file),
+      invites,
+    };
     const hasContent =
-      title.trim() !== '' || (mode === 'text' ? body.trim() !== '' : items.length > 0);
-    if (hasContent) {
-      m.create.mutate({
-        id: m.newNoteId(),
-        type: mode,
-        title: title.trim(),
-        bodyHtml: mode === 'text' && body.trim() !== '' ? plainTextToHtml(body) : '',
-        items: mode === 'list' ? items : [],
-        pinned,
-        color,
-        background,
-      });
-    } else if (expanded) {
-      show({ message: t('emptyNoteDiscarded') });
-    }
+      draft.title !== '' ||
+      (mode === 'text' ? bodyHtml !== '' : items.length > 0) ||
+      draft.files.length > 0;
+    const wasExpanded = expanded;
     reset();
+
+    if (!hasContent) {
+      if (wasExpanded) show({ message: t('emptyNoteDiscarded') });
+      return;
+    }
+
+    const id = m.newNoteId();
+    const note = await m.create
+      .mutateAsync({
+        id,
+        type: draft.type,
+        title: draft.title,
+        bodyHtml: draft.bodyHtml,
+        items: draft.items,
+        pinned: draft.pinned,
+        color: draft.color,
+        background: draft.background,
+      })
+      .catch(() => null);
+    if (!note) return;
+
+    if (draft.reminder) reminderM.set.mutate({ noteId: id, body: draft.reminder });
+    for (const labelId of draft.labelIds)
+      labelM.setNoteLabel.mutate({ noteId: id, labelId, on: true });
+    for (const file of draft.files) attachmentM.upload.mutate({ noteId: id, file });
+    for (const email of draft.invites) collaboratorM.invite.mutate({ noteId: id, email });
+    if (archive) m.archiveWithUndo(note);
   };
 
   const startList = () => {
@@ -88,15 +190,36 @@ export function Composer() {
     setExpanded(true);
   };
 
+  const addImages = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setImages((prev) => [
+      ...prev,
+      ...Array.from(files).map((file) => ({
+        key: crypto.randomUUID(),
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    ]);
+    setExpanded(true);
+  };
+
+  const removeImage = (key: string) =>
+    setImages((prev) => {
+      const hit = prev.find((i) => i.key === key);
+      if (hit) URL.revokeObjectURL(hit.url);
+      return prev.filter((i) => i.key !== key);
+    });
+
   // Click-away saves (Keep behavior). Popover portals live outside the root,
-  // so ignore clicks inside any [data-composer-popover].
+  // so ignore clicks inside any [data-composer-popover]; modal dialogs cover
+  // the page entirely, so the listener stands down while one is open.
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded || showShare) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       if (rootRef.current?.contains(target)) return;
       if (target.closest('[data-composer-popover]')) return;
-      save();
+      void save();
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
@@ -123,10 +246,40 @@ export function Composer() {
   });
 
   useEffect(() => {
-    if (expanded) bodyRef.current?.focus();
-  }, [expanded]);
+    if (expanded && mode === 'text') editor?.commands.focus('end');
+  }, [expanded, mode, editor]);
+
+  // Object URLs outlive React state, so revoke whatever is left on unmount.
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
+  useEffect(
+    () => () => {
+      for (const img of imagesRef.current) URL.revokeObjectURL(img.url);
+    },
+    [],
+  );
 
   const isDefaultColor = color === 'default';
+
+  // The draft's collaborator list: me as owner + the pending invitations.
+  const draftCollaborators: Collaborator[] = [
+    ...(session
+      ? [
+          {
+            userId: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            role: 'owner' as const,
+          },
+        ]
+      : []),
+    ...invites.map((email) => ({
+      userId: `pending:${email}`,
+      email,
+      name: email,
+      role: 'collaborator' as const,
+    })),
+  ];
 
   return (
     <div className="mx-auto mt-8 mb-6 w-full max-w-[600px] px-4">
@@ -141,7 +294,7 @@ export function Composer() {
         onKeyDown={(e) => {
           if (expanded && (e.key === 'Escape' || (e.key === 'Enter' && e.ctrlKey))) {
             e.preventDefault();
-            save();
+            void save();
           }
         }}
       >
@@ -158,7 +311,7 @@ export function Composer() {
                 // Focused on load (Keep) but expands only on click/typing.
                 if (e.key.length === 1 || e.key === 'Enter') {
                   e.preventDefault();
-                  if (e.key.length === 1) setBody(e.key);
+                  if (e.key.length === 1) editor?.commands.insertContent(e.key);
                   setExpanded(true);
                 }
               }}
@@ -174,10 +327,10 @@ export function Composer() {
               svg={imageSvg}
               label={t('newNoteWithImage')}
               className="text-on-surface-variant"
-              onClick={() => imageInputRef.current?.click()}
+              onClick={() => newNoteImageRef.current?.click()}
             />
             <input
-              ref={imageInputRef}
+              ref={newNoteImageRef}
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
               className="hidden"
@@ -203,6 +356,25 @@ export function Composer() {
           </div>
         ) : (
           <div className="flex flex-col">
+            {images.length > 0 && (
+              <div className="overflow-hidden rounded-t-lg">
+                {images.map((img) => (
+                  <div key={img.key} className="group/img relative">
+                    <img src={img.url} alt="" className="block h-auto w-full" />
+                    <div className="absolute right-1 bottom-1 opacity-0 transition-opacity group-hover/img:opacity-100">
+                      <IconButton
+                        svg={closeSvg}
+                        label={t('removeImage')}
+                        size={32}
+                        iconSize={16}
+                        className="bg-(--scrim) text-white hover:bg-black/70"
+                        onClick={() => removeImage(img.key)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-start">
               <input
                 type="text"
@@ -225,20 +397,9 @@ export function Composer() {
               </div>
             </div>
             {mode === 'text' ? (
-              <textarea
-                ref={bodyRef}
-                value={body}
-                onChange={(e) => {
-                  setBody(e.target.value);
-                  const el = e.target;
-                  el.style.height = 'auto';
-                  el.style.height = `${el.scrollHeight}px`;
-                }}
-                placeholder={t('takeANote')}
-                aria-label={t('takeANote')}
-                rows={1}
-                className="max-h-[60vh] w-full resize-none overflow-y-auto bg-transparent px-4 pb-3 text-[0.875rem] text-on-surface leading-5 outline-none placeholder:text-on-surface-variant"
-              />
+              <div className="max-h-[60vh] overflow-y-auto px-4 pb-3">
+                <EditorContent editor={editor} className="note-editor" />
+              </div>
             ) : (
               <div className="max-h-[60vh] overflow-y-auto px-3 pb-3">
                 {listRows.map((row, i) => (
@@ -290,7 +451,64 @@ export function Composer() {
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-1 px-2 pb-1.5">
+
+            <ReminderChip
+              reminder={reminder}
+              picker={(close) => (
+                <ReminderPicker
+                  reminder={reminder}
+                  onApply={setReminder}
+                  onDelete={() => setReminder(null)}
+                  onDone={close}
+                />
+              )}
+            />
+            <LabelChips
+              labelIds={labelIds}
+              onRemove={(labelId) => setLabelIds((ids) => ids.filter((x) => x !== labelId))}
+            />
+
+            {showFormatBar && editor && <FormatBar editor={editor} />}
+
+            <div className="flex items-center gap-0.5 px-2 py-1.5">
+              <IconButton
+                svg={personAddSvg}
+                label={t('sharing:collaborator')}
+                size={36}
+                iconSize={18}
+                className="text-on-surface-variant"
+                onClick={() => setShowShare(true)}
+              />
+              <Popover.Root>
+                <Popover.Trigger
+                  aria-label={t('reminders:addReminder')}
+                  title={t('reminders:addReminder')}
+                  className={iconButtonClass}
+                  style={{ width: 36, height: 36 }}
+                >
+                  <Icon svg={addAlertSvg} size={18} />
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Positioner className="z-50" sideOffset={4}>
+                    <Popover.Popup
+                      data-composer-popover
+                      className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)"
+                    >
+                      <ComposerReminderPop reminder={reminder} onChange={setReminder} />
+                    </Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </Popover.Root>
+              {mode === 'text' && (
+                <IconButton
+                  svg={formatSvg}
+                  label={t('editor:formattingOptions')}
+                  size={36}
+                  iconSize={18}
+                  className={`text-on-surface-variant ${showFormatBar ? 'bg-(--surface-hover)' : ''}`}
+                  onClick={() => setShowFormatBar((v) => !v)}
+                />
+              )}
               <Popover.Root>
                 <Popover.Trigger
                   aria-label={t('backgroundOptions')}
@@ -316,17 +534,148 @@ export function Composer() {
                   </Popover.Positioner>
                 </Popover.Portal>
               </Popover.Root>
+              <IconButton
+                svg={imageSvg}
+                label={t('addImage')}
+                size={36}
+                iconSize={18}
+                className="text-on-surface-variant"
+                onClick={() => imageInputRef.current?.click()}
+              />
+              <input
+                ref={imageInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  addImages(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <IconButton
+                svg={archiveSvg}
+                label={t('shell:navArchive')}
+                size={36}
+                iconSize={18}
+                className="text-on-surface-variant"
+                onClick={() => void save({ archive: true })}
+              />
+              <Menu.Root>
+                <Menu.Trigger
+                  aria-label={t('more')}
+                  title={t('more')}
+                  className={iconButtonClass}
+                  style={{ width: 36, height: 36 }}
+                >
+                  <Icon svg={moreSvg} size={18} />
+                </Menu.Trigger>
+                <Menu.Portal>
+                  <Menu.Positioner className="z-50" sideOffset={2}>
+                    <Menu.Popup
+                      data-composer-popover
+                      className="min-w-44 rounded-lg border border-(--outline-variant) bg-surface py-1.5 shadow-(--elevation-3)"
+                    >
+                      <Menu.Item className={menuItemClass} onClick={reset}>
+                        {t('deleteNote')}
+                      </Menu.Item>
+                      <Menu.Item className={menuItemClass} onClick={() => setLabelPickerOpen(true)}>
+                        {labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
+                      </Menu.Item>
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </Menu.Root>
+              <IconButton
+                svg={undoSvg}
+                label={t('editor:undo')}
+                size={36}
+                iconSize={18}
+                className="text-on-surface-variant"
+                disabled={mode !== 'text' || !editor?.can().undo()}
+                onClick={() => editor?.chain().focus().undo().run()}
+              />
+              <IconButton
+                svg={redoSvg}
+                label={t('editor:redo')}
+                size={36}
+                iconSize={18}
+                className="text-on-surface-variant"
+                disabled={mode !== 'text' || !editor?.can().redo()}
+                onClick={() => editor?.chain().focus().redo().run()}
+              />
               <button
                 type="button"
-                onClick={save}
+                onClick={() => void save()}
                 className="ml-auto rounded px-6 py-2 font-medium text-on-surface text-sm hover:bg-(--surface-hover)"
               >
                 {t('common:close')}
               </button>
             </div>
+
+            <ShareDialog
+              open={showShare}
+              onOpenChange={setShowShare}
+              collaborators={draftCollaborators}
+              isOwner
+              onInvite={(email) =>
+                setInvites((prev) => (prev.includes(email) ? prev : [...prev, email]))
+              }
+              onRemove={(userId) =>
+                setInvites((prev) => prev.filter((email) => `pending:${email}` !== userId))
+              }
+            />
+            {labelPickerOpen && (
+              <Popover.Root open onOpenChange={(o) => !o && setLabelPickerOpen(false)}>
+                <Popover.Trigger
+                  className="absolute bottom-12 left-4 h-px w-px opacity-0"
+                  aria-hidden
+                  tabIndex={-1}
+                />
+                <Popover.Portal>
+                  <Popover.Positioner className="z-50" sideOffset={2}>
+                    <Popover.Popup
+                      data-composer-popover
+                      className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)"
+                    >
+                      <LabelPicker
+                        selectedIds={labelIds}
+                        onToggle={(labelId, on) =>
+                          setLabelIds((ids) =>
+                            on ? [...new Set([...ids, labelId])] : ids.filter((x) => x !== labelId),
+                          )
+                        }
+                      />
+                    </Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </Popover.Root>
+            )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/** The draft reminder picker inside an uncontrolled popover. */
+function ComposerReminderPop({
+  reminder,
+  onChange,
+}: {
+  reminder: SetReminder | null;
+  onChange: (r: SetReminder | null) => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  return (
+    <>
+      <Popover.Close ref={closeRef} className="hidden" />
+      <ReminderPicker
+        reminder={reminder}
+        onApply={onChange}
+        onDelete={() => onChange(null)}
+        onDone={() => closeRef.current?.click()}
+      />
+    </>
   );
 }

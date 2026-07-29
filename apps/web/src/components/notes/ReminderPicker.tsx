@@ -1,4 +1,4 @@
-import type { FullNote } from '@openkeep/shared';
+import type { FullNote, SetReminder } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,22 +39,35 @@ function toLocalInputValue(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** Keep's reminder menu: presets from settings + pick date & time + recurrence. */
-export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () => void }) {
+/** The subset of a reminder the picker needs — a draft one has no note yet. */
+export interface ReminderDraft {
+  remindAt: string;
+  rrule?: string | null;
+}
+
+interface ReminderPickerProps {
+  reminder: ReminderDraft | null;
+  onApply: (body: SetReminder) => void;
+  onDelete: () => void;
+  onDone: () => void;
+}
+
+/**
+ * Keep's reminder menu: presets from settings + pick date & time + recurrence.
+ * Controlled so the composer can hold a reminder before the note exists.
+ */
+export function ReminderPicker({ reminder, onApply, onDelete, onDone }: ReminderPickerProps) {
   const { t, i18n } = useTranslation('reminders');
   const { data: settings } = useQuery(settingsQuery);
-  const m = useReminderMutations();
   const [custom, setCustom] = useState(false);
   const [when, setWhen] = useState(() => toLocalInputValue(new Date(Date.now() + 3600_000)));
   const [rrule, setRrule] = useState(() => {
-    const existing = note.reminder?.rrule ?? '';
+    const existing = reminder?.rrule ?? '';
     if (existing && !RECURRENCES.some((r) => r.value === existing)) return 'CUSTOM';
     return existing;
   });
   const [customRule, setCustomRule] = useState(() => {
-    return (
-      parseCustomRule(note.reminder?.rrule ?? '') ?? { freq: 'WEEKLY' as CustomFreq, interval: 2 }
-    );
+    return parseCustomRule(reminder?.rrule ?? '') ?? { freq: 'WEEKLY' as CustomFreq, interval: 2 };
   });
 
   const effectiveRule =
@@ -73,14 +86,7 @@ export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () =>
 
   const apply = (date: Date, rule = '') => {
     void requestPushPermission();
-    m.set.mutate({
-      noteId: note.id,
-      body: {
-        remindAt: date.toISOString(),
-        rrule: rule || null,
-        timezone,
-      },
-    });
+    onApply({ remindAt: date.toISOString(), rrule: rule || null, timezone });
     onDone();
   };
 
@@ -113,12 +119,12 @@ export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () =>
           >
             {t('pickDateTime')}
           </button>
-          {note.reminder && (
+          {reminder && (
             <button
               type="button"
               className="flex w-full items-center border-(--outline-variant) border-t px-4 py-2 text-red-600 text-sm hover:bg-(--surface-hover) dark:text-red-400"
               onClick={() => {
-                m.remove.mutate(note.id);
+                onDelete();
                 onDone();
               }}
             >
@@ -205,5 +211,18 @@ export function ReminderPicker({ note, onDone }: { note: FullNote; onDone: () =>
         </div>
       )}
     </div>
+  );
+}
+
+/** The picker wired to a persisted note's reminder mutations. */
+export function NoteReminderPicker({ note, onDone }: { note: FullNote; onDone: () => void }) {
+  const m = useReminderMutations();
+  return (
+    <ReminderPicker
+      reminder={note.reminder}
+      onApply={(body) => m.set.mutate({ noteId: note.id, body })}
+      onDelete={() => m.remove.mutate(note.id)}
+      onDone={onDone}
+    />
   );
 }
