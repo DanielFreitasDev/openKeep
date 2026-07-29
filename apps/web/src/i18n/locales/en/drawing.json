@@ -1,0 +1,22 @@
+{
+  "drawing": "Drawing",
+  "pen": "Pen",
+  "marker": "Marker",
+  "highlighter": "Highlighter",
+  "eraser": "Eraser",
+  "clearPage": "Clear page",
+  "grid": "Grid",
+  "grid_squares": "Squares",
+  "grid_dots": "Dots",
+  "grid_rules": "Rules",
+  "grid_none": "None",
+  "newDrawing": "New drawing",
+  "exportAsImage": "Export as image",
+  "deleteCurrentDrawing": "Delete current drawing",
+  "editDrawing": "Edit drawing",
+  "color": "Color",
+  "size": "Size",
+  "moreColors": "More colors",
+  "fewerColors": "Fewer colors",
+  "loadFailed": "Couldn't open the drawing"
+}

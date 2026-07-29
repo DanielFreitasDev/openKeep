@@ -5,6 +5,7 @@ import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
 import addBoxSvg from '@material-symbols/svg-700/outlined/add_box.svg?raw';
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
 import arrowBackSvg from '@material-symbols/svg-700/outlined/arrow_back.svg?raw';
+import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import checkboxBlankSvg from '@material-symbols/svg-700/outlined/check_box_outline_blank.svg?raw';
 import contentCopySvg from '@material-symbols/svg-700/outlined/content_copy.svg?raw';
@@ -130,7 +131,7 @@ function MobileAction({
 
 /** Route-driven editor: open when ?note=<id> is present on any shell route. */
 export function EditorModal() {
-  const search = useSearch({ strict: false }) as { note?: string; new?: boolean };
+  const search = useSearch({ strict: false }) as { note?: string; new?: boolean; drawing?: string };
   const navigate = useNavigate();
   const noteId = search.note;
 
@@ -142,7 +143,9 @@ export function EditorModal() {
     });
   };
 
-  if (!noteId) return null;
+  // While the full-screen drawing editor is up, the note editor stands down —
+  // its modal focus trap would swallow the drawing surface's pointer events.
+  if (!noteId || search.drawing) return null;
   return <EditorDialog key={noteId} noteId={noteId} isNew={search.new === true} onClose={close} />;
 }
 
@@ -188,8 +191,20 @@ function EditorBody({
 }) {
   const trashed = note.trashedAt !== null;
   const isList = note.type === 'list';
+  const navigate = useNavigate();
   // Block grid/base single-char shortcuts while the editor is open.
   useKeyScope('editor', EMPTY_BINDINGS);
+
+  // Keep's "Add drawing": the full-screen drawing editor takes over; back
+  // returns here with the drawing stacked above the title.
+  const openDrawing = (drawing: string) => {
+    autosave.flush();
+    void navigate({
+      to: '.',
+      search: (old: Record<string, unknown>) => ({ ...old, drawing }),
+      resetScroll: false,
+    });
+  };
   const { data: settings } = useQuery(settingsQuery);
   const queryClient = useQueryClient();
   const show = useSnackbarStore((s) => s.show);
@@ -734,6 +749,9 @@ function EditorBody({
                             ? t('labels:changeLabels')
                             : t('labels:addLabel')}
                         </Menu.Item>
+                        <Menu.Item className={menuItemClass} onClick={() => openDrawing('new')}>
+                          {t('addDrawing')}
+                        </Menu.Item>
                         <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                           {t('versionHistory')}
                         </Menu.Item>
@@ -873,6 +891,14 @@ function EditorBody({
               onClick={() => {
                 setSheet(null);
                 fileInputRef.current?.click();
+              }}
+            />
+            <SheetItem
+              svg={brushSvg}
+              label={t('drawing:drawing')}
+              onClick={() => {
+                setSheet(null);
+                openDrawing('new');
               }}
             />
             {!isList && (

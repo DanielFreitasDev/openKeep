@@ -1,0 +1,22 @@
+{
+  "drawing": "Desenho",
+  "pen": "Caneta",
+  "marker": "Marcador",
+  "highlighter": "Marca-texto",
+  "eraser": "Borracha",
+  "clearPage": "Limpar página",
+  "grid": "Grade",
+  "grid_squares": "Quadrados",
+  "grid_dots": "Pontos",
+  "grid_rules": "Pautas",
+  "grid_none": "Nenhuma",
+  "newDrawing": "Novo desenho",
+  "exportAsImage": "Exportar como imagem",
+  "deleteCurrentDrawing": "Excluir desenho atual",
+  "editDrawing": "Editar desenho",
+  "color": "Cor",
+  "size": "Tamanho",
+  "moreColors": "Mais cores",
+  "fewerColors": "Menos cores",
+  "loadFailed": "Não foi possível abrir o desenho"
+}

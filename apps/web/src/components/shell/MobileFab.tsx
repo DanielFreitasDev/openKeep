@@ -1,4 +1,5 @@
 import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
+import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
@@ -80,6 +81,19 @@ export function MobileFab({ labelId }: { labelId?: string }) {
               svg={imageSvg}
               label={t('createImage')}
               onClick={() => imageInputRef.current?.click()}
+            />
+            <FabAction
+              svg={brushSvg}
+              label={t('createDrawing')}
+              onClick={() => {
+                setOpen(false);
+                // The note is only created when ink is saved (Keep behavior).
+                void navigate({
+                  to: '.',
+                  search: (old: Record<string, unknown>) => ({ ...old, drawing: 'new' }),
+                  resetScroll: false,
+                });
+              }}
             />
             <FabAction
               svg={checkboxSvg}

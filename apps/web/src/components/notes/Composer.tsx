@@ -2,6 +2,7 @@ import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
 import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import formatSvg from '@material-symbols/svg-700/outlined/format_color_text.svg?raw';
@@ -15,6 +16,7 @@ import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import type { Collaborator, NoteBackground, NoteColor, SetReminder } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -66,6 +68,7 @@ export function Composer() {
   const collaboratorM = useCollaboratorMutations();
   const show = useSnackbarStore((s) => s.show);
   const { data: session } = useQuery(sessionQuery);
+  const navigate = useNavigate();
 
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<'text' | 'list'>('text');
@@ -257,6 +260,15 @@ export function Composer() {
     setExpanded(true);
   };
 
+  // Keep's "New note with drawing": straight to the drawing editor — the note
+  // is only created when ink is actually saved.
+  const startDrawing = () =>
+    void navigate({
+      to: '.',
+      search: (old: Record<string, unknown>) => ({ ...old, drawing: 'new' }),
+      resetScroll: false,
+    });
+
   const addImages = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     // Read the FileList here, not inside the state updater: the caller resets
@@ -391,6 +403,12 @@ export function Composer() {
               label={t('newList')}
               className="text-on-surface-variant"
               onClick={startList}
+            />
+            <IconButton
+              svg={brushSvg}
+              label={t('newNoteWithDrawing')}
+              className="text-on-surface-variant"
+              onClick={startDrawing}
             />
             <IconButton
               svg={imageSvg}

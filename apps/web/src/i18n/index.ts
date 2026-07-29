@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import enApiTokens from './locales/en/apiTokens.json';
 import enAuth from './locales/en/auth.json';
 import enCommon from './locales/en/common.json';
+import enDrawing from './locales/en/drawing.json';
 import enEditor from './locales/en/editor.json';
 import enImportExport from './locales/en/importExport.json';
 import enLabels from './locales/en/labels.json';
@@ -17,6 +18,7 @@ import enTrash from './locales/en/trash.json';
 import ptApiTokens from './locales/pt-BR/apiTokens.json';
 import ptAuth from './locales/pt-BR/auth.json';
 import ptCommon from './locales/pt-BR/common.json';
+import ptDrawing from './locales/pt-BR/drawing.json';
 import ptEditor from './locales/pt-BR/editor.json';
 import ptImportExport from './locales/pt-BR/importExport.json';
 import ptLabels from './locales/pt-BR/labels.json';
@@ -36,6 +38,7 @@ export const resources = {
     auth: enAuth,
     notes: enNotes,
     editor: enEditor,
+    drawing: enDrawing,
     trash: enTrash,
     settings: enSettings,
     labels: enLabels,
@@ -52,6 +55,7 @@ export const resources = {
     auth: ptAuth,
     notes: ptNotes,
     editor: ptEditor,
+    drawing: ptDrawing,
     trash: ptTrash,
     settings: ptSettings,
     labels: ptLabels,

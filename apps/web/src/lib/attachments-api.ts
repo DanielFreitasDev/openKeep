@@ -1,15 +1,20 @@
-import type { Attachment, LinkPreview } from '@openkeep/shared';
+import type { Attachment, DrawingData, LinkPreview } from '@openkeep/shared';
 import { ApiError, api } from './api.js';
 import { clientId } from './client-id.js';
 
-export const attachmentFileUrl = (id: string) => `/api/attachments/${id}/file`;
-export const attachmentThumbUrl = (id: string) => `/api/attachments/${id}/thumb`;
+// `v` cache-busts the immutable URLs when a drawing is re-saved in place.
+export const attachmentFileUrl = (id: string, v?: string) =>
+  `/api/attachments/${id}/file${v ? `?v=${encodeURIComponent(v)}` : ''}`;
+export const attachmentThumbUrl = (id: string, v?: string) =>
+  `/api/attachments/${id}/thumb${v ? `?v=${encodeURIComponent(v)}` : ''}`;
 
-export async function uploadAttachment(noteId: string, file: File): Promise<Attachment> {
-  const fd = new FormData();
-  fd.append('file', file);
-  const res = await fetch(`/api/notes/${noteId}/attachments`, {
-    method: 'POST',
+async function postMultipart(
+  url: string,
+  method: 'POST' | 'PUT',
+  fd: FormData,
+): Promise<Attachment> {
+  const res = await fetch(url, {
+    method,
     body: fd,
     headers: { 'x-client-id': clientId },
     credentials: 'same-origin',
@@ -27,6 +32,30 @@ export async function uploadAttachment(noteId: string, file: File): Promise<Atta
   }
   return (await res.json()) as Attachment;
 }
+
+export function uploadAttachment(noteId: string, file: File): Promise<Attachment> {
+  const fd = new FormData();
+  fd.append('file', file);
+  return postMultipart(`/api/notes/${noteId}/attachments`, 'POST', fd);
+}
+
+function drawingFormData(file: File, drawing: DrawingData): FormData {
+  const fd = new FormData();
+  // The JSON field goes before the file: the server reads buffered fields
+  // off the file part, and busboy only buffers what it has already seen.
+  fd.append('drawing', JSON.stringify(drawing));
+  fd.append('file', file);
+  return fd;
+}
+
+export const uploadDrawingApi = (noteId: string, file: File, drawing: DrawingData) =>
+  postMultipart(`/api/notes/${noteId}/drawings`, 'POST', drawingFormData(file, drawing));
+
+export const updateDrawingApi = (attachmentId: string, file: File, drawing: DrawingData) =>
+  postMultipart(`/api/attachments/${attachmentId}/drawing`, 'PUT', drawingFormData(file, drawing));
+
+export const fetchDrawingData = (attachmentId: string) =>
+  api<DrawingData>(`/api/attachments/${attachmentId}/drawing`);
 
 export const deleteAttachmentApi = (id: string) =>
   api<undefined>(`/api/attachments/${id}`, { method: 'DELETE' });

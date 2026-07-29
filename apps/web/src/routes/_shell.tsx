@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { useRef } from 'react';
 import { z } from 'zod';
+import { DrawingScreen } from '../components/drawing/DrawingScreen.js';
 import { MarqueeOverlay } from '../components/grid/MarqueeOverlay.js';
 import { EditLabelsDialog } from '../components/labels/EditLabelsDialog.js';
 import { EditorModal } from '../components/notes/EditorModal.js';
@@ -25,10 +26,13 @@ import { useUiStore } from '../stores/ui.js';
 
 // `?note=<id>` opens the editor modal on ANY shell route (deep-linkable;
 // back button closes it). `new` marks a note just created by the mobile FAB:
-// the editor discards it on close if it is still untouched.
+// the editor discards it on close if it is still untouched. `drawing` opens
+// the full-screen drawing editor: `new` (optionally without a note yet — the
+// note is only created when ink is saved) or an attachment id to re-edit.
 const shellSearch = z.object({
   note: z.string().uuid().optional(),
   new: z.boolean().optional(),
+  drawing: z.union([z.literal('new'), z.string().uuid()]).optional(),
 });
 
 export const Route = createFileRoute('/_shell')({
@@ -68,6 +72,7 @@ function ShellLayout() {
       <MarqueeOverlay box={marquee} />
       <OfflineBanner />
       <EditorModal />
+      <DrawingScreen />
       <SettingsDialog />
       <EditLabelsDialog />
       <ShortcutsDialog />
