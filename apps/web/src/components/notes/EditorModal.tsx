@@ -68,6 +68,7 @@ export function EditorModal() {
     void navigate({
       to: '.',
       search: (old: Record<string, unknown>) => ({ ...old, note: undefined }),
+      resetScroll: false,
     });
   };
 

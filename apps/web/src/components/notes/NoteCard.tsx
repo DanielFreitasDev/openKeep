@@ -76,6 +76,8 @@ export function NoteCard({ note }: { note: FullNote }) {
     void navigate({
       to: '.',
       search: (old: Record<string, unknown>) => ({ ...old, note: note.id }),
+      // Opening a note is not a page change: keep the grid where the user left it.
+      resetScroll: false,
     });
   };
 

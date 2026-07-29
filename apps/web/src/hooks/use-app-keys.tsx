@@ -107,6 +107,7 @@ export function useAppKeys() {
           void navigate({
             to: '.',
             search: (old: Record<string, unknown>) => ({ ...old, note: focused.id }),
+            resetScroll: false,
           });
         }
       },

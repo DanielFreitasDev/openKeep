@@ -64,6 +64,7 @@ export function useRealtime() {
               void navigate({
                 to: '.',
                 search: (old: Record<string, unknown>) => ({ ...old, note: payload.noteId }),
+                resetScroll: false,
               }),
             durationMs: 15_000,
           });

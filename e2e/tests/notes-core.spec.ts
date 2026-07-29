@@ -190,6 +190,56 @@ test('colors apply on card in light AND dark themes', async ({ page }) => {
   await expect(card).toHaveCSS('background-color', 'rgb(119, 23, 46)');
 });
 
+test('opening and closing a note keeps the grid scrolled where it was', async ({
+  context,
+  page,
+}) => {
+  for (let i = 0; i < 30; i++) {
+    const res = await context.request.post('/api/notes', {
+      data: { title: `Scroll note ${i}`, bodyHtml: `<p>body ${i}</p><p>more</p>` },
+    });
+    expect(res.ok(), `note create failed: ${res.status()}`).toBeTruthy();
+  }
+  await page.reload();
+  await expect(cardByTitle(page, 'Scroll note 29')).toBeVisible();
+
+  // Masonry measures cards asynchronously and the browser's scroll anchoring
+  // reacts to every re-layout; wait for both to go quiet before the baseline.
+  const scrollY = () => page.evaluate<number>('window.scrollY');
+  await page.evaluate('window.scrollTo(0, 900)');
+  await page.waitForFunction(`(() => {
+    const h = document.documentElement.scrollHeight;
+    const y = window.scrollY;
+    window.__calm = window.__lastH === h && window.__lastY === y ? (window.__calm ?? 0) + 1 : 0;
+    window.__lastH = h;
+    window.__lastY = y;
+    return window.__calm >= 20;
+  })()`);
+
+  // A card already fully in view, so Playwright's own scroll-into-view can't
+  // move the page and mask the regression.
+  const targetId = await page.evaluate<string | null>(`(() => {
+    const hit = [...document.querySelectorAll('[data-note-id]')].find((c) => {
+      const r = c.getBoundingClientRect();
+      return r.top > 100 && r.bottom < window.innerHeight - 100;
+    });
+    return hit ? hit.dataset.noteId : null;
+  })()`);
+  expect(targetId).not.toBeNull();
+
+  const before = await scrollY();
+  expect(before).toBeGreaterThan(0);
+
+  // The note lives in a search param, not a new page — the grid must not jump.
+  await page.locator(`[data-note-id="${targetId}"] [role="button"]`).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(await scrollY()).toBe(before);
+
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await scrollY()).toBe(before);
+});
+
 test('trashed note opens read-only with restore bar', async ({ page }) => {
   await composeNote(page, { title: 'RO in trash', body: 'locked' });
   await cardRootByTitle(page, 'RO in trash').hover();
