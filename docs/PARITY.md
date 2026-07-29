@@ -50,6 +50,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
 | Takeout import | — (adoption feature) | ✅ 🔀 images + audio, 512 MB archives, media read on demand, version snapshot at import | M9 |
 | JSON export | Takeout equivalent | ✅ | M9 |
+| Offline edits survive reload | Keep has none | ✅ 🔀 IndexedDB outbox + localStorage draft mirror + offline banner/retry toasts (DECISIONS #22) | post-1.0 |
 
 ## Known deferrals in v1.0
 
@@ -71,8 +72,10 @@ the table above stays honest. Roughly in order of user impact:
   changes order, not indent).
 - **Grid virtualization >400 cards/section** — every card renders; the ~5k-note
   ceiling documented in ARCHITECTURE.md still applies.
-- **Offline banner + Retry snackbars** — the PWA serves cached reads offline,
-  but no explicit offline indicator is shown (translated strings exist).
+- **Offline media** — composer image files live only in memory: an
+  offline-composed note restores its text/labels/reminder after a reload, but
+  not unsaved images. Attachment uploads pause while offline and resume within
+  the session only (FormData is not persisted to the outbox).
 - **Client-side WS heartbeat** — the server pings every 30s and reaps dead
   sockets; the client relies on that plus visibility/online reconnect checks.
 - **Roving tabindex in the grid** — all cards are tab stops (`tabIndex=0`);
@@ -91,5 +94,6 @@ the table above stays honest. Roughly in order of user impact:
 - **WS auth timing** — the session cookie is checked immediately after the
   upgrade completes (socket closed 4401 before any registry add), not during
   the handshake itself.
-- **E2E flows** — login/signup through the UI (specs seed via API) and the PWA
-  offline-reload flow are not covered by Playwright.
+- **E2E flows** — login/signup through the UI (specs seed via API) are not
+  covered by Playwright. (The PWA offline-reload flow gained coverage
+  post-1.0: `offline.spec.ts` + the `pwa` project's `offline-pwa.spec.ts`.)
