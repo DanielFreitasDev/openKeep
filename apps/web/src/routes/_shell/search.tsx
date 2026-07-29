@@ -5,10 +5,11 @@ import linkSvg from '@material-symbols/svg-700/outlined/link.svg?raw';
 import audioSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
+import type { FullNote } from '@openkeep/shared';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { EmptyView } from '../../components/EmptyView.js';
@@ -44,18 +45,24 @@ function SearchView() {
     ? labels?.find((l) => l.name.toLowerCase() === params.label?.toLowerCase())?.id
     : undefined;
 
-  const filters: SearchFilters = {
-    q: params.q,
-    type: params.type,
-    labelId,
-    color: params.color,
-  };
   const hasAny = params.q.trim() !== '' || params.type || params.label || params.color;
 
-  const { data: results } = useQuery({
-    ...notesQuery,
-    select: (notes) => selectSearch(notes, filters),
-  });
+  // Must be referentially stable, or react-query re-runs the whole search on
+  // every render of this view rather than only when the filters change.
+  const select = useCallback(
+    (notes: FullNote[]) => {
+      const filters: SearchFilters = {
+        q: params.q,
+        type: params.type,
+        labelId,
+        color: params.color,
+      };
+      return selectSearch(notes, filters);
+    },
+    [params.q, params.type, labelId, params.color],
+  );
+
+  const { data: results } = useQuery({ ...notesQuery, select });
 
   const setParam = (patch: Partial<z.infer<typeof searchParams>>) =>
     void navigate({

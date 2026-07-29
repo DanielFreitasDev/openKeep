@@ -71,20 +71,42 @@ export function normalizeForSearch(s: string): string {
     .toLowerCase();
 }
 
-function noteSearchText(n: FullNote): string {
+const WORD_SEPARATORS = /[^\p{L}\p{N}]+/u;
+
+/**
+ * Tokenizing a note means stripping its html and folding every accent, which
+ * is far too much work to redo for all of them on every keystroke. Notes are
+ * immutable in the cache — an edit produces a new object — so the tokens can
+ * be cached against the note itself and die with it.
+ */
+const wordsCache = new WeakMap<FullNote, string[]>();
+
+function noteSearchWords(n: FullNote): string[] {
+  const cached = wordsCache.get(n);
+  if (cached) return cached;
   const body = n.bodyHtml.replace(/<[^>]+>/g, ' ');
   const items = n.items.map((i) => i.text).join(' ');
-  return normalizeForSearch(`${n.title} ${body} ${items}`);
+  const words = normalizeForSearch(`${n.title} ${body} ${items}`)
+    .split(WORD_SEPARATORS)
+    .filter(Boolean);
+  wordsCache.set(n, words);
+  return words;
+}
+
+/** Query words, normalized once per search rather than once per note. */
+function queryWords(q: string): string[] {
+  return normalizeForSearch(q).split(WORD_SEPARATORS).filter(Boolean);
+}
+
+function matchesWords(n: FullNote, words: string[]): boolean {
+  if (words.length === 0) return true;
+  const textWords = noteSearchWords(n);
+  return words.every((w) => textWords.some((tw) => tw.startsWith(w)));
 }
 
 /** Word-prefix match: every query word must prefix some text word. */
 export function matchesQuery(n: FullNote, q: string): boolean {
-  const words = normalizeForSearch(q)
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter(Boolean);
-  if (words.length === 0) return true;
-  const textWords = noteSearchText(n).split(/[^\p{L}\p{N}]+/u);
-  return words.every((w) => textWords.some((tw) => tw.startsWith(w)));
+  return matchesWords(n, queryWords(q));
 }
 
 export interface SearchResults {
@@ -97,6 +119,7 @@ export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults
   const hasAny = f.q.trim() !== '' || f.type || f.labelId || f.color;
   if (!hasAny) return { active: [], archived: [] };
 
+  const words = queryWords(f.q);
   const matched = notes.filter((n) => {
     if (n.trashedAt !== null) return false;
     if (f.type === 'list' && n.type !== 'list') return false;
@@ -109,7 +132,7 @@ export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults
     if (f.type === 'reminder' && n.reminder === null) return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;
-    return matchesQuery(n, f.q);
+    return matchesWords(n, words);
   });
 
   return {

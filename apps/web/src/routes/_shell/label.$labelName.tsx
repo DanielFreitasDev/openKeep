@@ -1,7 +1,8 @@
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
+import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
@@ -15,6 +16,9 @@ export const Route = createFileRoute('/_shell/label/$labelName')({
   component: LabelView,
 });
 
+/** Shared so the "no such label" result keeps a stable identity. */
+const EMPTY_SECTIONS = { pinned: [], others: [] };
+
 function LabelView() {
   const { t } = useTranslation('labels');
   const { labelName } = Route.useParams();
@@ -22,10 +26,14 @@ function LabelView() {
   const { data: settings } = useQuery(settingsQuery);
   const label = labels?.find((l) => l.name.toLowerCase() === labelName.toLowerCase());
 
-  const { data: sections } = useQuery({
-    ...notesQuery,
-    select: (notes) => (label ? selectByLabel(notes, label.id) : { pinned: [], others: [] }),
-  });
+  // Stable identity: an inline select re-filters the whole corpus on every
+  // render instead of only when the label changes.
+  const labelId = label?.id;
+  const select = useCallback(
+    (notes: FullNote[]) => (labelId ? selectByLabel(notes, labelId) : EMPTY_SECTIONS),
+    [labelId],
+  );
+  const { data: sections } = useQuery({ ...notesQuery, select });
 
   const pinned = sections?.pinned ?? [];
   const others = sections?.others ?? [];

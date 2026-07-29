@@ -14,7 +14,7 @@ import restoreSvg from '@material-symbols/svg-700/outlined/restore_from_trash.sv
 import unarchiveSvg from '@material-symbols/svg-700/outlined/unarchive.svg?raw';
 import type { FullNote } from '@openkeep/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
@@ -49,18 +49,22 @@ function ReminderPickerPop({ note }: { note: FullNote }) {
   );
 }
 
-export function NoteCard({ note }: { note: FullNote }) {
+/**
+ * Memoized: the grid re-renders on every measurement and every scroll step,
+ * and a card only depends on its own note. Store reads are narrowed to
+ * booleans for the same reason — subscribing to the selection Set itself would
+ * re-render every card whenever any one of them is ticked.
+ */
+export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useNoteMutations();
   const attachmentM = useAttachmentMutations();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const selectedSet = useSelectionStore((s) => s.selected);
   const toggleSelect = useSelectionStore((s) => s.toggle);
-  const focusedNoteId = useUiStore((s) => s.focusedNoteId);
-  const isSelected = selectedSet.has(note.id);
-  const selectionActive = selectedSet.size > 0;
-  const isFocused = focusedNoteId === note.id;
+  const isSelected = useSelectionStore((s) => s.selected.has(note.id));
+  const selectionActive = useSelectionStore((s) => s.selected.size > 0);
+  const isFocused = useUiStore((s) => s.focusedNoteId === note.id);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -360,4 +364,4 @@ export function NoteCard({ note }: { note: FullNote }) {
       )}
     </div>
   );
-}
+});

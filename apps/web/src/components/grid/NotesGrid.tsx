@@ -8,6 +8,7 @@ import { positionBetween } from '@openkeep/shared';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { NoteCard } from '../notes/NoteCard.js';
+import { estimateNoteHeight } from './estimate.js';
 import { CARD_W, columnsForWidth, GUTTER, gridWidth, layoutMasonry } from './masonry.js';
 
 /**
@@ -17,6 +18,24 @@ import { CARD_W, columnsForWidth, GUTTER, gridWidth, layoutMasonry } from './mas
  * nothing. Cards stay draggable from anywhere else.
  */
 const INTERACTIVE = 'button, a, input, textarea, select, [role="menuitem"], [contenteditable]';
+
+/**
+ * Virtualization. A card is a heavy subtree (a dozen controls, two portals and
+ * its own mutation hooks), so an imported Keep account — thousands of notes —
+ * cannot mount them all: every re-layout would walk the whole list. Only the
+ * cards intersecting the viewport (plus a band above and below) are rendered;
+ * the rest exist purely as a rect in the layout.
+ */
+const OVERSCAN = 900;
+/** Re-slicing costs a render, so the band only follows the scroll in steps. */
+const BAND_STEP = 300;
+/** Below this, mounting everything is cheaper than tracking the scroll. */
+const VIRTUALIZE_FROM = 60;
+
+interface Band {
+  top: number;
+  bottom: number;
+}
 
 interface NotesGridProps {
   notes: FullNote[];
@@ -30,6 +49,10 @@ interface NotesGridProps {
  * Measured masonry: absolute cards positioned via transform, driven by the
  * pure layout engine. Cards report their height through one shared
  * ResizeObserver; unmeasured cards stay invisible for their first frame.
+ *
+ * Every note gets a rect, but only the ones near the viewport get a card —
+ * see the virtualization notes above. A rect a card has not measured yet is
+ * sized by `estimateNoteHeight`.
  */
 export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const m = useNoteMutations();
@@ -42,9 +65,23 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const heightsRef = useRef(new Map<string, number>());
   const [measureVersion, bumpMeasure] = useReducer((x: number) => x + 1, 0);
   const [animate, setAnimate] = useState(false);
-  /** Cards present at first paint don't replay the enter animation. */
-  const initialIdsRef = useRef<Set<string> | null>(null);
-  if (initialIdsRef.current === null) initialIdsRef.current = new Set(notes.map((n) => n.id));
+  const [band, setBand] = useState<Band>({ top: 0, bottom: 0 });
+  /**
+   * Ids the grid has already laid out once. Only a note that is NEW to the
+   * list plays the enter animation — a card scrolling back into view is
+   * re-mounted, not new, and must not fade in again.
+   */
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  if (knownIdsRef.current === null) knownIdsRef.current = new Set(notes.map((n) => n.id));
+  const knownIds = knownIdsRef.current;
+
+  /**
+   * `useMutation` hands back a fresh object every render, so reading it
+   * straight from the effect below would tear down and re-arm the drag monitor
+   * on every single render (once per frame while the sidebar animates).
+   */
+  const patchStateRef = useRef(m.patchState);
+  patchStateRef.current = m.patchState;
 
   /**
    * Whether the current press started on a card control. Lives in a ref because
@@ -95,6 +132,16 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   );
   useEffect(() => () => cardObserver?.disconnect(), [cardObserver]);
 
+  // Heights outlive their cards (a card unmounts as soon as it leaves the
+  // band), so drop them when the note itself leaves the list instead.
+  useEffect(() => {
+    const ids = new Set(notes.map((n) => n.id));
+    for (const id of heightsRef.current.keys()) {
+      if (!ids.has(id)) heightsRef.current.delete(id);
+    }
+    for (const id of ids) knownIds.add(id);
+  }, [notes, knownIds]);
+
   // Manual drag-reorder (per-user fractional positions). Dropping a card from
   // the other section also flips its pin (Keep behavior).
   useEffect(() => {
@@ -144,10 +191,10 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
         const sourceSection = source.data.gridSection as string | undefined;
         const patch: { position: string; pinned?: boolean } = { position };
         if (sourceSection !== dndSection) patch.pinned = dndSection === 'pinned';
-        m.patchState.mutate({ id: dragId, patch });
+        patchStateRef.current.mutate({ id: dragId, patch });
       },
     });
-  }, [dndSection, m.patchState]);
+  }, [dndSection]);
 
   // Enable FLIP-ish transform transitions only after the first laid-out paint.
   useEffect(() => {
@@ -175,14 +222,56 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     return [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
   }, [notes, draggingId, dragPreview]);
 
-  const layout = useMemo(() => {
+  const { layout, heights } = useMemo(() => {
     void measureVersion;
-    const items = orderedForLayout.map((n) => ({
-      id: n.id,
-      height: heightsRef.current.get(n.id) ?? 120,
-    }));
-    return layoutMasonry(items, cols, cardW, GUTTER);
+    const heightOf = new Map<string, number>();
+    const items = orderedForLayout.map((n) => {
+      const h = heightsRef.current.get(n.id) ?? estimateNoteHeight(n, cardW);
+      heightOf.set(n.id, h);
+      return { id: n.id, height: h };
+    });
+    return { layout: layoutMasonry(items, cols, cardW, GUTTER), heights: heightOf };
   }, [orderedForLayout, cols, cardW, measureVersion]);
+
+  // Follow the scroll in BAND_STEP jumps: within a step the current slice
+  // still covers the viewport, so no re-render is needed.
+  const virtualized = notes.length >= VIRTUALIZE_FROM;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the extra deps are the re-measure trigger — the grid's own top moves when the layout above it changes (the pinned section growing, a header appearing), and no scroll event fires for that.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !virtualized) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const offset = -el.getBoundingClientRect().top;
+      const next = { top: offset - OVERSCAN, bottom: offset + window.innerHeight + OVERSCAN };
+      setBand((prev) =>
+        Math.abs(prev.top - next.top) < BAND_STEP && Math.abs(prev.bottom - next.bottom) < BAND_STEP
+          ? prev
+          : next,
+      );
+    };
+    const onScroll = () => {
+      if (frame === 0) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll, { capture: true });
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [virtualized, layout.containerHeight, cols, cardW]);
+
+  const visibleNotes = useMemo(() => {
+    if (!virtualized) return notes;
+    return notes.filter((n) => {
+      const rect = layout.rects.get(n.id);
+      if (!rect) return true;
+      return rect.y <= band.bottom && rect.y + (heights.get(n.id) ?? 0) >= band.top;
+    });
+  }, [notes, virtualized, layout, heights, band]);
 
   /**
    * Must stay referentially stable: React re-runs a changed ref callback on
@@ -197,12 +286,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
       const noteId = el?.dataset.noteId;
       if (!el || !noteId || !cardObserver) return undefined;
       cardObserver.observe(el);
-      const cleanups = [
-        () => {
-          cardObserver.unobserve(el);
-          heightsRef.current.delete(noteId);
-        },
-      ];
+      const cleanups = [() => cardObserver.unobserve(el)];
       if (dndSection) {
         cleanups.push(
           draggable({
@@ -233,7 +317,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
         className="relative mx-auto"
         style={{ width: innerW || '100%', height: layout.containerHeight }}
       >
-        {notes.map((note) => {
+        {visibleNotes.map((note) => {
           const rect = layout.rects.get(note.id);
           const measured = heightsRef.current.has(note.id);
           return (
@@ -248,7 +332,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
                   ? 'transition-transform duration-[180ms] motion-reduce:transition-none'
                   : ''
               } ${draggingId === note.id ? 'opacity-40' : ''} ${
-                animate && !initialIdsRef.current?.has(note.id) ? 'note-enter' : ''
+                animate && !knownIds.has(note.id) ? 'note-enter' : ''
               }`}
               style={{
                 position: 'absolute',
