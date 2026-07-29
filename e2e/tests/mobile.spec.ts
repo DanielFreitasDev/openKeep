@@ -120,3 +120,28 @@ test('editor bottom bar: more sheet shows Edited and deletes the note', async ({
   await expect(page.getByText('Note trashed')).toBeVisible();
   await expect(cardByTitle(page, 'Sheet note')).toHaveCount(0);
 });
+
+test('bottom sheets dismiss on outside tap (editor stays open)', async ({ context, page }) => {
+  await seedNote(context, { title: 'Tap outside', bodyHtml: '<p>content</p>' });
+  await page.reload();
+  await cardByTitle(page, 'Tap outside').click();
+  const dialog = page.getByRole('dialog', { name: 'Tap outside' });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Add to note' }).click();
+  await expect(page.getByRole('dialog', { name: 'Add to note' })).toBeVisible();
+
+  // Tapping the scrim above the sheet closes only the sheet.
+  await page.mouse.click(206, 200);
+  await expect(page.getByRole('dialog', { name: 'Add to note' })).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+});
+
+test('FAB → Drawing opens the canvas; an untouched drawing is discarded', async ({ page }) => {
+  await page.getByRole('button', { name: 'New note' }).click();
+  await page.getByRole('button', { name: 'Drawing', exact: true }).click();
+  await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByText('Empty note discarded')).toBeVisible();
+  await expect(page.locator('[data-note-id]')).toHaveCount(0);
+});

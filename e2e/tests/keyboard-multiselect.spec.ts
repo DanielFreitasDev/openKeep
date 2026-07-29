@@ -150,6 +150,20 @@ test('drag-select: a marquee over the grid selects the cards it sweeps', async (
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('a plain click on empty grid space clears the selection', async ({ page }) => {
+  await composeNote(page, { title: 'Clear me', body: '1' });
+  await cardRootByTitle(page, 'Clear me').hover();
+  await cardRootByTitle(page, 'Clear me').getByRole('button', { name: 'Select note' }).click();
+  await expect(page.getByText('1 selected')).toBeVisible();
+
+  // No drag, just a click on the background beside the card (same proven
+  // empty spot the marquee test starts from) — Keep deselects.
+  const box = await cardRootByTitle(page, 'Clear me').boundingBox();
+  if (!box) throw new Error('card not laid out');
+  await page.mouse.click(box.x - 12, box.y + 4);
+  await expect(page.getByText('1 selected')).toHaveCount(0);
+});
+
 test('hovering a toolbar button shows the custom tooltip', async ({ page }) => {
   await expect(page.getByTestId('tooltip')).toHaveCount(0);
   await page.getByRole('button', { name: 'Refresh' }).hover();
