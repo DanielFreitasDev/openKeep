@@ -43,6 +43,15 @@ describe('production SPA serving', () => {
     expect(res.body).toContain('OpenKeep');
   });
 
+  // The composer previews a picked image from `URL.createObjectURL(file)`
+  // before it is uploaded. Dropping `blob:` breaks that preview in production
+  // only — dev is served by Vite, which sends no CSP.
+  it('allows blob: images so pre-upload previews render', async () => {
+    const res = await t.app.inject({ method: 'GET', url: '/' });
+    const csp = String(res.headers['content-security-policy']);
+    expect(csp).toContain("img-src 'self' data: blob:");
+  });
+
   it('serves hashed assets as immutable', async () => {
     const res = await t.app.inject({ method: 'GET', url: '/assets/app-abc123.js' });
     expect(res.statusCode).toBe(200);

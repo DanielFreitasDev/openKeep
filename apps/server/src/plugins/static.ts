@@ -7,13 +7,16 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 /**
  * Production: serve the built SPA same-origin (CORS never registered) with a
  * strict CSP. `img-src https:` allows link-preview favicons/images, which the
- * BROWSER loads directly (the server never proxies them).
+ * BROWSER loads directly (the server never proxies them); `blob:` allows the
+ * composer/editor to preview a picked image from `URL.createObjectURL` before
+ * it is ever uploaded — without it the preview is silently blocked in prod
+ * only, since dev is served by Vite with no CSP at all.
  */
 export const SPA_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
+  "img-src 'self' data: blob: https:",
   "font-src 'self'",
   "connect-src 'self'",
   "manifest-src 'self'",
