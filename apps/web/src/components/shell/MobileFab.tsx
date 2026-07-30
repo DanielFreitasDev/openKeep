@@ -7,9 +7,7 @@ import textSvg from '@material-symbols/svg-700/outlined/text_fields.svg?raw';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
-import { useLabelMutations } from '../../hooks/use-label-mutations.js';
-import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { useCreateAndOpenNote } from '../../hooks/use-create-note.js';
 import { Icon } from '../Icon.js';
 
 /**
@@ -22,9 +20,7 @@ export function MobileFab({ labelId }: { labelId?: string }) {
   const { t } = useTranslation('shell');
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const m = useNoteMutations();
-  const labelM = useLabelMutations();
-  const attachmentM = useAttachmentMutations();
+  const createNote = useCreateAndOpenNote();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -38,30 +34,7 @@ export function MobileFab({ labelId }: { labelId?: string }) {
 
   const createAndOpen = (type: 'text' | 'list', file?: File) => {
     setOpen(false);
-    const id = m.newNoteId();
-    m.create.mutate({
-      id,
-      type,
-      title: '',
-      bodyHtml: '',
-      items: [],
-      pinned: false,
-      color: 'default',
-      background: 'none',
-    });
-    if (labelId) labelM.setNoteLabel.mutate({ noteId: id, labelId, on: true });
-    if (file) attachmentM.upload.mutate({ noteId: id, file });
-    void navigate({
-      to: '.',
-      // A note born from a picked image is intentional — never discard it, or
-      // the empty-note check could race the still-uploading attachment.
-      search: (old: Record<string, unknown>) => ({
-        ...old,
-        note: id,
-        new: file ? undefined : true,
-      }),
-      resetScroll: false,
-    });
+    createNote(type, { labelId, file });
   };
 
   return (

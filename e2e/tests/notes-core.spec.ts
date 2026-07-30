@@ -258,3 +258,25 @@ test('trashed note opens read-only with restore bar', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.getByText('No notes in Trash.')).toBeVisible();
 });
+
+// App shortcuts (long-press the installed icon) are plain deep links: the
+// manifest points at these URLs and the shell does the rest.
+test('app shortcuts open a new note, list and drawing', async ({ page }) => {
+  await page.goto('/?compose=text');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.tiptap')).toBeVisible();
+  // The shortcut param is consumed by the navigation that opens the note, so
+  // reloading this URL can never mint a second note.
+  await expect(page).toHaveURL(/note=[0-9a-f-]{36}/);
+  await expect(page).not.toHaveURL(/compose=/);
+  await page.keyboard.press('Escape');
+
+  // An empty list opens on its "add item" affordance, as the FAB flow does.
+  await page.goto('/?compose=list');
+  await expect(page.getByRole('dialog').getByText('List item').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.goto('/?drawing=new');
+  await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();
+});

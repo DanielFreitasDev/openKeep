@@ -67,3 +67,20 @@ test('an edit made offline survives an offline reload and syncs after reconnect'
     )
     .toBe(true);
 });
+
+/**
+ * The shortcut URLs live in the manifest but are handled by the SPA router —
+ * two places that drift apart silently. This pins them to each other; the
+ * behaviour behind each URL is covered in notes-core.
+ */
+test('the built manifest exposes the create shortcuts', async ({ request }) => {
+  const res = await request.get('/manifest.webmanifest');
+  expect(res.ok()).toBeTruthy();
+  const manifest = (await res.json()) as { shortcuts?: { name: string; url: string }[] };
+
+  expect(manifest.shortcuts?.map((s) => s.url)).toEqual([
+    '/?compose=text',
+    '/?compose=list',
+    '/?drawing=new',
+  ]);
+});

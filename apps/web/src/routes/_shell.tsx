@@ -15,6 +15,7 @@ import { ShortcutsDialog } from '../components/shell/ShortcutsDialog.js';
 import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
 import { useAppKeys } from '../hooks/use-app-keys.jsx';
+import { useComposeShortcut } from '../hooks/use-compose-shortcut.js';
 import { useDraftRestore } from '../hooks/use-draft-restore.js';
 import { useGridAutoScroll } from '../hooks/use-grid-auto-scroll.js';
 import { useMarqueeSelection } from '../hooks/use-marquee-selection.js';
@@ -30,10 +31,13 @@ import { useUiStore } from '../stores/ui.js';
 // the editor discards it on close if it is still untouched. `drawing` opens
 // the full-screen drawing editor: `new` (optionally without a note yet — the
 // note is only created when ink is saved) or an attachment id to re-edit.
+// `compose` is the app-shortcut entry point (manifest `shortcuts`): it creates
+// a note of that type and hands over to `note`/`new`.
 const shellSearch = z.object({
   note: z.string().uuid().optional(),
   new: z.boolean().optional(),
   drawing: z.union([z.literal('new'), z.string().uuid()]).optional(),
+  compose: z.enum(['text', 'list']).optional(),
 });
 
 export const Route = createFileRoute('/_shell')({
@@ -59,6 +63,7 @@ function ShellLayout() {
   useAppKeys();
   useUnsavedGuard();
   useDraftRestore();
+  useComposeShortcut();
   return (
     <div className="min-h-full">
       <TopBar />

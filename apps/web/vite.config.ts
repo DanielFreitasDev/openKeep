@@ -42,6 +42,13 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
+        // Long-press the installed icon. The URLs are plain deep links the
+        // shell already understands, so there is no shortcut-only code path.
+        shortcuts: [
+          { name: 'New note', short_name: 'Note', url: '/?compose=text' },
+          { name: 'New list', short_name: 'List', url: '/?compose=list' },
+          { name: 'New drawing', short_name: 'Drawing', url: '/?drawing=new' },
+        ],
         screenshots: [
           {
             src: '/screenshot-wide.png',

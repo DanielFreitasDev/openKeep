@@ -302,9 +302,13 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   **Como:** MV3 mínima falando com a API REST via personal access token (`okp_…`, já existem) —
   zero mudança no servidor. Publicar na Web Store como projeto irmão (fora do monorepo? decidir).
 
-- [ ] **Atalhos de app (manifest shortcuts)** *(impacto baixo · esforço P)*
+- [x] **Atalhos de app (manifest shortcuts)** *(impacto baixo · esforço P)* — feito em 2026-07-30
   Long-press no ícone instalado → "Nova nota", "Nova lista", "Novo desenho" (o FAB já sabe criar
   os três; é só rota com query param + `shortcuts` no manifest).
+  **Entregue:** `shortcuts` no manifest apontando para `/?compose=text`, `/?compose=list` e
+  `/?drawing=new` (esse último já funcionava). A criação do FAB virou o hook `useCreateAndOpenNote`,
+  reusado pelo handler de `?compose=`, então os dois caminhos produzem a mesma nota. Sem ícones
+  próprios por atalho — o sistema cai no ícone do app.
 
 - [ ] **Webhooks de saída** *(impacto médio · esforço M)*
   **O quê:** POST assinado (HMAC) em URL configurável quando nota é criada/editada/arquivada —
