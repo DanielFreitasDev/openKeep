@@ -1,3 +1,21 @@
+# [1.9.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.3...v1.9.0) (2026-07-30)
+
+
+### Features
+
+* scroll the board while dragging a note ([cc353e8](https://github.com/DanielFreitasDev/openKeep/commit/cc353e8aeeb32c4a0af0127ec5c34eb8f1429c07))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.9.0
+```
+
+Or download `compose.yml` below (image pinned to `1.9.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.9.0/docs/DEPLOYMENT.md).
+
 ## [1.8.3](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.2...v1.8.3) (2026-07-30)
 
 
