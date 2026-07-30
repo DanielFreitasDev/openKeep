@@ -192,19 +192,38 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   // the other section also flips its pin (Keep behavior).
   useEffect(() => {
     if (!dndSection) return;
+    /** Last pointer position, and whether it was over this section. */
+    const pointer = { x: 0, y: 0, over: false };
+
     /** The gap the pointer is over, or null when it is not over this section. */
-    const targetFor = (location: { input: { clientX: number; clientY: number } }) => {
+    const targetFor = (clientX: number, clientY: number) => {
       const snap = snapshotRef.current;
       const el = innerRef.current;
       if (!snap || !el) return null;
       const rect = el.getBoundingClientRect();
-      return dragTargetAt(
-        snap,
-        location.input.clientX - rect.left,
-        location.input.clientY - rect.top,
-      );
+      return dragTargetAt(snap, clientX - rect.left, clientY - rect.top);
     };
-    return monitorForElements({
+
+    const apply = () => {
+      const next = pointer.over ? targetFor(pointer.x, pointer.y) : null;
+      dropTargetRef.current = next;
+      setDropTarget((prev) => (sameDropTarget(prev, next) ? prev : next));
+    };
+
+    /**
+     * Auto-scroll slides the board under a pointer that is holding still, and
+     * the browser only re-fires `dragover` a few times a second — so the gap
+     * has to follow the scroll itself or it lags whole screens behind.
+     */
+    const onScroll = () => {
+      if (snapshotRef.current !== null) apply();
+    };
+    const watchScroll = (on: boolean) => {
+      if (on) window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+      else window.removeEventListener('scroll', onScroll, { capture: true });
+    };
+
+    const cleanupMonitor = monitorForElements({
       canMonitor: ({ source }) => typeof source.data.gridNoteId === 'string',
       // Freeze the section with the dragged card out of the flow; the whole
       // drag previews against that, and nothing re-packs until the drop.
@@ -237,19 +256,25 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
           // this is the grid exactly as it stands.
           homeTargetRef.current = homeIndex === -1 ? null : targetForIndex(snap, homeIndex);
         }
+        watchScroll(true);
         setDraggingId(dragId);
       },
       onDrag: ({ location }) => {
-        const over = location.current.dropTargets.some((dt) => dt.data.gridSection === dndSection);
-        const next = over ? targetFor(location.current) : null;
-        dropTargetRef.current = next;
-        setDropTarget((prev) => (sameDropTarget(prev, next) ? prev : next));
+        pointer.x = location.current.input.clientX;
+        pointer.y = location.current.input.clientY;
+        pointer.over = location.current.dropTargets.some(
+          (dt) => dt.data.gridSection === dndSection,
+        );
+        apply();
       },
       // The gap on screen is a promise, so the drop keeps it. Only a drag that
       // ended before a single frame previewed falls back to the pointer.
       onDrop: ({ source, location }) => {
         const snap = snapshotRef.current;
-        const target = dropTargetRef.current ?? targetFor(location.current);
+        const target =
+          dropTargetRef.current ??
+          targetFor(location.current.input.clientX, location.current.input.clientY);
+        watchScroll(false);
         snapshotRef.current = null;
         homeTargetRef.current = null;
         dropTargetRef.current = null;
@@ -280,6 +305,10 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
         patchStateRef.current.mutate({ id: dragId, patch });
       },
     });
+    return () => {
+      watchScroll(false);
+      cleanupMonitor();
+    };
   }, [dndSection]);
 
   // Enable FLIP-ish transform transitions only after the first laid-out paint.
@@ -362,11 +391,14 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const visibleNotes = useMemo(() => {
     if (!virtualized) return notes;
     return notes.filter((n) => {
-      const rect = layout.rects.get(n.id);
+      // Mid-drag, a card is drawn where the preview puts it — the board can be
+      // auto-scrolled thousands of px away from where the dragged card started,
+      // and its own placeholder must not unmount out of the gap it is holding.
+      const rect = dragLayout?.rects.get(n.id) ?? layout.rects.get(n.id);
       if (!rect) return true;
       return rect.y <= band.bottom && rect.y + (heights.get(n.id) ?? 0) >= band.top;
     });
-  }, [notes, virtualized, layout, heights, band]);
+  }, [notes, virtualized, layout, dragLayout, heights, band]);
 
   /**
    * Must stay referentially stable: React re-runs a changed ref callback on

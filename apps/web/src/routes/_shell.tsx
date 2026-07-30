@@ -16,6 +16,7 @@ import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
 import { useAppKeys } from '../hooks/use-app-keys.jsx';
 import { useDraftRestore } from '../hooks/use-draft-restore.js';
+import { useGridAutoScroll } from '../hooks/use-grid-auto-scroll.js';
 import { useMarqueeSelection } from '../hooks/use-marquee-selection.js';
 import { usePushRegistration } from '../hooks/use-push.js';
 import { useRealtime } from '../hooks/use-realtime.js';
@@ -51,6 +52,7 @@ function ShellLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const mainRef = useRef<HTMLElement | null>(null);
   const marquee = useMarqueeSelection(mainRef);
+  useGridAutoScroll();
   useRealtime();
   useReminderToasts();
   usePushRegistration();
