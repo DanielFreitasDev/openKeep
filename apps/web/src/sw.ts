@@ -14,17 +14,33 @@ declare let self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
+/**
+ * Some server URLs are reached by a TOP-LEVEL NAVIGATION instead of by fetch:
+ * the OAuth callback the provider redirects the browser back to, an export
+ * download, an attachment opened in a new tab. None of them is the app shell
+ * and none of them is cacheable, so the worker must stand aside and let the
+ * browser make the request itself. Answering an OAuth callback from the
+ * precache hands the router a route it does not have — it renders "Not Found"
+ * and social sign-in is broken for every controlled client while the server is
+ * perfectly healthy.
+ */
+const isApiNavigation = ({ url, request }: { url: URL; request: Request }) =>
+  url.pathname.startsWith('/api/') && request.mode === 'navigate';
+
 // SPA navigations (any route, e.g. /archive) fall back to the precached shell,
 // so an offline reload boots the app instead of failing the navigation.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
+registerRoute(
+  new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api\//] }),
+);
 
 // API reads: network-first with a 3s timeout, cache fallback (offline reads).
 registerRoute(
-  ({ url, request }) =>
-    url.pathname.startsWith('/api/') &&
-    request.method === 'GET' &&
-    !url.pathname.startsWith('/api/ws') &&
-    !url.pathname.startsWith('/api/attachments/'),
+  (options) =>
+    options.url.pathname.startsWith('/api/') &&
+    options.request.method === 'GET' &&
+    !options.url.pathname.startsWith('/api/ws') &&
+    !options.url.pathname.startsWith('/api/attachments/') &&
+    !isApiNavigation(options),
   new NetworkFirst({
     cacheName: 'api-reads',
     networkTimeoutSeconds: 3,
@@ -34,7 +50,10 @@ registerRoute(
 
 // Attachments: immutable, cache-first for 30 days.
 registerRoute(
-  ({ url, request }) => url.pathname.startsWith('/api/attachments/') && request.method === 'GET',
+  (options) =>
+    options.url.pathname.startsWith('/api/attachments/') &&
+    options.request.method === 'GET' &&
+    !isApiNavigation(options),
   new CacheFirst({
     cacheName: 'attachments',
     plugins: [new ExpirationPlugin({ maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600 })],

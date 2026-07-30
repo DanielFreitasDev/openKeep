@@ -69,6 +69,32 @@ test('an edit made offline survives an offline reload and syncs after reconnect'
 });
 
 /**
+ * The OAuth provider sends the browser back with a top-level NAVIGATION to
+ * /api/auth/callback/…. A navigation fallback without a denylist answers that
+ * from the precached shell, and the router — which has no such route — renders
+ * "Not Found": social sign-in breaks for every SW-controlled client while the
+ * server is perfectly healthy. Any server response proves the worker stood
+ * aside; the redirect to the auth error page is the one the server gives for a
+ * state that was never issued.
+ */
+test('a top-level navigation to /api is not swallowed by the service worker', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await page.evaluate(() =>
+    (
+      navigator as unknown as { serviceWorker: { ready: Promise<unknown> } }
+    ).serviceWorker.ready.then(() => undefined),
+  );
+  // The first load is not SW-controlled (no clientsClaim); reload under control.
+  await page.reload();
+
+  await page.goto('/api/auth/callback/google?state=not-a-real-state&code=not-a-real-code');
+
+  expect(page.url()).toContain('/api/auth/error');
+  await expect(page.getByText('Not Found')).toHaveCount(0);
+});
+
+/**
  * The shortcut URLs live in the manifest but are handled by the SPA router —
  * two places that drift apart silently. This pins them to each other; the
  * behaviour behind each URL is covered in notes-core.
