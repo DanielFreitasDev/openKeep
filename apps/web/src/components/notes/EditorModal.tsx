@@ -322,20 +322,17 @@ function EditorBody({
 
   const bodyEmptyRef = useRef(htmlIsBlank(note.bodyHtml));
   const editor = useEditor({
-    extensions: noteExtensions(t('notePlaceholder')),
+    // Keep's `#` quick-labeling lives in the shared extension, which also
+    // knows when `#` is markdown heading syntax instead.
+    extensions: noteExtensions(t('notePlaceholder'), (seed) =>
+      setLabelPicker({ open: true, seed }),
+    ),
     content: note.bodyHtml,
     editable: !trashed,
-    editorProps: {
-      handleKeyDown: (_view, event) => {
-        // Keep's `#` quick-labeling: opens the label picker.
-        if (event.key === '#' && !event.ctrlKey && !event.metaKey) {
-          event.preventDefault();
-          setLabelPicker({ open: true, seed: '' });
-          return true;
-        }
-        return false;
-      },
-    },
+    // The markdown extension owns pasted plain text end to end; StarterKit's
+    // own paste rules are looser (they italicize `2 * 3 * 4`) and would fire
+    // on the text this one deliberately leaves alone.
+    enablePasteRules: false,
     onUpdate: ({ editor: ed }) => {
       bodyEmptyRef.current = ed.isEmpty;
       autosave.markDirty('bodyHtml', ed.getHTML());

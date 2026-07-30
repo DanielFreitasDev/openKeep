@@ -83,7 +83,10 @@ export function Composer() {
   const [invites, setInvites] = useState<string[]>([]);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [showShare, setShowShare] = useState(false);
-  const [labelPickerOpen, setLabelPickerOpen] = useState(false);
+  const [labelPicker, setLabelPicker] = useState<{ open: boolean; seed: string }>({
+    open: false,
+    seed: '',
+  });
 
   // While composing, block grid/base shortcuts entirely (same as the editor
   // modal) — an open composer is an editing surface, not the board.
@@ -101,20 +104,17 @@ export function Composer() {
   const [draftTick, setDraftTick] = useState(0);
 
   const editor = useEditor({
-    extensions: noteExtensions(t('takeANote')),
+    // Keep's `#` quick-labeling lives in the shared extension, which also
+    // knows when `#` is markdown heading syntax instead.
+    extensions: noteExtensions(t('takeANote'), (seed) => setLabelPicker({ open: true, seed })),
+    // The markdown extension owns pasted plain text end to end; StarterKit's
+    // own paste rules are looser (they italicize `2 * 3 * 4`) and would fire
+    // on the text this one deliberately leaves alone.
+    enablePasteRules: false,
     editorProps: {
       // ProseMirror's contenteditable has no implicit role; name it so the
       // expanded body stays the same "Take a note…" control as the collapsed row.
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('takeANote') },
-      handleKeyDown: (_view, event) => {
-        // Keep's `#` quick-labeling: opens the label picker.
-        if (event.key === '#' && !event.ctrlKey && !event.metaKey) {
-          event.preventDefault();
-          setLabelPickerOpen(true);
-          return true;
-        }
-        return false;
-      },
     },
     onUpdate: () => setDraftTick((n) => n + 1),
   });
@@ -188,7 +188,7 @@ export function Composer() {
     });
     setShowFormatBar(false);
     setShowShare(false);
-    setLabelPickerOpen(false);
+    setLabelPicker({ open: false, seed: '' });
   };
 
   const save = async ({ archive = false } = {}) => {
@@ -659,7 +659,10 @@ export function Composer() {
                       >
                         {t('deleteNote')}
                       </Menu.Item>
-                      <Menu.Item className={menuItemClass} onClick={() => setLabelPickerOpen(true)}>
+                      <Menu.Item
+                        className={menuItemClass}
+                        onClick={() => setLabelPicker({ open: true, seed: '' })}
+                      >
                         {labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
                       </Menu.Item>
                     </Menu.Popup>
@@ -705,8 +708,11 @@ export function Composer() {
                 setInvites((prev) => prev.filter((email) => `pending:${email}` !== userId))
               }
             />
-            {labelPickerOpen && (
-              <Popover.Root open onOpenChange={(o) => !o && setLabelPickerOpen(false)}>
+            {labelPicker.open && (
+              <Popover.Root
+                open
+                onOpenChange={(o) => !o && setLabelPicker({ open: false, seed: '' })}
+              >
                 <Popover.Trigger
                   className="absolute bottom-12 left-4 h-px w-px opacity-0"
                   aria-hidden
@@ -719,6 +725,7 @@ export function Composer() {
                       className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)"
                     >
                       <LabelPicker
+                        initialFilter={labelPicker.seed}
                         selectedIds={labelIds}
                         onToggle={(labelId, on) =>
                           setLabelIds((ids) =>
