@@ -59,9 +59,12 @@ Os 16 adiamentos conscientes listados em PARITY.md ("Known deferrals"), agora co
 
 ### 1.2 Robustez e infraestrutura
 
-- [ ] **Flush do autosave em blur de campo** *(impacto médio · esforço P)*
+- [x] **Flush do autosave em blur de campo** *(impacto médio · esforço P)* — feito em 2026-07-30
   Hoje o flush cobre debounce/close/Esc/`visibilitychange`/pagehide/unmount; falta disparar no
   blur simples de título/corpo. Adicionar handler de blur que força o flush do campo sujo.
+  **Entregue:** `onBlur` no textarea de título e no `useEditor` do corpo, ambos chamando
+  `autosave.flush()`. O guard anti-stomp não regride: o PATCH disparado pelo flush fica in-flight
+  e in-flight próprio já é excluído do merge remoto.
 
 - [ ] **Undo/redo de sessão para título e itens de lista** *(impacto médio · esforço M)*
   O histórico do TipTap cobre só o corpo. Construir o ring buffer de snapshots

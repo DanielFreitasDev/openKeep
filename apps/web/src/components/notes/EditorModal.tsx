@@ -318,6 +318,9 @@ function EditorBody({
       bodyEmptyRef.current = ed.isEmpty;
       autosave.markDirty('bodyHtml', ed.getHTML());
     },
+    // Leaving a field commits it: the debounce is there to batch keystrokes,
+    // not to keep an edit the user has visibly walked away from in limbo.
+    onBlur: () => autosave.flush(),
   });
 
   // After list→text conversion the (previously hidden) TipTap instance holds
@@ -553,6 +556,7 @@ function EditorBody({
                 e.target.style.height = 'auto';
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
+              onBlur={() => autosave.flush()}
               className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant"
             />
             {!trashed && (
