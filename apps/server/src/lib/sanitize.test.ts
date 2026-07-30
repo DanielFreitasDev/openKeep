@@ -2,9 +2,38 @@ import { describe, expect, it } from 'vitest';
 import { detectLinks, htmlToPlainText, plainTextToHtml, sanitizeNoteHtml } from './sanitize.js';
 
 describe('sanitizeNoteHtml', () => {
-  it('keeps exactly the Keep formatting set', () => {
+  it('keeps the Keep formatting set', () => {
     const input = '<h1>A</h1><h2>B</h2><p><strong>b</strong> <em>i</em> <u>u</u><br>x</p>';
     expect(sanitizeNoteHtml(input)).toBe(input.replace('<br>', '<br />'));
+  });
+
+  it('keeps the markdown vocabulary on top of it', () => {
+    const input =
+      '<h3>C</h3><h6>F</h6><p><s>x</s> <code>y</code></p><blockquote><p>q</p></blockquote>' +
+      '<ul><li>a</li></ul><ol start="3"><li>b</li></ol><pre><code class="language-js">z</code></pre>';
+    expect(sanitizeNoteHtml(input)).toBe(input);
+    expect(sanitizeNoteHtml('<hr>')).toBe('<hr />');
+  });
+
+  it('keeps safe links and hardens them', () => {
+    expect(sanitizeNoteHtml('<p><a href="https://e.com/a">x</a></p>')).toBe(
+      '<p><a href="https://e.com/a" target="_blank" rel="noopener noreferrer nofollow">x</a></p>',
+    );
+    expect(sanitizeNoteHtml('<p><a href="mailto:a@b.com">m</a></p>')).toContain('mailto:a@b.com');
+  });
+
+  it('drops link schemes outside http/https/mailto, keeping the text', () => {
+    for (const href of ['javascript:alert(1)', 'data:text/html,<script>x</script>', 'vbscript:x']) {
+      const out = sanitizeNoteHtml(`<p><a href="${href}">click</a></p>`);
+      expect(out).toContain('click');
+      expect(out).not.toContain('href');
+    }
+  });
+
+  it('keeps only the language class on code', () => {
+    expect(sanitizeNoteHtml('<pre><code class="language-ts evil">x</code></pre>')).toBe(
+      '<pre><code class="language-ts">x</code></pre>',
+    );
   });
 
   const XSS_CORPUS: [string, string[]][] = [
@@ -32,8 +61,11 @@ describe('sanitizeNoteHtml', () => {
     expect(sanitizeNoteHtml('<p><b>x</b><i>y</i></p>')).toBe('<p><strong>x</strong><em>y</em></p>');
   });
 
-  it('strips all attributes, even on allowed tags', () => {
+  it('strips presentation attributes, even on allowed tags', () => {
     expect(sanitizeNoteHtml('<p class="x" data-y="1" id="z">hi</p>')).toBe('<p>hi</p>');
+    expect(sanitizeNoteHtml('<ul style="color:red"><li id="a">x</li></ul>')).toBe(
+      '<ul><li>x</li></ul>',
+    );
   });
 });
 
