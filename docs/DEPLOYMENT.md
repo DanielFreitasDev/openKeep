@@ -84,7 +84,7 @@ The MCP endpoint ships in the same container — nothing extra to deploy or conf
 ## Security posture
 
 - Strict CSP on the SPA (`default-src 'self'`; images additionally `https:` for link-preview thumbnails the *browser* loads).
-- Same-origin only: no CORS, `SameSite=Lax` httpOnly cookies, `Origin`/`Sec-Fetch-Site` checks on mutations, session validated on WS upgrade.
+- Same-origin only: no CORS, `SameSite=Lax` httpOnly cookies, `Origin`/`Sec-Fetch-Site` checks on mutations, session validated before the WS upgrade is accepted.
 - Uploads: magic-byte sniffing (no SVG), sharp re-encode strips EXIF, 10 MB / 25 MP caps, opaque UUID storage keys, `nosniff`.
 - Link previews: DNS pre-resolution with pinned-IP connections (rebinding-safe), private/reserved ranges rejected, ≤3 re-validated redirects, 10 s / 2 MB caps.
 - Rate limits: auth 10/min/IP, uploads 30/min, search 60/min, imports 3/day.

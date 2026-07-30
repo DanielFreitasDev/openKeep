@@ -99,9 +99,15 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   Todos os cards são tab stops (`tabIndex=0`). Implementar roving: um tab stop por grid, setas/j/k
   movem o foco ativo — melhora Tab-navigation com centenas de notas.
 
-- [ ] **Auth do WS durante o handshake** *(impacto baixo · esforço P/M)*
+- [x] **Auth do WS durante o handshake** *(impacto baixo · esforço P/M)* — feito em 2026-07-30
   Hoje o cookie de sessão é checado logo após o upgrade (fecha 4401 antes de registrar). Mover a
   verificação para antes de aceitar o upgrade (hook de `upgrade`/`preValidation` da rota WS).
+  **Entregue:** `preValidation` na rota checa Origin + sessão e lança os erros normais
+  (`errors.forbidden`/`errors.unauthorized`) — o `@fastify/websocket` só faz o upgrade dentro do
+  handler, então responder de um hook deixa a requisição como HTTP comum e o cliente rejeitado
+  recebe 403/401 em vez de um socket que abre e fecha. Sem PAT aqui de propósito (browser não
+  manda `Authorization` em WebSocket). O cliente não olha código de fechamento: cai no mesmo
+  backoff de sempre.
 
 - [x] **CSP nas respostas JSON da API** *(impacto baixo · esforço P)* — feito em 2026-07-30
   A CSP estrita cobre SPA/estáticos; a API responde só com `nosniff` + checagens same-origin.

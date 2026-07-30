@@ -87,9 +87,6 @@ the table above stays honest. Roughly in order of user impact:
   from text).
 - **`/metrics` endpoint** — `METRICS_ENABLED` is validated in config but no
   Prometheus route exists; Sentry is likewise absent.
-- **WS auth timing** — the session cookie is checked immediately after the
-  upgrade completes (socket closed 4401 before any registry add), not during
-  the handshake itself.
 - **E2E flows** — login/signup through the UI (specs seed via API) are not
   covered by Playwright. (The PWA offline-reload flow gained coverage
   post-1.0: `offline.spec.ts` + the `pwa` project's `offline-pwa.spec.ts`.)

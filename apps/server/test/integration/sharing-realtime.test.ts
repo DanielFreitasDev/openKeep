@@ -89,26 +89,32 @@ describe('sharing & realtime', () => {
     await t.close();
   });
 
-  it('rejects unauthenticated and cross-origin upgrades', async () => {
-    // The HTTP upgrade completes first; the app closes right after with a code.
-    const closeCodeOf = (headers: Record<string, string>) =>
+  it('rejects unauthenticated and cross-origin upgrades before the handshake', async () => {
+    // Rejected at preValidation: the upgrade never completes, so the client
+    // gets an HTTP status instead of an open socket that closes on us.
+    const statusOf = (headers: Record<string, string>) =>
       new Promise<number>((resolve, reject) => {
         const ws = new WebSocket(`${baseUrl.replace('http', 'ws')}/api/ws`, { headers });
-        const timer = setTimeout(() => reject(new Error('no close received')), 2000);
-        ws.once('close', (code) => {
+        const timer = setTimeout(() => reject(new Error('no response received')), 2000);
+        // Tearing down a half-open client surfaces as an error event; the
+        // status is what we came for.
+        ws.on('error', () => {});
+        ws.once('unexpected-response', (_req, res) => {
           clearTimeout(timer);
-          resolve(code);
+          ws.terminate();
+          resolve(res.statusCode ?? 0);
         });
-        ws.once('error', (err) => {
+        ws.once('open', () => {
           clearTimeout(timer);
-          reject(err);
+          ws.close();
+          reject(new Error('upgrade should not have completed'));
         });
       });
 
-    await expect(closeCodeOf({ cookie: 'nope=1' })).resolves.toBe(4401);
-    await expect(
-      closeCodeOf({ cookie: ownerCookie, origin: 'https://evil.example' }),
-    ).resolves.toBe(4403);
+    await expect(statusOf({ cookie: 'nope=1' })).resolves.toBe(401);
+    await expect(statusOf({ cookie: ownerCookie, origin: 'https://evil.example' })).resolves.toBe(
+      403,
+    );
   });
 
   // Browsers never hand protocol pong frames to JS, so the client heartbeat
@@ -116,10 +122,10 @@ describe('sharing & realtime', () => {
   it('answers the client heartbeat and ignores anything else', async () => {
     const ws = await connectWs(baseUrl, ownerCookie);
 
-    // The listener is attached after the session lookup resolves, so keep
-    // probing rather than racing the tail of the handshake.
-    const probe = setInterval(() => ws.socket.send(WS_PING), 50);
-    const pong = await ws.waitFor('pong').finally(() => clearInterval(probe));
+    // Authentication is done by the time the socket opens, so the handler —
+    // and its message listener — are in place before anything can be sent.
+    ws.socket.send(WS_PING);
+    const pong = await ws.waitFor('pong');
     expect(pong.type).toBe('pong');
 
     ws.socket.send('{"type":"note.trashed","payload":{"id":"nope"}}');
