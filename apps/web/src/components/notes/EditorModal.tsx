@@ -25,7 +25,7 @@ import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
 import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import { type FullNote, htmlToPlainText, LIMITS } from '@openkeep/shared';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -36,6 +36,7 @@ import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
+import { noteMutationKeys } from '../../lib/note-mutation-defaults.js';
 import { removeNote } from '../../lib/note-selectors.js';
 import { deleteNoteForever, notesQuery, trashNote } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
@@ -185,10 +186,20 @@ function EditorDialog({
   const { data: notes, isSuccess } = useQuery(notesQuery);
   const note = notes?.find((n) => n.id === noteId);
 
+  // A note created and opened in the same breath (share target, app shortcut,
+  // mobile FAB) is optimistic-only until its POST acks. On a cold boot the
+  // corpus fetch can resolve in that window and overwrite the optimistic row,
+  // which used to read as "this note does not exist" and slam the editor shut.
+  const creating = useIsMutating({
+    mutationKey: noteMutationKeys.create,
+    predicate: (mutation) =>
+      (mutation.state.variables as { id?: string } | undefined)?.id === noteId,
+  });
+
   // Deep link to a nonexistent/foreign note: close once the corpus is loaded.
   useEffect(() => {
-    if (isSuccess && !note) onClose();
-  }, [isSuccess, note, onClose]);
+    if (isSuccess && !note && creating === 0) onClose();
+  }, [isSuccess, note, creating, onClose]);
 
   if (!note) return null;
   return (

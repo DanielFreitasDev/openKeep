@@ -4,9 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30** (filtro "Pessoas" na busca, auth do WS no handshake, aviso de
-> sharees no import, e2e de login/signup; antes: CSP da API, heartbeat de WS, flush em blur,
-> retenção da lixeira, atalhos do manifest, contador de palavras)
+> Última atualização: **2026-07-30** (markdown fase A, PWA share target; antes: filtro "Pessoas" na
+> busca, auth do WS no handshake, aviso de sharees no import, e2e de login/signup, CSP da API,
+> heartbeat de WS, flush em blur, retenção da lixeira, atalhos do manifest, contador de palavras)
 
 **Legenda de esforço** — `P` até ~1 dia · `M` 2–4 dias · `G` 1 semana ou mais.
 **Legenda de impacto** — `alto` muda o dia a dia de quem usa · `médio` melhora perceptível · `baixo` polimento.
@@ -179,13 +179,24 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.1 Editor e conteúdo
 
-- [ ] **⭐ Markdown — Fase A: digitação e colagem** *(impacto alto · esforço P/M)*
+- [x] **⭐ Markdown — Fase A: digitação e colagem** *(impacto alto · esforço P/M)* — feito em 2026-07-30
   **O quê:** a nota "entende" markdown ao digitar: `# `/`## ` viram H1/H2, `**x**` negrito,
   `*x*` itálico, e colar texto markdown converte para rich text. É a ideia-guia deste roadmap.
   **Como:** TipTap 3 — as extensões já usadas trazem *input rules* (verificar se estão ativas na
   config atual e habilitar); colagem via serializer markdown→ProseMirror (ex.:
   `prosemirror-markdown` restrito ao vocabulário atual H1/H2/B/I/U). Nada muda no servidor:
   o HTML resultante já pertence ao allowlist do sanitizador.
+  **Entregue:** as *input rules* do StarterKit já existiam mas o heading estava **morto** — os dois
+  editores engoliam a tecla `#` para abrir o quick-label do Keep, então `# ` nunca chegava ao
+  ProseMirror. A regra nova: `#` só é interceptado quando o bloco tem algo além dos próprios
+  hashes; no início de um bloco ele digita normalmente (permitindo `#`/`##`/`###…`) e uma input
+  rule `#x` devolve o gesto ao label assim que o caractere seguinte prova que não era heading —
+  já com o seed no filtro do picker. A colagem é um conversor próprio
+  (`lib/markdown.ts`), não `prosemirror-markdown`: o vocabulário é o do Keep, então um parser
+  completo só produziria nós que o sanitizador descartaria — pior que colar como texto. Ele
+  devolve `null` quando não há markdown e o caminho normal do editor assume. As *paste rules* do
+  StarterKit foram desligadas (`enablePasteRules: false`) porque são mais frouxas que as guardas
+  daqui e italicizavam `2 * 3 * 4`.
 
 - [ ] **⭐ Markdown — Fase B: importar e exportar `.md`** *(impacto alto · esforço M)*
   **O quê:** exportar nota como `.md` (menu da nota + em massa no export zip) e importar arquivos
@@ -316,11 +327,21 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.4 Captura e integrações
 
-- [ ] **PWA Share Target (compartilhar → OpenKeep)** *(impacto alto · esforço P)*
+- [x] **PWA Share Target (compartilhar → OpenKeep)** *(impacto alto · esforço P)* — feito em 2026-07-30
   **O quê:** no Android/desktop, o OpenKeep instalado aparece na folha de compartilhar do
   sistema; compartilhar texto/URL/imagem cria nota. Mata a maior vantagem prática do app nativo.
   **Como:** `share_target` no manifest (method POST + enctype multipart p/ arquivos) → rota
   `/share` que abre o composer pré-preenchido (o fluxo de imagem do FAB já cobre o resto).
+  **Entregue:** `share_target` POST/multipart → o service worker drena o corpo para a Cache API
+  (`share-target-v1`) e responde 303 para um `GET /share` que o router entende; a rota
+  `_shell/share.tsx` consome o payload (one-shot: recarregar não cria segunda nota) e cai no
+  mesmo `useCreateAndOpenNote` do FAB e dos atalhos. Cache em vez de IndexedDB/postMessage porque
+  os dois lados já falam Cache e ela guarda `Blob` nativamente. Abre o editor em vez do composer
+  — é o mesmo caminho dos outros entry points e o que existe no mobile, o cenário do share sheet.
+  Ficar sob `_shell` faz um share recebido deslogado passar pelo login e voltar, com o payload
+  esperando. Dois bugs reais caíram junto: o upload de anexo disparava antes do POST da nota
+  existir (agora espera o create, o que também enfileira o arquivo atrás dele quando offline) e o
+  editor se fechava sozinho quando o corpus recarregava antes de o create acertar.
 
 - [ ] **Extensão de captura no navegador (clipper)** *(impacto médio · esforço M)*
   **O quê:** o Keep tem extensão Chrome; self-host não tem nada. Selecionou texto → salvar como
@@ -447,16 +468,14 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
-1. **Markdown fase A** (3.1) — a ideia-guia, esforço pequeno, ganho imediato de UX.
-2. **PWA Share Target** (3.4) — os atalhos do manifest já saíram; falta a folha de compartilhar
-   do sistema. Texto/URL é GET puro; imagem exige POST multipart interceptado no service worker.
-3. **Markdown fase B** (3.1) — export/import `.md`.
-4. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
-5. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-6. **Vincular notas + backlinks** (3.1).
-7. **Link público somente leitura** (3.3).
-8. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
-9. **Resto dos quick wins de 1.2**: roving tabindex, `/metrics`. O que sobrou da rodada.
+1. **Markdown fase B** (3.1) — export/import `.md`. A fase A já saiu; o conversor
+   markdown→HTML de `apps/web/src/lib/markdown.ts` é o ponto de partida do caminho inverso.
+2. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
+3. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
+4. **Vincular notas + backlinks** (3.1).
+5. **Link público somente leitura** (3.3).
+6. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
+7. **Resto dos quick wins de 1.2**: roving tabindex, `/metrics`. O que sobrou da rodada.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes), virtualização do grid.

@@ -20,6 +20,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
 | Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; morphs open/closed from its card; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
+| Markdown as you type and paste | Keep has none | ✅ 🔀 `# `/`## ` → H1/H2, `**b**`/`*i*` (and `__`/`_`) inline; pasted markdown converts to rich text within the same allowlist. `#` still quick-labels everywhere except a line start, where the next character decides | post-1.0 |
 | Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 🔀 500ms debounce, dirty-field patches, flush on blur; footer word/character count warns before the body cap | M2 |
 | Archive view + undo snackbar | ✓ | ✅ inverse-mutation undo | M2 |
 | Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ 🔀 + hourly purge job; retention configurable via `TRASH_RETENTION_DAYS` (default 7) and the banner states it | M2 |
@@ -51,6 +52,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Mobile (<768px): search-pill bar, 2-up grid, create FAB, full-screen editor + bottom sheets, long-press select, full-height drawer w/ Settings | Keep web has none (Android app UX) | ✅ 🔀 CSS-breakpoint layer over the same DOM; untouched FAB notes discarded on close; e2e `mobile.spec.ts` | post-1.0 |
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
 | App shortcuts on the installed icon | Keep has none | ✅ 🔀 manifest `shortcuts` → New note / New list / New drawing, as deep links the shell already handles | post-1.0 |
+| Share sheet target ("Share → OpenKeep") | Keep has none on web | ✅ 🔀 manifest `share_target` POSTs to `/share`; the service worker stashes the multipart body in the Cache API and the route drains it into a new note (text, url and images) | post-1.0 |
 | Takeout import | — (adoption feature) | ✅ 🔀 images + audio, 512 MB archives, media read on demand, version snapshot at import | M9 |
 | JSON export | Takeout equivalent | ✅ | M9 |
 | Offline edits survive reload | Keep has none | ✅ 🔀 IndexedDB outbox + localStorage draft mirror + offline banner/retry toasts (DECISIONS #22) | post-1.0 |

@@ -7,6 +7,13 @@ import {
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import {
+  SHARE_CACHE,
+  SHARE_FILENAME_HEADER,
+  SHARE_PAYLOAD_URL,
+  type SharedPayload,
+  shareFileUrl,
+} from './lib/share-target.js';
 
 declare let self: ServiceWorkerGlobalScope;
 
@@ -62,6 +69,60 @@ registerRoute(
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting();
+});
+
+// -------------------------------------------------------- share target
+
+const formString = (form: FormData, key: string) => {
+  const value = form.get(key);
+  return typeof value === 'string' ? value : '';
+};
+
+/**
+ * The manifest's `share_target` POSTs here. The body only exists inside this
+ * request, so it is stashed in the Cache API and the browser is sent on to a
+ * plain navigation the router can actually handle (see lib/share-target.ts).
+ * Registered as a bare listener rather than a workbox route because workbox
+ * routes are GET-only.
+ */
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'POST' || url.pathname !== '/share') return;
+  event.respondWith(
+    (async () => {
+      try {
+        const form = await event.request.formData();
+        // A share with no file still sends the part, empty.
+        const files = form
+          .getAll('files')
+          .filter((v): v is File => v instanceof File && v.size > 0);
+        const cache = await caches.open(SHARE_CACHE);
+        await Promise.all(
+          files.map((file, i) =>
+            cache.put(
+              shareFileUrl(i),
+              new Response(file, {
+                headers: {
+                  'content-type': file.type || 'application/octet-stream',
+                  [SHARE_FILENAME_HEADER]: encodeURIComponent(file.name),
+                },
+              }),
+            ),
+          ),
+        );
+        const payload: SharedPayload = {
+          title: formString(form, 'title'),
+          text: formString(form, 'text'),
+          url: formString(form, 'url'),
+          fileCount: files.length,
+        };
+        await cache.put(SHARE_PAYLOAD_URL, Response.json(payload));
+      } catch {
+        // Nothing stashed: /share finds no payload and just shows the board.
+      }
+      return Response.redirect(new URL('/share', self.location.origin).href, 303);
+    })(),
+  );
 });
 
 // ---------------------------------------------------------------- push

@@ -23,14 +23,15 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /offline-pwa\.spec\.ts/,
+      testIgnore: /(offline-pwa|share-target)\.spec\.ts/,
     },
     {
       // Production build behind `vite preview`: the service worker is active,
-      // so the offline-reload flow can be exercised for real.
+      // so the offline-reload flow and the share target (a POST only the
+      // worker answers) can be exercised for real.
       name: 'pwa',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' },
-      testMatch: /offline-pwa\.spec\.ts/,
+      testMatch: /(offline-pwa|share-target)\.spec\.ts/,
     },
   ],
   webServer: [

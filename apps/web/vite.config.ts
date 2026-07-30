@@ -49,6 +49,25 @@ export default defineConfig({
           { name: 'New list', short_name: 'List', url: '/?compose=list' },
           { name: 'New drawing', short_name: 'Drawing', url: '/?drawing=new' },
         ],
+        // The system share sheet ("Share → OpenKeep"). POST because files can
+        // only travel as multipart; the service worker intercepts it and hands
+        // the payload to the /share route (see src/lib/share-target.ts).
+        share_target: {
+          action: '/share',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+            files: [
+              {
+                name: 'files',
+                accept: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+              },
+            ],
+          },
+        },
         screenshots: [
           {
             src: '/screenshot-wide.png',

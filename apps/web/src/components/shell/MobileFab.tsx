@@ -34,7 +34,7 @@ export function MobileFab({ labelId }: { labelId?: string }) {
 
   const createAndOpen = (type: 'text' | 'list', file?: File) => {
     setOpen(false);
-    createNote(type, { labelId, file });
+    createNote(type, { labelId, files: file ? [file] : [] });
   };
 
   return (

@@ -16,6 +16,7 @@ import { Route as ShellIndexRouteImport } from './routes/_shell/index'
 import { Route as ShellArchiveRouteImport } from './routes/_shell/archive'
 import { Route as ShellRemindersRouteImport } from './routes/_shell/reminders'
 import { Route as ShellSearchRouteImport } from './routes/_shell/search'
+import { Route as ShellShareRouteImport } from './routes/_shell/share'
 import { Route as ShellTrashRouteImport } from './routes/_shell/trash'
 import { Route as ShellLabelLabelNameRouteImport } from './routes/_shell/label.$labelName'
 
@@ -53,6 +54,11 @@ const ShellSearchRoute = ShellSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellShareRoute = ShellShareRouteImport.update({
+  id: '/share',
+  path: '/share',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellTrashRoute = ShellTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/archive': typeof ShellArchiveRoute
   '/reminders': typeof ShellRemindersRoute
   '/search': typeof ShellSearchRoute
+  '/share': typeof ShellShareRoute
   '/trash': typeof ShellTrashRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
 }
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/archive': typeof ShellArchiveRoute
   '/reminders': typeof ShellRemindersRoute
   '/search': typeof ShellSearchRoute
+  '/share': typeof ShellShareRoute
   '/trash': typeof ShellTrashRoute
   '/': typeof ShellIndexRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_shell/archive': typeof ShellArchiveRoute
   '/_shell/reminders': typeof ShellRemindersRoute
   '/_shell/search': typeof ShellSearchRoute
+  '/_shell/share': typeof ShellShareRoute
   '/_shell/trash': typeof ShellTrashRoute
   '/_shell/': typeof ShellIndexRoute
   '/_shell/label/$labelName': typeof ShellLabelLabelNameRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/reminders'
     | '/search'
+    | '/share'
     | '/trash'
     | '/label/$labelName'
   fileRoutesByTo: FileRoutesByTo
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/reminders'
     | '/search'
+    | '/share'
     | '/trash'
     | '/'
     | '/label/$labelName'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_shell/archive'
     | '/_shell/reminders'
     | '/_shell/search'
+    | '/_shell/share'
     | '/_shell/trash'
     | '/_shell/'
     | '/_shell/label/$labelName'
@@ -187,6 +199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellSearchRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/share': {
+      id: '/_shell/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof ShellShareRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/trash': {
       id: '/_shell/trash'
       path: '/trash'
@@ -208,6 +227,7 @@ interface ShellRouteChildren {
   ShellArchiveRoute: typeof ShellArchiveRoute
   ShellRemindersRoute: typeof ShellRemindersRoute
   ShellSearchRoute: typeof ShellSearchRoute
+  ShellShareRoute: typeof ShellShareRoute
   ShellTrashRoute: typeof ShellTrashRoute
   ShellIndexRoute: typeof ShellIndexRoute
   ShellLabelLabelNameRoute: typeof ShellLabelLabelNameRoute
@@ -217,6 +237,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellArchiveRoute: ShellArchiveRoute,
   ShellRemindersRoute: ShellRemindersRoute,
   ShellSearchRoute: ShellSearchRoute,
+  ShellShareRoute: ShellShareRoute,
   ShellTrashRoute: ShellTrashRoute,
   ShellIndexRoute: ShellIndexRoute,
   ShellLabelLabelNameRoute: ShellLabelLabelNameRoute,
