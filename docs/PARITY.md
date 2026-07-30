@@ -82,9 +82,9 @@ the table above stays honest. Roughly in order of user impact:
   j/k navigation and focus restore work, but Tab order is not virtualized.
 - **Session undo/redo for title/list items** — TipTap history covers the body;
   the title/items snapshot ring buffer was not built.
-- **Takeout `sharees`** — imported notes are never re-shared and no warning is
-  surfaced; `annotations` (WEBLINK) are typed but unused (links are re-detected
-  from text).
+- **Takeout `sharees`** — imported notes are never re-shared; the import report
+  now says how many were shared in Keep. `annotations` (WEBLINK) are typed but
+  unused (links are re-detected from text).
 - **`/metrics` endpoint** — `METRICS_ENABLED` is validated in config but no
   Prometheus route exists; Sentry is likewise absent.
 - **E2E flows** — login/signup through the UI (specs seed via API) are not

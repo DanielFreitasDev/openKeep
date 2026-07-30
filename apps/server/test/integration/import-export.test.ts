@@ -52,6 +52,10 @@ async function buildTakeoutZip(
     textContent: 'Build an open Keep\nwith friends',
     color: 'GRAY',
     isArchived: true,
+    sharees: [
+      { email: 'io@example.com', isOwner: true, type: 'USER' },
+      { email: 'friend@example.com', type: 'USER' },
+    ],
     createdTimestampUsec: 1721908900000000,
   });
   note('trashed.json', {
@@ -149,7 +153,8 @@ describe('takeout import & export', () => {
       headers: { cookie },
     });
     expect(job.json()).toMatchObject({ status: 'done', progress: 4, total: 4 });
-    expect(JSON.parse(job.json().summary)).toEqual({ imported: 4, skipped: 0 });
+    // Sharing is reported, never re-created: no collaborator row is made.
+    expect(JSON.parse(job.json().summary)).toEqual({ imported: 4, skipped: 0, shared: 1 });
 
     const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
     const notes = list.json() as FullNote[];
@@ -163,6 +168,8 @@ describe('takeout import & export', () => {
 
     const idea = notes.find((n) => n.title === 'Idea');
     expect(idea).toMatchObject({ archived: true, color: 'chalk' });
+    // It was shared in Keep; here it is mine alone.
+    expect(idea?.collaborators.map((c) => c.role)).toEqual(['owner']);
     expect(idea?.bodyHtml).toContain('Build an open Keep');
 
     const junk = notes.find((n) => n.title === 'Old junk');
@@ -185,7 +192,7 @@ describe('takeout import & export', () => {
       url: `/api/jobs/${rerun.id}`,
       headers: { cookie },
     });
-    expect(JSON.parse(rerunJob.json().summary)).toEqual({ imported: 0, skipped: 4 });
+    expect(JSON.parse(rerunJob.json().summary)).toEqual({ imported: 0, skipped: 4, shared: 1 });
   });
 
   it('exports user data as a downloadable zip', async () => {

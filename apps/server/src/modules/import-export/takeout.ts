@@ -13,6 +13,7 @@ export interface TakeoutNote {
   isArchived?: boolean;
   isTrashed?: boolean;
   labels?: { name?: string }[];
+  sharees?: { email?: string; isOwner?: boolean; type?: string }[];
   attachments?: { filePath?: string; mimetype?: string }[];
   annotations?: { source?: string; url?: string; title?: string }[];
   userEditedTimestampUsec?: number;
@@ -30,6 +31,8 @@ export interface ParsedTakeoutNote {
   archived: boolean;
   trashed: boolean;
   labels: string[];
+  /** The note had collaborators in Keep. We never re-share, we only report it. */
+  wasShared: boolean;
   attachmentPaths: { filePath: string; mimetype: string }[];
   createdAt: Date | null;
   editedAt: Date | null;
@@ -97,6 +100,8 @@ export function parseTakeoutNote(json: unknown): ParsedTakeoutNote | null {
     archived: note.isArchived === true,
     trashed: note.isTrashed === true,
     labels,
+    // Exports list the owner among the sharees; only other people mean shared.
+    wasShared: (note.sharees ?? []).some((s) => s.isOwner !== true),
     attachmentPaths: (note.attachments ?? [])
       .filter((a) => typeof a.filePath === 'string')
       .map((a) => ({ filePath: a.filePath ?? '', mimetype: a.mimetype ?? '' })),

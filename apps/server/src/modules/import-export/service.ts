@@ -145,11 +145,14 @@ export async function runTakeoutImport(
     let done = 0;
     let imported = 0;
     let skipped = 0;
+    // Sharing is never re-created on import; count it so the report can say so.
+    let shared = 0;
 
     for (const { parsed } of entries) {
       const outcome = await importOneNote(db, storage, userId, parsed, zip.readMedia);
       if (outcome === 'imported') imported++;
       else skipped++;
+      if (parsed.wasShared) shared++;
       done++;
       if (done % 5 === 0 || done === entries.length) {
         await updateJob(db, jobId, { progress: done });
@@ -161,7 +164,7 @@ export async function runTakeoutImport(
       status: 'done',
       progress: done,
       finishedAt: new Date(),
-      summary: JSON.stringify({ imported, skipped }),
+      summary: JSON.stringify({ imported, skipped, shared }),
       fileKey: null,
     });
   } catch (err) {

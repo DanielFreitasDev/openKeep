@@ -94,11 +94,18 @@ export function ImportExportDialog() {
     if (job.status === 'done') {
       const summary = job.summary ? (JSON.parse(job.summary) as Record<string, number>) : {};
       return (
-        <p className="text-on-surface text-sm">
-          {job.kind === 'import'
-            ? t('importDone', { imported: summary.imported ?? 0, skipped: summary.skipped ?? 0 })
-            : t('exportDone', { notes: summary.notes ?? 0 })}
-        </p>
+        <>
+          <p className="text-on-surface text-sm">
+            {job.kind === 'import'
+              ? t('importDone', { imported: summary.imported ?? 0, skipped: summary.skipped ?? 0 })
+              : t('exportDone', { notes: summary.notes ?? 0 })}
+          </p>
+          {job.kind === 'import' && (summary.shared ?? 0) > 0 && (
+            <p className="text-on-surface-variant text-sm">
+              {t('importShared', { count: summary.shared ?? 0 })}
+            </p>
+          )}
+        </>
       );
     }
     return (

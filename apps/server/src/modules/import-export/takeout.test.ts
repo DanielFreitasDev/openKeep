@@ -63,6 +63,23 @@ describe('parseTakeoutNote', () => {
     expect(parseTakeoutNote('string')).toBeNull();
   });
 
+  it('flags notes that had collaborators, ignoring the owner entry', () => {
+    const solo = parseTakeoutNote({
+      textContent: 'mine',
+      sharees: [{ email: 'me@example.com', isOwner: true, type: 'USER' }],
+    });
+    const shared = parseTakeoutNote({
+      textContent: 'ours',
+      sharees: [
+        { email: 'me@example.com', isOwner: true, type: 'USER' },
+        { email: 'other@example.com', type: 'USER' },
+      ],
+    });
+    expect(parseTakeoutNote({ textContent: 'x' })?.wasShared).toBe(false);
+    expect(solo?.wasShared).toBe(false);
+    expect(shared?.wasShared).toBe(true);
+  });
+
   it('records attachment references', () => {
     const parsed = parseTakeoutNote({
       title: 'Pic',

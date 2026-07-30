@@ -9,6 +9,8 @@
   "download": "Download zip",
   "working": "Working…",
   "importDone": "Imported {{imported}} notes ({{skipped}} already existed).",
+  "importShared_one": "{{count}} note was shared in Keep — collaborators are not imported.",
+  "importShared_other": "{{count}} notes were shared in Keep — collaborators are not imported.",
   "exportDone": "Export ready — {{notes}} notes included.",
   "failed": "Something went wrong. Try again."
 }

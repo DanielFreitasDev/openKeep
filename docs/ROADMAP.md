@@ -121,10 +121,14 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   (contadores HTTP, jobs pg-boss, sockets ativos) atrás de auth/bind interno; avaliar Sentry
   como opt-in por env.
 
-- [ ] **Aviso de `sharees` no import do Takeout** *(impacto baixo · esforço P)*
+- [x] **Aviso de `sharees` no import do Takeout** *(impacto baixo · esforço P)* — feito em 2026-07-30
   Notas importadas nunca são recompartilhadas e nada avisa. Ao final do job, listar no relatório
   de import as notas que tinham colaboradores no Takeout ("N notas eram compartilhadas — o
   compartilhamento não é importado").
+  **Entregue:** o parser marca `wasShared` ignorando a entrada do próprio dono (o Takeout lista o
+  dono entre os `sharees`), o job soma no `summary` (`{imported, skipped, shared}`) e o diálogo
+  mostra uma segunda linha com plural nos dois idiomas. A contagem cobre as notas puladas por
+  duplicidade também — o aviso é sobre o zip, não sobre o que entrou.
 
 - [ ] **E2E de login/signup pela UI** *(impacto baixo · esforço P)*
   Os specs autenticam via API. Adicionar spec Playwright cobrindo cadastro, login, erro de senha
