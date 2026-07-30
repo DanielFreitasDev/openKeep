@@ -28,3 +28,29 @@ export function registerOriginCheck(app: FastifyInstance, config: Config): void 
     }
   });
 }
+
+/**
+ * A JSON API response never legitimately loads anything, so it gets the
+ * tightest policy there is. Belt-and-braces next to `nosniff`: if a browser
+ * were ever tricked into treating a payload as a document, nothing in it can
+ * fetch, script or be framed.
+ */
+export const API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
+
+/** `application/json` and the error handler's `application/problem+json`. */
+const JSON_TYPE = /^application\/(problem\+)?json/;
+
+/**
+ * CSP for API responses. Keyed off the serialized content type rather than the
+ * route, so Swagger UI (dev-only HTML/JS under `/api/docs`), the SPA and
+ * attachment downloads keep the headers they set for themselves.
+ */
+export function registerApiCsp(app: FastifyInstance): void {
+  app.addHook('onSend', async (_req, reply, payload) => {
+    const type = reply.getHeader('content-type');
+    if (typeof type === 'string' && JSON_TYPE.test(type)) {
+      void reply.header('content-security-policy', API_CSP);
+    }
+    return payload;
+  });
+}

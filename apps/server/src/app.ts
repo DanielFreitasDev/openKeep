@@ -27,7 +27,7 @@ import { registerSharingRoutes } from './modules/sharing/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerMcp } from './plugins/mcp.js';
-import { registerOriginCheck } from './plugins/security.js';
+import { registerApiCsp, registerOriginCheck } from './plugins/security.js';
 import { findWebDist, registerSpa, spaFallback } from './plugins/static.js';
 import { registerSwagger } from './plugins/swagger.js';
 import { Realtime } from './realtime/registry.js';
@@ -70,6 +70,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   });
 
   registerOriginCheck(app, config);
+  registerApiCsp(app);
   await app.register(rateLimit, { global: false });
   const realtime = deps.realtime ?? new Realtime();
   app.decorate('realtime', realtime);

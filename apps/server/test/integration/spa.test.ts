@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { API_CSP } from '../../src/plugins/security.js';
 import { SPA_CSP } from '../../src/plugins/static.js';
 import type { TestApp } from './harness.js';
 import { createTestApp } from './harness.js';
@@ -71,6 +72,22 @@ describe('production SPA serving', () => {
     expect(res.statusCode).toBe(404);
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.json()).toMatchObject({ code: 'not_found', status: 404 });
+  });
+
+  // The SPA and the API are served by the same origin but need opposite
+  // policies: the app must load its own assets, a JSON payload must load
+  // nothing at all.
+  it('sends the locked-down API CSP on JSON responses', async () => {
+    const ok = await t.app.inject({ method: 'GET', url: '/api/healthz' });
+    expect(ok.headers['content-security-policy']).toBe(API_CSP);
+
+    const problem = await t.app.inject({ method: 'GET', url: '/api/definitely-not-a-route' });
+    expect(problem.headers['content-security-policy']).toBe(API_CSP);
+  });
+
+  it('leaves the SPA CSP alone', async () => {
+    const res = await t.app.inject({ method: 'GET', url: '/' });
+    expect(res.headers['content-security-policy']).toBe(SPA_CSP);
   });
 
   it('keeps problem+json 404s for non-GET requests outside /api', async () => {

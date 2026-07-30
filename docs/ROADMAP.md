@@ -90,9 +90,12 @@ Os 16 adiamentos conscientes listados em PARITY.md ("Known deferrals"), agora co
   Hoje o cookie de sessão é checado logo após o upgrade (fecha 4401 antes de registrar). Mover a
   verificação para antes de aceitar o upgrade (hook de `upgrade`/`preValidation` da rota WS).
 
-- [ ] **CSP nas respostas JSON da API** *(impacto baixo · esforço P)*
+- [x] **CSP nas respostas JSON da API** *(impacto baixo · esforço P)* — feito em 2026-07-30
   A CSP estrita cobre SPA/estáticos; a API responde só com `nosniff` + checagens same-origin.
   Adicionar cabeçalho CSP mínimo (`default-src 'none'`) nas respostas JSON.
+  **Entregue:** `API_CSP` (`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`) num hook
+  `onSend` que decide pelo content-type (`application/json` e `application/problem+json`), então
+  Swagger UI, SPA e downloads de anexo mantêm os cabeçalhos deles.
 
 - [ ] **Endpoint `/metrics` (+ Sentry opcional)** *(impacto baixo · esforço P/M)*
   `METRICS_ENABLED` já é validado na config mas a rota não existe. Expor Prometheus
