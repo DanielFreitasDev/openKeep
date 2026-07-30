@@ -24,10 +24,10 @@ import photoCameraSvg from '@material-symbols/svg-700/outlined/photo_camera.svg?
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
 import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
-import type { FullNote } from '@openkeep/shared';
+import { type FullNote, htmlToPlainText, LIMITS } from '@openkeep/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
@@ -85,10 +85,32 @@ function htmlIsBlank(html: string): boolean {
 }
 
 /** Body html → plain text for the Web Share sheet (server-sanitized input). */
-function htmlToPlainText(html: string): string {
+function htmlToShareText(html: string): string {
   const div = document.createElement('div');
   div.innerHTML = html;
   return div.innerText;
+}
+
+/**
+ * Word/character count for the body. The body cap (19,999 characters) used to
+ * be invisible until a save bounced off it, so the character half switches to
+ * "used / max" once the note is within 10% of the ceiling.
+ */
+function BodyCounts({ words, chars, lang }: { words: number; chars: number; lang: string }) {
+  const { t } = useTranslation('editor');
+  const max = LIMITS.noteBodyTextMax;
+  const nearLimit = chars >= max * 0.9;
+  return (
+    <span
+      className={`text-xs ${nearLimit ? 'text-red-600 dark:text-red-400' : 'text-on-surface-variant'}`}
+    >
+      {t('wordCount', { count: words })}
+      {' · '}
+      {nearLimit
+        ? t('charCountLimit', { used: chars.toLocaleString(lang), max: max.toLocaleString(lang) })
+        : t('charCount', { count: chars })}
+    </span>
+  );
 }
 
 function EditorReminderPop({ note }: { note: FullNote }) {
@@ -323,6 +345,16 @@ function EditorBody({
     onBlur: () => autosave.flush(),
   });
 
+  // Counted off the plain text the server derives, so the "/ 19,999" the user
+  // sees is the same number the body limit is enforced against.
+  const bodyText = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => (ed ? htmlToPlainText(ed.getHTML()) : ''),
+  });
+  const counted = isList ? note.items.map((i) => i.text).join('\n') : (bodyText ?? '');
+  const trimmed = counted.trim();
+  const words = trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+
   // After list→text conversion the (previously hidden) TipTap instance holds
   // stale content — sync it when the note flips to text and the editor is empty.
   useEffect(() => {
@@ -465,7 +497,7 @@ function EditorBody({
   const shareNote = () => {
     const body = isList
       ? note.items.map((i) => `${i.checked ? '☑' : '☐'} ${i.text}`).join('\n')
-      : htmlToPlainText(note.bodyHtml);
+      : htmlToShareText(note.bodyHtml);
     const text = note.title ? `${note.title}\n\n${body}` : body;
     void navigator.share({ text }).catch(() => undefined);
   };
@@ -599,7 +631,8 @@ function EditorBody({
           <NoteReminderChip note={note} />
           <NoteLabelChips note={note} removable />
 
-          <div className="px-4 pb-1 text-right max-md:hidden">
+          <div className="flex items-center justify-end gap-2 px-4 pb-1 text-right max-md:hidden">
+            <BodyCounts words={words} chars={counted.length} lang={lang} />
             <span
               className="cursor-default text-on-surface-variant text-xs"
               data-tooltip={formatCreatedTooltip(note.createdAt, lang)}
@@ -956,7 +989,8 @@ function EditorBody({
             label={t('notes:more')}
           >
             <div className="border-(--outline-variant) border-b px-6 pt-1 pb-3 text-on-surface-variant text-sm">
-              {t('edited', { time: formatEdited(note.updatedAt, lang) })}
+              <div>{t('edited', { time: formatEdited(note.updatedAt, lang) })}</div>
+              <BodyCounts words={words} chars={counted.length} lang={lang} />
             </div>
             <SheetItem
               svg={deleteSvg}

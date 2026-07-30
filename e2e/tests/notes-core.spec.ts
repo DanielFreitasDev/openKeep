@@ -280,3 +280,17 @@ test('app shortcuts open a new note, list and drawing', async ({ page }) => {
   await page.goto('/?drawing=new');
   await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();
 });
+
+test('the editor footer counts words and characters as you type', async ({ page }) => {
+  await composeNote(page, { title: 'Counted', body: 'one two three' });
+  await cardByTitle(page, 'Counted').click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('3 words · 13 characters')).toBeVisible();
+
+  const body = dialog.locator('.tiptap');
+  await body.click();
+  await body.press('End');
+  await body.pressSequentially(' four');
+  await expect(dialog.getByText('4 words · 18 characters')).toBeVisible();
+});

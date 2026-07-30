@@ -216,9 +216,13 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   Pedido clássico, mas pesado: extensão de tabela do TipTap + sanitizador + render no card +
   export. Só atacar depois do markdown C; avaliar se a demanda real aparece.
 
-- [ ] **Contador de palavras/caracteres** *(impacto baixo · esforço P)*
+- [x] **Contador de palavras/caracteres** *(impacto baixo · esforço P)* — feito em 2026-07-30
   No rodapé do editor (junto do "Edited…"), contagem de palavras/caracteres do corpo — os limites
   (19.999) hoje são invisíveis até estourar.
+  **Entregue:** rodapé do desktop e sheet "Mais" do mobile. A contagem sai do mesmo
+  `htmlToPlainText` que o servidor usa, então o número bate com o limite realmente aplicado; a
+  partir de 90% do teto a metade de caracteres vira "usado / 19.999" em vermelho. Nota do tipo
+  lista conta os itens.
 
 ### 3.2 Organização e busca
 
