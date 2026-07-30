@@ -87,6 +87,3 @@ the table above stays honest. Roughly in order of user impact:
   unused (links are re-detected from text).
 - **`/metrics` endpoint** — `METRICS_ENABLED` is validated in config but no
   Prometheus route exists; Sentry is likewise absent.
-- **E2E flows** — login/signup through the UI (specs seed via API) are not
-  covered by Playwright. (The PWA offline-reload flow gained coverage
-  post-1.0: `offline.spec.ts` + the `pwa` project's `offline-pwa.spec.ts`.)

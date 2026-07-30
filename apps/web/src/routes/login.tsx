@@ -64,7 +64,13 @@ function LoginPage() {
           name: name.trim() || email.split('@')[0] || 'User',
         });
         if (err) {
-          if (err.code === 'USER_ALREADY_EXISTS') setError(t('errorEmailExists'));
+          // Better Auth's sign-up path reports the longer code; accept both so
+          // the friendly message survives either spelling.
+          if (
+            err.code === 'USER_ALREADY_EXISTS' ||
+            err.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL'
+          )
+            setError(t('errorEmailExists'));
           else if (err.code === 'PASSWORD_TOO_SHORT' || password.length < 8)
             setError(t('errorWeakPassword'));
           else setError(t('errorGeneric'));

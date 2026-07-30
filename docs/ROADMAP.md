@@ -130,9 +130,14 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   mostra uma segunda linha com plural nos dois idiomas. A contagem cobre as notas puladas por
   duplicidade também — o aviso é sobre o zip, não sobre o que entrou.
 
-- [ ] **E2E de login/signup pela UI** *(impacto baixo · esforço P)*
+- [x] **E2E de login/signup pela UI** *(impacto baixo · esforço P)* — feito em 2026-07-30
   Os specs autenticam via API. Adicionar spec Playwright cobrindo cadastro, login, erro de senha
   e logout pela interface.
+  **Entregue:** `e2e/tests/auth.spec.ts` com dois fluxos (cadastro → logout → guard → senha errada
+  → login; e-mail duplicado + senha curta). O spec já pagou por si: o Better Auth devolve
+  `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` no cadastro, então o e-mail duplicado caía na mensagem
+  genérica — agora os dois códigos são aceitos. `X-Forwarded-For` por execução mantém o rate limit
+  de 10/min/IP fora do caminho em reexecuções.
 
 ---
 
