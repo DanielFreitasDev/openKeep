@@ -9,6 +9,7 @@ import {
   textblockTypeInputRule,
 } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { FindInNote } from './find-in-note.js';
 
 /**
  * Keep's `#` quick-labeling, minus the one place it collided with markdown.
@@ -207,6 +208,9 @@ export function noteExtensions(placeholder: string, onQuickLabel?: (seed: string
     QuickLabel.configure({ onQuickLabel }),
     MarkdownGestures,
     MarkdownPaste,
+    // Idle until the editor's find bar hands it a query (the composer never
+    // does), and decoration-only either way.
+    FindInNote,
   ];
 }
 

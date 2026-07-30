@@ -164,6 +164,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: 'editor',
   },
   {
+    id: 'find-in-note',
+    keys: ['mod+f'],
+    display: 'Ctrl + f',
+    scope: 'editor',
+    labelKey: 'findInNote',
+    group: 'editor',
+  },
+  {
     id: 'toggle-checkboxes',
     keys: ['mod+shift+8'],
     display: 'Ctrl + Shift + 8',

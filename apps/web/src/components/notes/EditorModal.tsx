@@ -23,13 +23,14 @@ import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
 import photoCameraSvg from '@material-symbols/svg-700/outlined/photo_camera.svg?raw';
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
+import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
 import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import { type FullNote, htmlToPlainText, LIMITS } from '@openkeep/shared';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
@@ -38,6 +39,7 @@ import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
+import { applyFind, findInText, findMatchCount } from '../../lib/find-in-note.js';
 import { noteMutationKeys } from '../../lib/note-mutation-defaults.js';
 import { removeNote } from '../../lib/note-selectors.js';
 import { deleteNoteForever, notesQuery, trashNote } from '../../lib/notes-api.js';
@@ -54,6 +56,8 @@ import type { ChecklistHandle } from './ChecklistEditor.js';
 import { ChecklistEditor } from './ChecklistEditor.js';
 import { ColorPicker } from './ColorPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { displayGroups } from './checklist-logic.js';
+import { FindBar } from './FindBar.js';
 import { FormatBar } from './FormatBar.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
@@ -65,8 +69,6 @@ import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
-
-const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
 type MobileSheet = 'add' | 'palette' | 'more' | 'reminder' | 'labels' | null;
 
@@ -229,8 +231,12 @@ function EditorBody({
   const trashed = note.trashedAt !== null;
   const isList = note.type === 'list';
   const navigate = useNavigate();
-  // Block grid/base single-char shortcuts while the editor is open.
-  useKeyScope('editor', EMPTY_BINDINGS);
+  // Block grid/base single-char shortcuts while the editor is open; Ctrl+F is
+  // the one key the editor claims for itself (assigned below, through a ref, so
+  // the binding registered here stays stable for the editor's whole life).
+  const openFindRef = useRef<() => void>(() => {});
+  const editorBindings = useMemo(() => ({ 'mod+f': () => openFindRef.current() }), []);
+  useKeyScope('editor', editorBindings);
 
   // Keep's "Add drawing": the full-screen drawing editor takes over; back
   // returns here with the drawing stacked above the title.
@@ -367,6 +373,79 @@ function EditorBody({
   const counted = isList ? note.items.map((i) => i.text).join('\n') : (bodyText ?? '');
   const trimmed = counted.trim();
   const words = trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+
+  // ------------------------------------------------------------------- find
+  /**
+   * Ctrl+F inside the open note — the search Keep spent 13 years without.
+   *
+   * Matches are counted over the whole note in reading order (title, then body
+   * or items) and `step` walks them, unbounded: the index is taken modulo the
+   * total, so it wraps at both ends and survives the total changing under it.
+   * Only the body can highlight the matched words themselves — title and items
+   * are native textareas, where the highlight can only be the field.
+   */
+  const [find, setFind] = useState({ open: false, query: '', step: 0 });
+  const findQuery = find.open ? find.query : '';
+
+  // The title is an uncontrolled textarea, so the DOM node holds the live
+  // value. It is read during render on purpose: the bar re-renders on every
+  // keystroke of the query, which is the only moment this can matter.
+  const titleHits = findInText(titleRef.current?.value ?? note.title, findQuery).length;
+
+  // Item hits in the order the rows are shown, so Enter walks the note the way
+  // it reads (the completed section sits at the bottom, per the setting).
+  const itemHits = useMemo(() => {
+    if (!isList || findQuery === '') return [];
+    const rows = note.items.map((i) => ({ ...i, key: i.id }));
+    const { unchecked, checked } = displayGroups(rows, settings?.moveCheckedToBottom ?? true);
+    return [...unchecked, ...checked]
+      .map((r) => ({ id: r.id ?? '', count: findInText(r.text, findQuery).length }))
+      .filter((r) => r.count > 0);
+  }, [isList, findQuery, note.items, settings?.moveCheckedToBottom]);
+
+  const bodyHits =
+    useEditorState({ editor, selector: ({ editor: ed }) => (ed ? findMatchCount(ed) : 0) }) ?? 0;
+  const findTotal = titleHits + (isList ? itemHits.reduce((n, r) => n + r.count, 0) : bodyHits);
+  const findIndex = findTotal === 0 ? -1 : ((find.step % findTotal) + findTotal) % findTotal;
+  const titleIsCurrent = findIndex >= 0 && findIndex < titleHits;
+  const bodyIndex = !isList && findIndex >= titleHits ? findIndex - titleHits : -1;
+  const currentItemId = (() => {
+    if (!isList || findIndex < titleHits) return null;
+    let rest = findIndex - titleHits;
+    for (const hit of itemHits) {
+      if (rest < hit.count) return hit.id;
+      rest -= hit.count;
+    }
+    return null;
+  })();
+  const checklistFind = useMemo(
+    () => ({ hits: new Set(itemHits.map((h) => h.id)), current: currentItemId }),
+    [itemHits, currentItemId],
+  );
+
+  const openFind = () => {
+    setFind((f) => ({ open: true, query: f.query, step: 0 }));
+    // Already open (a second Ctrl+F): the bar is mounted, so its own focus
+    // effect will not run again.
+    const input = popupRef.current?.querySelector<HTMLInputElement>('[data-find-input]');
+    input?.focus();
+    input?.select();
+  };
+  openFindRef.current = openFind;
+
+  useEffect(() => {
+    if (editor) applyFind(editor, isList ? '' : findQuery, bodyIndex);
+  }, [editor, isList, findQuery, bodyIndex]);
+
+  // Bring the current match into view — a decorated word in the body, the
+  // whole field for the title and the checklist rows.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the extra deps are the trigger — the element to scroll to is found in the DOM, which the query and the index have just moved
+  useEffect(() => {
+    if (!find.open) return;
+    popupRef.current
+      ?.querySelector('.find-match-current, [data-find-current="true"]')
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [find.open, findIndex, findQuery]);
 
   // After list→text conversion the (previously hidden) TipTap instance holds
   // stale content — sync it when the note flips to text and the editor is empty.
@@ -591,6 +670,18 @@ function EditorBody({
             )}
           </div>
 
+          {find.open && (
+            <FindBar
+              query={find.query}
+              onQuery={(query) => setFind({ open: true, query, step: 0 })}
+              total={findTotal}
+              index={findIndex}
+              onNext={() => setFind((f) => ({ ...f, step: f.step + 1 }))}
+              onPrev={() => setFind((f) => ({ ...f, step: f.step - 1 }))}
+              onClose={() => setFind((f) => ({ ...f, open: false }))}
+            />
+          )}
+
           <div className="max-h-[38vh] flex-none overflow-y-auto">
             <NoteImages note={note} editable={!trashed} />
           </div>
@@ -610,7 +701,14 @@ function EditorBody({
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
               onBlur={() => autosave.flush()}
-              className="w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant"
+              data-find-current={titleIsCurrent ? 'true' : undefined}
+              className={`w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant ${
+                titleHits > 0
+                  ? titleIsCurrent
+                    ? 'find-field find-field-current'
+                    : 'find-field'
+                  : ''
+              }`}
             />
             {!trashed && (
               <div className="pt-2.5 pr-2 max-md:hidden">
@@ -642,6 +740,7 @@ function EditorBody({
                 moveCheckedToBottom={settings?.moveCheckedToBottom ?? true}
                 addItemsToBottom={settings?.addItemsToBottom ?? true}
                 handleRef={checklistRef}
+                find={find.open ? checklistFind : undefined}
               />
             ) : (
               <EditorContent editor={editor} className="note-editor" />
@@ -809,6 +908,9 @@ function EditorBody({
                         </Menu.Item>
                         <Menu.Item className={menuItemClass} onClick={() => openDrawing('new')}>
                           {t('addDrawing')}
+                        </Menu.Item>
+                        <Menu.Item className={menuItemClass} onClick={openFind}>
+                          {t('findInNote')}
                         </Menu.Item>
                         <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                           {t('versionHistory')}
@@ -1063,6 +1165,14 @@ function EditorBody({
               svg={labelSvg}
               label={note.labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
               onClick={() => setSheet('labels')}
+            />
+            <SheetItem
+              svg={searchSvg}
+              label={t('findInNote')}
+              onClick={() => {
+                setSheet(null);
+                openFind();
+              }}
             />
             <SheetItem
               svg={historySvg}

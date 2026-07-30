@@ -22,6 +22,7 @@
   "openNote": "Open note",
   "closeEditor": "Close note",
   "saveCloseEditor": "Save and close note",
+  "findInNote": "Find in note",
   "toggleCheckboxes": "Show or hide checkboxes",
   "indentItem": "Indent list item",
   "outdentItem": "Un-indent list item",

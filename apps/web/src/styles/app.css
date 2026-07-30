@@ -273,6 +273,42 @@ body {
   pointer-events: none;
 }
 
+/* Find in note (Ctrl+F). The body marks the matched words themselves; the
+   title and the checklist rows are native textareas, where the only thing that
+   can be tinted is the whole field. Both stay legible on all 12 note colors,
+   so the highlight is a translucent wash rather than a fixed hue. */
+.find-match {
+  background: rgba(26, 115, 232, 0.22);
+  border-radius: 2px;
+}
+.dark .find-match {
+  background: rgba(138, 180, 248, 0.3);
+}
+.find-match-current {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+/* Painted with an inset shadow rather than a background/outline: those two
+   properties already belong to Tailwind utilities on the very same elements
+   (`bg-transparent`, `outline-none`), and this must win without !important. */
+.find-field {
+  box-shadow: inset 0 0 0 999px rgba(26, 115, 232, 0.12);
+  border-radius: 4px;
+}
+.dark .find-field {
+  box-shadow: inset 0 0 0 999px rgba(138, 180, 248, 0.16);
+}
+.find-field-current {
+  box-shadow:
+    inset 0 0 0 2px var(--primary),
+    inset 0 0 0 999px rgba(26, 115, 232, 0.12);
+}
+.dark .find-field-current {
+  box-shadow:
+    inset 0 0 0 2px var(--primary),
+    inset 0 0 0 999px rgba(138, 180, 248, 0.16);
+}
+
 /* Keep web: the focused search field lifts onto a white sheet in BOTH themes
    (dark mode included — the bar goes white with dark text, like Keep). */
 .search-elevated:focus-within {

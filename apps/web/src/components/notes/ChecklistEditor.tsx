@@ -48,12 +48,23 @@ export interface ChecklistHandle {
   hasChecked: () => boolean;
 }
 
+/**
+ * Which rows the find bar hit, and which one is the current match. Item text
+ * lives in a native textarea, so the row is highlighted as a whole — the words
+ * themselves can only be marked up in the rich-text body.
+ */
+export interface ChecklistFind {
+  hits: ReadonlySet<string>;
+  current: string | null;
+}
+
 interface ChecklistEditorProps {
   note: FullNote;
   readOnly: boolean;
   moveCheckedToBottom: boolean;
   addItemsToBottom: boolean;
   handleRef?: React.Ref<ChecklistHandle>;
+  find?: ChecklistFind;
 }
 
 /**
@@ -68,6 +79,7 @@ export function ChecklistEditor({
   moveCheckedToBottom,
   addItemsToBottom,
   handleRef,
+  find,
 }: ChecklistEditorProps) {
   const { t } = useTranslation('editor');
   const queryClient = useQueryClient();
@@ -503,6 +515,7 @@ export function ChecklistEditor({
           dragging={dragKey === row.key}
           onDragStart={() => setDragKey(row.key)}
           inputRefs={inputRefs}
+          find={find}
           onText={changeText}
           onCheck={toggleCheck}
           onIndent={setIndent}
@@ -528,7 +541,9 @@ export function ChecklistEditor({
             />
             {t('completedItems', { count: checkedCount })}
           </button>
-          {!collapsed &&
+          {/* A find hit down here beats the collapse: hiding the match the
+              counter is pointing at would read as a broken search. */}
+          {(!collapsed || groups.checked.some((r) => r.id !== null && find?.hits.has(r.id))) &&
             groups.checked.map((row) => (
               <Row
                 key={row.key}
@@ -538,6 +553,7 @@ export function ChecklistEditor({
                 dragging={false}
                 onDragStart={() => {}}
                 inputRefs={inputRefs}
+                find={find}
                 onText={changeText}
                 onCheck={toggleCheck}
                 onIndent={setIndent}
@@ -559,6 +575,7 @@ interface RowProps {
   dragging: boolean;
   onDragStart: () => void;
   inputRefs: React.RefObject<Map<string, HTMLTextAreaElement>>;
+  find?: ChecklistFind;
   onText: (key: string, text: string) => void;
   onCheck: (key: string, checked: boolean) => void;
   onIndent: (key: string, indent: 0 | 1) => void;
@@ -574,6 +591,7 @@ function Row({
   dragging,
   onDragStart,
   inputRefs,
+  find,
   onText,
   onCheck,
   onIndent,
@@ -610,12 +628,17 @@ function Row({
     };
   }, [row.key, row.checked, noteId, readOnly, onDragStart]);
 
+  const hit = row.id !== null && find?.hits.has(row.id) === true;
+  const currentHit = hit && find?.current === row.id;
   return (
     <div
       ref={rootRef}
+      data-find-current={currentHit ? 'true' : undefined}
       className={`group/row flex items-start gap-1 border-transparent border-b py-0.5 ${
         row.indent === 1 ? 'ml-7' : ''
-      } ${dragging ? 'opacity-40' : ''}`}
+      } ${dragging ? 'opacity-40' : ''} ${
+        hit ? (currentHit ? 'find-field find-field-current' : 'find-field') : ''
+      }`}
     >
       {!readOnly && !row.checked ? (
         <button
