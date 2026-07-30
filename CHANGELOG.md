@@ -1,3 +1,22 @@
+# [1.12.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.11.0...v1.12.0) (2026-07-30)
+
+
+### Features
+
+* create a note from the system share sheet ([3bba31f](https://github.com/DanielFreitasDev/openKeep/commit/3bba31f974ad827ead84cf2f0f521616809b7537))
+* understand markdown as it is typed and pasted ([34f0620](https://github.com/DanielFreitasDev/openKeep/commit/34f06201da1a61591b5c9620bfe3e46af5a1e187))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.12.0
+```
+
+Or download `compose.yml` below (image pinned to `1.12.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.12.0/docs/DEPLOYMENT.md).
+
 # [1.11.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.10.1...v1.11.0) (2026-07-30)
 
 
