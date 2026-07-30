@@ -1,6 +1,6 @@
 {
   "name": "@openkeep/e2e",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "private": true,
   "description": "OpenKeep end-to-end suite (Playwright)",
   "license": "MIT",

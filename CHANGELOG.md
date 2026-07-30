@@ -1,3 +1,22 @@
+## [1.8.3](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.2...v1.8.3) (2026-07-30)
+
+
+### Bug Fixes
+
+* keep the grid still while a note is dragged ([c41176e](https://github.com/DanielFreitasDev/openKeep/commit/c41176ebf0b3ffb970916b9b533af88ea2ebbc06))
+* land a dragged note where the preview promised ([a6cc9e5](https://github.com/DanielFreitasDev/openKeep/commit/a6cc9e50f02d86f288042b23d5c858d65f6ad004))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.8.3
+```
+
+Or download `compose.yml` below (image pinned to `1.8.3`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.8.3/docs/DEPLOYMENT.md).
+
 ## [1.8.2](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.1...v1.8.2) (2026-07-30)
 
 
