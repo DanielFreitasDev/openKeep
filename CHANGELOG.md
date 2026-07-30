@@ -1,3 +1,21 @@
+# [1.15.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.14.0...v1.15.0) (2026-07-30)
+
+
+### Features
+
+* find inside an open note with Ctrl+F ([d4a1253](https://github.com/DanielFreitasDev/openKeep/commit/d4a1253c6d9667b39747489d49e9904ae713ec51))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.15.0
+```
+
+Or download `compose.yml` below (image pinned to `1.15.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.15.0/docs/DEPLOYMENT.md).
+
 # [1.14.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.13.0...v1.14.0) (2026-07-30)
 
 
