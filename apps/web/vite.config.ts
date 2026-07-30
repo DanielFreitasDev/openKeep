@@ -18,6 +18,7 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: false,
       manifest: {
+        id: '/',
         name: 'OpenKeep',
         short_name: 'OpenKeep',
         description: 'Open-source, self-hostable Google Keep alternative',
@@ -27,11 +28,41 @@ export default defineConfig({
         start_url: '/',
         icons: [
           { src: '/pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png' },
+          {
+            src: '/pwa-maskable-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+          {
+            src: '/pwa-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+        screenshots: [
+          {
+            src: '/screenshot-wide.png',
+            sizes: '1280x800',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'Notes board on desktop',
+          },
+          {
+            src: '/screenshot-narrow.png',
+            sizes: '390x844',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Notes board on mobile',
+          },
         ],
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Install-dialog screenshots are fetched by the browser UI, never by the app.
+        globIgnores: ['**/screenshot-*.png'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       devOptions: { enabled: false },
