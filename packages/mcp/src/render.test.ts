@@ -45,16 +45,21 @@ describe('noteCard', () => {
 });
 
 describe('noteRender', () => {
-  it('derives plain text, orders items without positions, and gates html', () => {
+  it('derives markdown, orders items without positions, and gates html', () => {
     const client = new FakeOpenKeepClient();
     const text = client.seedNote({ title: 'T', bodyHtml: '<p>a &amp; b</p>' });
     const rendered = noteRender(text, new Map());
-    expect(rendered.text).toBe('a & b');
+    expect(rendered.markdown).toBe('a & b');
     expect(rendered.body_html).toBeUndefined();
     expect(rendered.items).toBeUndefined();
 
     const withHtml = noteRender(text, new Map(), { includeHtml: true });
     expect(withHtml.body_html).toBe('<p>a &amp; b</p>');
+
+    const formatted = client.seedNote({
+      bodyHtml: '<h2>T</h2><ul><li><strong>a</strong></li></ul>',
+    });
+    expect(noteRender(formatted, new Map()).markdown).toBe('## T\n\n- **a**');
 
     const list = client.seedNote({
       type: 'list',

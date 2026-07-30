@@ -16,7 +16,7 @@ const INSTRUCTIONS = [
   'colored, labeled, archived, shared and given (recurring) reminders.',
   'Start with list_notes or search_notes to find things; get_note reads one note in full.',
   'create_note handles content, labels, reminder and state in a single call.',
-  'Tools work with plain text by default; HTML only appears when asked for (include_html/body_html).',
+  'Note bodies are markdown by default — the same syntax comes back out as goes in; HTML only appears when asked for (include_html/body_html).',
   'Every change appears live in the user’s open browser tabs.',
 ].join(' ');
 

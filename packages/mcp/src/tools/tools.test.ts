@@ -82,16 +82,16 @@ describe('create_note (composite)', () => {
   });
 });
 
-describe('update_note / get_note text surface', () => {
-  it('renders plain text by default and html only when asked', async () => {
+describe('update_note / get_note body surface', () => {
+  it('renders markdown by default and html only when asked', async () => {
     const client = new FakeOpenKeepClient();
     const note = client.seedNote({ bodyHtml: '<h1>Big</h1><p>a<br>b</p>' });
 
     const plain = (await getNote.handler(client, { note_id: note.id }, caps)) as {
-      text?: string;
+      markdown?: string;
       body_html?: string;
     };
-    expect(plain.text).toBe('Big\na\nb');
+    expect(plain.markdown).toBe('# Big\n\na  \nb');
     expect(plain.body_html).toBeUndefined();
 
     const withHtml = (await getNote.handler(
@@ -102,11 +102,14 @@ describe('update_note / get_note text surface', () => {
     expect(withHtml.body_html).toBe('<h1>Big</h1><p>a<br>b</p>');
   });
 
-  it('update_note converts text to paragraphs and rejects empty patches', async () => {
+  it('update_note takes markdown, converts text to paragraphs and rejects empty patches', async () => {
     const client = new FakeOpenKeepClient();
     const note = client.seedNote({});
     await updateNote.handler(client, { note_id: note.id, text: 'x\ny' }, caps);
     expect(client.notes.get(note.id)?.bodyHtml).toBe('<p>x</p><p>y</p>');
+
+    await updateNote.handler(client, { note_id: note.id, markdown: '## T\n\n- a\n- b' }, caps);
+    expect(client.notes.get(note.id)?.bodyHtml).toBe('<h2>T</h2><ul><li>a</li><li>b</li></ul>');
 
     await expect(updateNote.handler(client, { note_id: note.id }, caps)).rejects.toThrow(
       'Nothing to update',

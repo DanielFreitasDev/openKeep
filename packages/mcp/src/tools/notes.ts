@@ -1,4 +1,10 @@
-import { NOTE_BACKGROUNDS, NOTE_COLORS, plainTextToHtml, zId } from '@openkeep/shared';
+import {
+  NOTE_BACKGROUNDS,
+  NOTE_COLORS,
+  plainTextToHtml,
+  renderMarkdown,
+  zId,
+} from '@openkeep/shared';
 import { z } from 'zod';
 import { labelMap, noteCard, noteRender, resolveLabels } from '../render.js';
 import { defineTool } from './types.js';
@@ -9,7 +15,16 @@ const zNoteId = zId.describe('Note id (uuid)');
 const zIncludeHtml = z
   .boolean()
   .optional()
-  .describe('Also return the note body as sanitized HTML (h1,h2,p,br,strong,em,u)');
+  .describe(
+    'Also return the note body as sanitized HTML (headings, p, br, strong, em, u, s, code, pre, blockquote, ul, ol, li, hr, a)',
+  );
+
+const zMarkdown = z
+  .string()
+  .optional()
+  .describe(
+    'Markdown body — headings, bold/italic/strikethrough, code, quotes, rules, lists and links all round-trip',
+  );
 
 const zItemInput = z.object({
   text: z.string().max(1000).describe('Checklist item text'),
@@ -20,9 +35,18 @@ const zItemInput = z.object({
     .describe('0 = top level, 1 = indented under the item above'),
 });
 
-/** `text` (plain) is the default body surface; `body_html` overrides it. */
-function bodyHtmlFrom(args: { text?: string | undefined; body_html?: string | undefined }) {
+/**
+ * Body precedence: explicit `body_html`, then `markdown`, then plain `text`.
+ * Markdown is the surface agents should reach for — it is what `get_note`
+ * hands back, so read → edit → write keeps the formatting.
+ */
+function bodyHtmlFrom(args: {
+  text?: string | undefined;
+  markdown?: string | undefined;
+  body_html?: string | undefined;
+}) {
   if (args.body_html !== undefined) return args.body_html;
+  if (args.markdown !== undefined) return renderMarkdown(args.markdown);
   if (args.text !== undefined) return plainTextToHtml(args.text);
   return undefined;
 }
@@ -51,7 +75,7 @@ export const listNotes = defineTool({
 export const getNote = defineTool({
   name: 'get_note',
   description:
-    'Read one note in full: plain text body (or checklist items), labels, reminder, attachments, collaborators.',
+    'Read one note in full: markdown body (or checklist items), labels, reminder, attachments, collaborators.',
   inputSchema: z.object({ note_id: zNoteId, include_html: zIncludeHtml }),
   annotations: { readOnlyHint: true },
   handler: async (client, args) => {
@@ -63,17 +87,18 @@ export const getNote = defineTool({
 export const createNote = defineTool({
   name: 'create_note',
   description:
-    'Create a note in one call: content (plain text or checklist items), color, pin, labels (created if missing), reminder and archived state. On partial failure the note is still created and `warnings` lists what to fix with which tool.',
+    'Create a note in one call: content (markdown, plain text or checklist items), color, pin, labels (created if missing), reminder and archived state. On partial failure the note is still created and `warnings` lists what to fix with which tool.',
   inputSchema: z.object({
     title: z.string().max(999).optional().describe('Note title'),
     text: z
       .string()
       .optional()
       .describe('Plain-text body (for text notes); lines become paragraphs'),
+    markdown: zMarkdown,
     body_html: z
       .string()
       .optional()
-      .describe('Sanitized HTML body — only when formatting (h1,h2,strong,em,u) is needed'),
+      .describe('Sanitized HTML body — only when neither markdown nor plain text fits'),
     items: z
       .array(zItemInput)
       .max(100)
@@ -162,17 +187,18 @@ export const createNote = defineTool({
 export const updateNote = defineTool({
   name: 'update_note',
   description:
-    'Update a note title and/or body. Body accepts plain `text` (lines become paragraphs) or `body_html` for formatting. Checklist items are edited with the checklist tools instead.',
+    'Update a note title and/or body. Body accepts `markdown` (the same syntax get_note returns), plain `text`, or `body_html`. Checklist items are edited with the checklist tools instead.',
   inputSchema: z.object({
     note_id: zNoteId,
     title: z.string().max(999).optional(),
     text: z.string().optional().describe('New plain-text body (replaces the old body)'),
-    body_html: z.string().optional().describe('New sanitized-HTML body (overrides text)'),
+    markdown: zMarkdown,
+    body_html: z.string().optional().describe('New sanitized-HTML body (overrides the others)'),
   }),
   handler: async (client, args) => {
     const bodyHtml = bodyHtmlFrom(args);
     if (args.title === undefined && bodyHtml === undefined) {
-      throw new Error('Nothing to update — pass title, text or body_html.');
+      throw new Error('Nothing to update — pass title, markdown, text or body_html.');
     }
     const result = await client.patchNoteContent(args.note_id, {
       ...(args.title !== undefined ? { title: args.title } : {}),

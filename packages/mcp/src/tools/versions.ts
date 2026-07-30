@@ -23,7 +23,7 @@ export const listNoteVersions = defineTool({
 
 export const getNoteVersion = defineTool({
   name: 'get_note_version',
-  description: 'Read the plain-text content of one version snapshot of a note.',
+  description: 'Read the markdown content of one version snapshot of a note.',
   inputSchema: z.object({ note_id: zNoteId, version_id: zVersionId }),
   annotations: { readOnlyHint: true },
   handler: async (client, args) => client.downloadVersion(args.note_id, args.version_id),

@@ -218,9 +218,9 @@ describe('mcp endpoint', () => {
 
       const result = await client.callTool({ name: 'get_note', arguments: { note_id: noteId } });
       expect(result.isError).toBeFalsy();
-      const rendered = JSON.parse(textOf(result)) as { title: string; text: string };
+      const rendered = JSON.parse(textOf(result)) as { title: string; markdown: string };
       expect(rendered.title).toBe('Single via tool');
-      expect(rendered.text).toBe('corpo');
+      expect(rendered.markdown).toBe('corpo');
     });
 
     it('editing a trashed note fails with guidance to restore_note', async () => {

@@ -1,5 +1,5 @@
 import type { FullNote, Label, Reminder } from '@openkeep/shared';
-import { htmlToPlainText } from '@openkeep/shared';
+import { htmlToMarkdown, htmlToPlainText } from '@openkeep/shared';
 import { OpenKeepApiError } from './client/errors.js';
 import type { OpenKeepClient } from './client/types.js';
 
@@ -30,8 +30,12 @@ export interface RenderedNote {
   id: string;
   type: 'text' | 'list';
   title: string;
-  /** Plain text derived from the note html (the default tool surface). */
-  text?: string;
+  /**
+   * The body as markdown — the default tool surface. Formatting an agent
+   * writes back in the same syntax survives the round trip (the note itself
+   * speaks markdown), and an unformatted note reads exactly like plain text.
+   */
+  markdown?: string;
   /** Only with `include_html`. */
   body_html?: string;
   items?: { id: string; text: string; checked: boolean; indent: 0 | 1 }[];
@@ -107,7 +111,7 @@ export function noteRender(
     updated_at: note.updatedAt,
   };
   if (note.type === 'text') {
-    rendered.text = htmlToPlainText(note.bodyHtml);
+    rendered.markdown = htmlToMarkdown(note.bodyHtml);
   } else {
     // Items arrive ordered by fractional position; position itself is
     // omitted (drag-reorder is a UI concern, not a tool concern).

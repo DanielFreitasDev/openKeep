@@ -124,10 +124,10 @@ describe('createOpenKeepMcpServer', () => {
     const single = await client.readResource({ uri: `openkeep://notes/${note.id}` });
     const singleBody = JSON.parse((single.contents[0] as { text: string }).text) as {
       title: string;
-      text: string;
+      markdown: string;
     };
     expect(singleBody.title).toBe('Res');
-    expect(singleBody.text).toBe('body');
+    expect(singleBody.markdown).toBe('body');
   });
 
   it('serves both prompts', async () => {

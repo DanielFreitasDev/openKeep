@@ -29,7 +29,7 @@ export const capturePrompt: PromptDef = {
       '',
       'Guidelines:',
       '- Give it a short, descriptive title.',
-      '- If the content is enumerable (shopping, tasks, steps), use checklist items; otherwise plain text.',
+      '- If the content is enumerable (shopping, tasks, steps), use checklist items; otherwise a markdown body.',
       '- Attach 1–2 existing labels when they clearly fit (check list_labels); only create a new label when nothing fits.',
       '- If the content mentions a date or deadline, add a reminder for it.',
       '',
