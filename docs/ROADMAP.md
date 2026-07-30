@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30** (rodada de quick wins: CSP da API, heartbeat de WS, flush em
-> blur, retenção da lixeira, atalhos do manifest, contador de palavras)
+> Última atualização: **2026-07-30** (filtro "Pessoas" na busca, auth do WS no handshake, aviso de
+> sharees no import, e2e de login/signup; antes: CSP da API, heartbeat de WS, flush em blur,
+> retenção da lixeira, atalhos do manifest, contador de palavras)
 
 **Legenda de esforço** — `P` até ~1 dia · `M` 2–4 dias · `G` 1 semana ou mais.
 **Legenda de impacto** — `alto` muda o dia a dia de quem usa · `médio` melhora perceptível · `baixo` polimento.
@@ -447,16 +448,15 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
 1. **Markdown fase A** (3.1) — a ideia-guia, esforço pequeno, ganho imediato de UX.
-2. **Filtro "Pessoas"** (1.1) — fecha o maior adiamento da v1.0 em ~1 dia.
-3. **PWA Share Target + manifest shortcuts** (3.4) — pequeno e transforma o uso no celular.
-4. **Rodada de quick wins de robustez** (1.2): blur flush → CSP na API → heartbeat WS →
-   handshake WS → e2e de login. Uma semana, zera meia seção.
-5. **Markdown fase B** (3.1) — export/import `.md`.
-6. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
-7. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-8. **Vincular notas + backlinks** (3.1).
-9. **Link público somente leitura** (3.3).
-10. **Admin mínimo + retenção da lixeira + backup agendado** (3.5) — pacote self-host.
+2. **PWA Share Target** (3.4) — os atalhos do manifest já saíram; falta a folha de compartilhar
+   do sistema. Texto/URL é GET puro; imagem exige POST multipart interceptado no service worker.
+3. **Markdown fase B** (3.1) — export/import `.md`.
+4. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
+5. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
+6. **Vincular notas + backlinks** (3.1).
+7. **Link público somente leitura** (3.3).
+8. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
+9. **Resto dos quick wins de 1.2**: roving tabindex, `/metrics`. O que sobrou da rodada.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes), virtualização do grid.
