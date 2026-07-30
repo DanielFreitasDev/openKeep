@@ -20,9 +20,9 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
 | Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; morphs open/closed from its card; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
-| Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 500ms debounce, dirty-field patches | M2 |
+| Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 🔀 500ms debounce, dirty-field patches, flush on blur; footer word/character count warns before the body cap | M2 |
 | Archive view + undo snackbar | ✓ | ✅ inverse-mutation undo | M2 |
-| Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ + hourly purge job | M2 |
+| Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ 🔀 + hourly purge job; retention configurable via `TRASH_RETENTION_DAYS` (default 7) and the banner states it | M2 |
 | Version history + .txt download | ✓ (+restore 🔀) | ✅ session-boundary snapshots | M2 |
 | Grid ↔ list toggle | ✓ | ✅ synced via settings.viewMode | M2 |
 | Checklists: Enter split, indent 1 level, drag reorder | ✓ | ✅ (Tab/Ctrl+] too; first item can't indent; parent check cascades) | M3 |
@@ -50,6 +50,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ 🔀 phones now mirror the Keep Android app instead (DECISIONS #23) | M8 |
 | Mobile (<768px): search-pill bar, 2-up grid, create FAB, full-screen editor + bottom sheets, long-press select, full-height drawer w/ Settings | Keep web has none (Android app UX) | ✅ 🔀 CSS-breakpoint layer over the same DOM; untouched FAB notes discarded on close; e2e `mobile.spec.ts` | post-1.0 |
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
+| App shortcuts on the installed icon | Keep has none | ✅ 🔀 manifest `shortcuts` → New note / New list / New drawing, as deep links the shell already handles | post-1.0 |
 | Takeout import | — (adoption feature) | ✅ 🔀 images + audio, 512 MB archives, media read on demand, version snapshot at import | M9 |
 | JSON export | Takeout equivalent | ✅ | M9 |
 | Offline edits survive reload | Keep has none | ✅ 🔀 IndexedDB outbox + localStorage draft mirror + offline banner/retry toasts (DECISIONS #22) | post-1.0 |
@@ -80,12 +81,8 @@ the table above stays honest. Roughly in order of user impact:
   offline-composed note restores its text/labels/reminder after a reload, but
   not unsaved images. Attachment uploads pause while offline and resume within
   the session only (FormData is not persisted to the outbox).
-- **Client-side WS heartbeat** — the server pings every 30s and reaps dead
-  sockets; the client relies on that plus visibility/online reconnect checks.
 - **Roving tabindex in the grid** — all cards are tab stops (`tabIndex=0`);
   j/k navigation and focus restore work, but Tab order is not virtualized.
-- **Autosave blur flush** — flushes cover debounce timeout, close, Esc,
-  `visibilitychange`, pagehide and unmount; plain field blur does not flush.
 - **Session undo/redo for title/list items** — TipTap history covers the body;
   the title/items snapshot ring buffer was not built.
 - **Takeout `sharees`** — imported notes are never re-shared and no warning is
@@ -93,8 +90,6 @@ the table above stays honest. Roughly in order of user impact:
   from text).
 - **`/metrics` endpoint** — `METRICS_ENABLED` is validated in config but no
   Prometheus route exists; Sentry is likewise absent.
-- **CSP on API responses** — the strict CSP ships on SPA/static responses in
-  production; JSON API responses rely on `nosniff` + same-origin checks.
 - **WS auth timing** — the session cookie is checked immediately after the
   upgrade completes (socket closed 4401 before any registry add), not during
   the handshake itself.

@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30**
+> Última atualização: **2026-07-30** (rodada de quick wins: CSP da API, heartbeat de WS, flush em
+> blur, retenção da lixeira, atalhos do manifest, contador de palavras)
 
 **Legenda de esforço** — `P` até ~1 dia · `M` 2–4 dias · `G` 1 semana ou mais.
 **Legenda de impacto** — `alto` muda o dia a dia de quem usa · `médio` melhora perceptível · `baixo` polimento.
@@ -21,7 +22,8 @@ Relação com os outros docs:
 
 ## 1. Dívidas de paridade da v1.0
 
-Os 16 adiamentos conscientes listados em PARITY.md ("Known deferrals"), agora com plano de ataque.
+Os adiamentos conscientes listados em PARITY.md ("Known deferrals"), agora com plano de ataque.
+Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
 
 ### 1.1 Funcionalidade visível
 
