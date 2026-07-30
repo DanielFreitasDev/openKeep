@@ -38,6 +38,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
 | Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ✅ client-side instant + server FTS endpoint (ts_headline snippet); all six type tiles, People tiles built from the corpus, every filter combinable | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
+| Find inside an open note (Ctrl+F) | Keep has none (missing for 13 years) | ✅ 🔀 bar over the editor, whole note in reading order (title + body/items), accent- and case-insensitive, `1/3` counter with wrapping Enter/Shift+Enter; the body marks the matched words, the native textareas (title, items) are highlighted whole | post-1.0 |
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
 | Drawings: full-screen editor (pen/marker/highlighter, 28 colors × 8 sizes, stroke eraser + Clear page, grid paper, undo/redo, New drawing / Export as image / Delete current drawing), re-editable | ✓ | ✅ 🔀 vector strokes + ink-cropped PNG render, in-place re-save cache-busted; lasso/zoom/draw-on-image deferred (below) | post-1.0 |
 | Audio attachment playback | ✓ | ✅ player; Takeout import ingests audio (3gp/m4a/mp3/ogg/aac/amr/wav, magic-sniffed) — recording itself is post-1.0 | M5 |

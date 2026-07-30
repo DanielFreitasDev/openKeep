@@ -4,8 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30** (ações em massa: lembrete, marcadores e colaborador na barra de
-> seleção; antes: markdown fases A, B e C — o vocabulário da nota agora é o do markdown, com
+> Última atualização: **2026-07-30** (busca dentro da nota com Ctrl+F; antes: ações em massa —
+> lembrete, marcadores e colaborador na barra de seleção; markdown fases A, B e C — o vocabulário da nota agora é o do markdown, com
 > import/export `.md`; PWA share target, filtro "Pessoas" na busca, auth do WS no handshake, aviso
 > de sharees no import, e2e de login/signup, CSP da API, heartbeat de WS, flush em blur, retenção da
 > lixeira, atalhos do manifest, contador de palavras)
@@ -264,11 +264,28 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   editor de código. Barra de formatação ganhou H3, tachado, listas, citação, código, bloco, link
   (com campo de url) e régua, e virou rolável na horizontal por causa do mobile.
 
-- [ ] **Busca dentro da nota (Ctrl+F)** *(impacto alto · esforço P/M)*
+- [x] **Busca dentro da nota (Ctrl+F)** *(impacto alto · esforço P/M)* — feito em 2026-07-30
   **O quê:** localizar/realçar termos dentro de uma nota aberta — ausência famosa do Keep por
   13 anos ([Tom's Guide](https://www.tomsguide.com/computing/mobile-apps/google-keep-is-finally-adding-a-feature-thats-been-missing-for-13-years)).
   **Como:** no editor, decoration do ProseMirror destacando matches + contador/navegação
   (interceptar Ctrl+F quando o editor está aberto; Esc devolve o atalho ao navegador).
+  **Entregue:** barra fixa no topo do editor (Ctrl+F, item "Localizar na nota" no menu ⋮ e na
+  sheet "Mais" do mobile), contador `1/3`, Enter/Shift+Enter e setas percorrendo com wrap nos dois
+  sentidos. A busca cobre **a nota inteira em ordem de leitura** — título, depois corpo (ou itens,
+  quando é lista) —, é insensível a maiúsculas e a acentos e leva o match atual à vista.
+  **O trade-off do realce:** só o corpo é rich text; título e itens de lista são `textarea`
+  nativos, onde não existe marcação por trecho — o navegador não pinta seleção de campo sem foco,
+  e roubar o foco quebraria o Enter da barra. Então o corpo marca as palavras (decorations) e os
+  campos nativos são realçados **inteiros** (banho + anel no atual). Contagem é por ocorrência nos
+  dois casos, para o número não mentir. Detalhes que apareceram no caminho: (a) o *folding* de
+  acentos precisa **preservar o comprimento** — `normalizeForSearch` (NFD) não serve aqui porque
+  cada offset vira posição de documento, então "ß" e marcas combinantes soltas ficam como estão em
+  vez de deslocar a régua; (b) o Esc da barra tem de parar a propagação, senão fecha a nota junto;
+  (c) o plugin é dono da lista de matches (a barra pergunta quantos foram) para que o doc contado e
+  o decorado sejam sempre o mesmo, e a transação de busca sai do histórico e do evento `update` —
+  o autosave não pode enxergar uma busca como edição; (d) um hit dentro da seção "Itens concluídos"
+  recolhida força a seção a abrir; (e) o realce dos campos é `box-shadow` inset, porque `background`
+  e `outline` já pertencem a utilitários Tailwind nos mesmos elementos.
 
 - [ ] **Texto e checklist na mesma nota** *(impacto alto · esforço G)*
   **O quê:** a reclamação nº 1 da Android Police: marcar checkbox converte a nota inteira em
