@@ -1,3 +1,21 @@
+## [1.10.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.10.0...v1.10.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* stop the service worker swallowing OAuth callback navigations ([5463fce](https://github.com/DanielFreitasDev/openKeep/commit/5463fce2240056ccabd28ef2a8ab01cd82693ffc))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.10.1
+```
+
+Or download `compose.yml` below (image pinned to `1.10.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.10.1/docs/DEPLOYMENT.md).
+
 # [1.10.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.9.1...v1.10.0) (2026-07-30)
 
 
