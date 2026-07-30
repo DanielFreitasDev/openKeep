@@ -1,6 +1,16 @@
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import fs from 'node:fs';
-import { LIMITS, positionAfter, positionsBetween } from '@openkeep/shared';
+import {
+  LIMITS,
+  markdownFileName,
+  metaBackground,
+  metaColor,
+  noteToMarkdown,
+  parseMarkdownNote,
+  positionAfter,
+  positionsBetween,
+} from '@openkeep/shared';
 import { ZipArchive } from 'archiver';
 import { and, count, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import yauzl from 'yauzl';
@@ -10,7 +20,12 @@ import { userJobs } from '../../db/schema/jobs.js';
 import { labels as labelsTable, noteLabels } from '../../db/schema/labels.js';
 import { noteItems, noteMembers, notes } from '../../db/schema/notes.js';
 import { errors } from '../../lib/errors.js';
-import { detectLinks, plainTextToHtml } from '../../lib/sanitize.js';
+import {
+  detectLinks,
+  htmlToPlainText,
+  plainTextToHtml,
+  sanitizeNoteHtml,
+} from '../../lib/sanitize.js';
 import type { Storage } from '../../lib/storage.js';
 import { importMediaAttachment } from '../attachments/service.js';
 import { listLabels } from '../labels/service.js';
@@ -49,11 +64,18 @@ async function updateJob(db: Db, jobId: string, patch: Partial<typeof userJobs.$
 
 // ---------------------------------------------------------------- import
 
-interface TakeoutZip {
+interface ImportZip {
   notes: { fileName: string; parsed: ParsedTakeoutNote }[];
+  /** Markdown entries, read on demand — a vault can hold thousands of files. */
+  markdown: { fileName: string; read: () => Promise<string | null> }[];
   /** Random-access read of one media entry by base name (null if absent/corrupt). */
   readMedia: (baseName: string) => Promise<Buffer | null>;
   close: () => void;
+}
+
+/** `.obsidian/`, `.git/`, `__MACOSX/` — tool state, never notes. */
+function isToolFolder(name: string): boolean {
+  return name.split('/').some((part) => part.startsWith('.') || part === '__MACOSX');
 }
 
 function bufferEntry(zip: yauzl.ZipFile, entry: yauzl.Entry): Promise<Buffer | null> {
@@ -69,12 +91,16 @@ function bufferEntry(zip: yauzl.ZipFile, entry: yauzl.Entry): Promise<Buffer | n
 }
 
 /**
- * Scans the zip once: JSON notes are parsed eagerly (small), media entries are
- * only indexed — bodies are read on demand per note, so a photo-heavy Takeout
- * never sits fully in memory.
+ * Scans the zip once: JSON notes are parsed eagerly (small), media and
+ * markdown entries are only indexed — bodies are read on demand per note, so
+ * neither a photo-heavy Takeout nor a thousand-file vault sits fully in memory.
+ *
+ * One reader for both shapes because one archive can hold both, and because a
+ * markdown vault is otherwise the same job: entries in, notes out.
  */
-async function openTakeoutZip(path: string): Promise<TakeoutZip> {
+async function openImportZip(path: string): Promise<ImportZip> {
   const parsedNotes: { fileName: string; parsed: ParsedTakeoutNote }[] = [];
+  const markdownEntries: { fileName: string; entry: yauzl.Entry }[] = [];
   const mediaEntries = new Map<string, yauzl.Entry>();
 
   const zip = await new Promise<yauzl.ZipFile>((resolve, reject) => {
@@ -87,8 +113,18 @@ async function openTakeoutZip(path: string): Promise<TakeoutZip> {
     zip.on('entry', (entry: yauzl.Entry) => {
       const name = entry.fileName;
       const isJson = name.toLowerCase().endsWith('.json');
+      const isMarkdown = /\.(md|markdown)$/i.test(name);
       const isMedia = /\.(jpe?g|png|gif|webp|3gp|m4a|mp3|ogg|aac|amr|wav)$/i.test(name);
-      if (entry.uncompressedSize > 30 * 1024 * 1024 || (!isJson && !isMedia)) {
+      const skip =
+        entry.uncompressedSize > 30 * 1024 * 1024 ||
+        (!isJson && !isMarkdown && !isMedia) ||
+        isToolFolder(name);
+      if (skip) {
+        zip.readEntry();
+        return;
+      }
+      if (isMarkdown) {
+        markdownEntries.push({ fileName: name, entry });
         zip.readEntry();
         return;
       }
@@ -116,6 +152,10 @@ async function openTakeoutZip(path: string): Promise<TakeoutZip> {
 
   return {
     notes: parsedNotes,
+    markdown: markdownEntries.map(({ fileName, entry }) => ({
+      fileName,
+      read: async () => (await bufferEntry(zip, entry))?.toString('utf8') ?? null,
+    })),
     readMedia: (baseName) => {
       const entry = mediaEntries.get(baseName);
       return entry ? bufferEntry(zip, entry) : Promise.resolve(null);
@@ -124,7 +164,11 @@ async function openTakeoutZip(path: string): Promise<TakeoutZip> {
   };
 }
 
-/** pg-boss `import-takeout` handler body. */
+/**
+ * pg-boss `import-takeout` handler body — Takeout archives and markdown
+ * vaults alike (the queue name predates the second shape; renaming it would
+ * strand anything already queued).
+ */
 export async function runTakeoutImport(
   db: Db,
   storage: Storage,
@@ -136,11 +180,13 @@ export async function runTakeoutImport(
   const userId = job.userId;
 
   await updateJob(db, jobId, { status: 'running' });
-  let zip: TakeoutZip | null = null;
+  let zip: ImportZip | null = null;
   try {
-    zip = await openTakeoutZip(storage.pathFor('exports', job.fileKey));
+    zip = await openImportZip(storage.pathFor('exports', job.fileKey));
     const entries = zip.notes;
-    await updateJob(db, jobId, { total: entries.length });
+    const markdownEntries = zip.markdown;
+    const total = entries.length + markdownEntries.length;
+    await updateJob(db, jobId, { total });
 
     let done = 0;
     let imported = 0;
@@ -148,16 +194,31 @@ export async function runTakeoutImport(
     // Sharing is never re-created on import; count it so the report can say so.
     let shared = 0;
 
+    const tick = async () => {
+      done++;
+      if (done % 5 === 0 || done === total) {
+        await updateJob(db, jobId, { progress: done });
+        onProgress?.(done, total);
+      }
+    };
+
     for (const { parsed } of entries) {
       const outcome = await importOneNote(db, storage, userId, parsed, zip.readMedia);
       if (outcome === 'imported') imported++;
       else skipped++;
       if (parsed.wasShared) shared++;
-      done++;
-      if (done % 5 === 0 || done === entries.length) {
-        await updateJob(db, jobId, { progress: done });
-        onProgress?.(done, entries.length);
-      }
+      await tick();
+    }
+
+    for (const entry of markdownEntries) {
+      const text = await entry.read();
+      const outcome =
+        text === null
+          ? 'skipped'
+          : await importMarkdownNote(db, userId, entry.fileName, text).catch(() => 'skipped');
+      if (outcome === 'imported') imported++;
+      else skipped++;
+      await tick();
     }
 
     await updateJob(db, jobId, {
@@ -177,6 +238,44 @@ export async function runTakeoutImport(
   } finally {
     zip?.close();
     await storage.remove('exports', job.fileKey);
+  }
+}
+
+/** Find-or-create per name, respecting the 50 cap (over-cap labels are dropped). */
+async function attachLabels(
+  tx: Parameters<Parameters<Db['transaction']>[0]>[0],
+  userId: string,
+  noteId: string,
+  names: string[],
+): Promise<void> {
+  for (const labelName of names) {
+    const [existingLabel] = await tx
+      .select()
+      .from(labelsTable)
+      .where(
+        and(
+          eq(labelsTable.userId, userId),
+          sql`lower(${labelsTable.name}) = ${labelName.toLowerCase()}`,
+        ),
+      )
+      .limit(1);
+    let labelId = existingLabel?.id;
+    if (!labelId) {
+      const [countRow] = await tx
+        .select({ n: count() })
+        .from(labelsTable)
+        .where(eq(labelsTable.userId, userId));
+      if ((countRow?.n ?? 0) >= LIMITS.labelsPerUserMax) continue;
+      const [created] = await tx
+        .insert(labelsTable)
+        .values({ userId, name: labelName.slice(0, LIMITS.labelNameMax) })
+        .onConflictDoNothing()
+        .returning();
+      labelId = created?.id;
+    }
+    if (labelId) {
+      await tx.insert(noteLabels).values({ noteId, userId, labelId }).onConflictDoNothing();
+    }
   }
 }
 
@@ -246,39 +345,7 @@ async function importOneNote(
       );
     }
 
-    // Labels: find-or-create respecting the 50 cap (over-cap labels warned via skip).
-    for (const labelName of parsed.labels) {
-      const [existingLabel] = await tx
-        .select()
-        .from(labelsTable)
-        .where(
-          and(
-            eq(labelsTable.userId, userId),
-            sql`lower(${labelsTable.name}) = ${labelName.toLowerCase()}`,
-          ),
-        )
-        .limit(1);
-      let labelId = existingLabel?.id;
-      if (!labelId) {
-        const [countRow] = await tx
-          .select({ n: count() })
-          .from(labelsTable)
-          .where(eq(labelsTable.userId, userId));
-        if ((countRow?.n ?? 0) >= LIMITS.labelsPerUserMax) continue;
-        const [created] = await tx
-          .insert(labelsTable)
-          .values({ userId, name: labelName })
-          .onConflictDoNothing()
-          .returning();
-        labelId = created?.id;
-      }
-      if (labelId) {
-        await tx
-          .insert(noteLabels)
-          .values({ noteId: note!.id, userId, labelId })
-          .onConflictDoNothing();
-      }
-    }
+    await attachLabels(tx, userId, note!.id, parsed.labels);
 
     // Version capture "at import": the arriving content is the first snapshot.
     if (parsed.title !== '' || parsed.bodyText !== '' || parsed.items.length > 0) {
@@ -305,6 +372,130 @@ async function importOneNote(
   }
 
   return 'imported';
+}
+
+// ------------------------------------------------------- markdown import
+
+/** Body html that respects both caps, degrading to plain text if it has to. */
+function fitBody(html: string): { bodyHtml: string; bodyText: string } {
+  let bodyHtml = sanitizeNoteHtml(html);
+  let bodyText = htmlToPlainText(bodyHtml);
+  while (bodyText.length > LIMITS.noteBodyTextMax || bodyHtml.length > LIMITS.noteBodyHtmlMax) {
+    bodyText = bodyText.slice(0, Math.min(LIMITS.noteBodyTextMax, Math.floor(bodyText.length / 2)));
+    bodyHtml = plainTextToHtml(bodyText);
+  }
+  return { bodyHtml, bodyText };
+}
+
+const isoDate = (value: string | undefined): Date | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/**
+ * One `.md` file → one note. Used by the zip job (a whole vault) and by the
+ * direct upload route (a handful of files), so the two paths cannot drift.
+ *
+ * The fingerprint covers the file name and its bytes, which makes re-importing
+ * an unchanged vault a no-op — the same promise the Takeout import makes — and
+ * still lets an edited file come in as a new note.
+ */
+export async function importMarkdownNote(
+  db: Db,
+  userId: string,
+  fileName: string,
+  text: string,
+): Promise<'imported' | 'skipped'> {
+  const baseName = fileName.split('/').pop() ?? fileName;
+  const parsed = parseMarkdownNote(text, baseName);
+  if (parsed.title === '' && parsed.bodyHtml === '' && parsed.items.length === 0) return 'skipped';
+
+  const fingerprint = createHash('sha256').update(`markdown\0${baseName}\0${text}`).digest('hex');
+  const existing = await db
+    .select({ id: notes.id })
+    .from(notes)
+    .where(and(eq(notes.ownerId, userId), eq(notes.importedFingerprint, fingerprint)))
+    .limit(1);
+  if (existing.length > 0) return 'skipped';
+
+  const { bodyHtml, bodyText } =
+    parsed.type === 'text' ? fitBody(parsed.bodyHtml) : { bodyHtml: '', bodyText: '' };
+  const { meta } = parsed;
+  const createdAt = isoDate(meta.created);
+  const updatedAt = isoDate(meta.updated);
+  const items = parsed.items.slice(0, LIMITS.itemsPerNoteMax);
+
+  await db.transaction(async (tx) => {
+    const [note] = await tx
+      .insert(notes)
+      .values({
+        ownerId: userId,
+        type: parsed.type,
+        title: parsed.title,
+        bodyHtml,
+        bodyText,
+        hasLinks: detectLinks(bodyText) || bodyHtml.includes('<a href='),
+        importedFingerprint: fingerprint,
+        lastEditedBy: userId,
+        ...(createdAt ? { createdAt } : {}),
+        ...(updatedAt ? { updatedAt } : {}),
+      })
+      .returning();
+
+    const [maxRow] = await tx
+      .select({ position: noteMembers.position })
+      .from(noteMembers)
+      .where(eq(noteMembers.userId, userId))
+      .orderBy(desc(noteMembers.position))
+      .limit(1);
+    await tx.insert(noteMembers).values({
+      noteId: note!.id,
+      userId,
+      role: 'owner',
+      pinned: meta.pinned === true,
+      archived: meta.archived === true,
+      color: metaColor(meta),
+      background: metaBackground(meta),
+      position: positionAfter(maxRow?.position ?? null),
+    });
+
+    if (items.length > 0) {
+      const positions = positionsBetween(null, null, items.length);
+      await tx.insert(noteItems).values(
+        items.map((item, i) => ({
+          noteId: note!.id,
+          text: item.text,
+          checked: item.checked,
+          indent: item.indent,
+          position: positions[i]!,
+        })),
+      );
+    }
+
+    await attachLabels(tx, userId, note!.id, meta.labels ?? []);
+    await snapshotVersion(tx, note!, items, userId);
+  });
+
+  return 'imported';
+}
+
+/** Direct `.md` upload (no zip): small batches import inline, in order. */
+export async function importMarkdownFiles(
+  db: Db,
+  userId: string,
+  files: { fileName: string; text: string }[],
+): Promise<{ imported: number; skipped: number }> {
+  let imported = 0;
+  let skipped = 0;
+  for (const file of files) {
+    const outcome = await importMarkdownNote(db, userId, file.fileName, file.text).catch(
+      () => 'skipped' as const,
+    );
+    if (outcome === 'imported') imported++;
+    else skipped++;
+  }
+  return { imported, skipped };
 }
 
 // ---------------------------------------------------------------- export
@@ -338,6 +529,32 @@ export async function runExport(db: Db, storage: Storage, jobId: string): Promis
     archive.append(JSON.stringify(allNotes, null, 2), { name: 'notes.json' });
     archive.append(JSON.stringify(allLabels, null, 2), { name: 'labels.json' });
     archive.append(JSON.stringify(settings, null, 2), { name: 'settings.json' });
+
+    // A second, human-readable copy of every note. notes.json is the exact
+    // backup; markdown/ is what opens in Obsidian, Joplin or any editor — and
+    // what /api/import/markdown reads back, front matter and all.
+    const labelNames = new Map(allLabels.map((label) => [label.id, label.name]));
+    const usedNames = new Set<string>();
+    for (const note of allNotes) {
+      const markdown = noteToMarkdown(note, {
+        labels: note.labelIds
+          .map((id) => labelNames.get(id))
+          .filter((name): name is string => name !== undefined),
+        color: note.color,
+        background: note.background,
+        pinned: note.pinned,
+        archived: note.archived,
+        created: note.createdAt,
+        updated: note.updatedAt,
+      });
+      if (markdown.trim() === '') continue;
+      // The id suffix already makes names unique; this only guards a zip entry
+      // colliding after the title was flattened for the file system.
+      let name = markdownFileName(note.title, note.id);
+      while (usedNames.has(name)) name = `_${name}`;
+      usedNames.add(name);
+      archive.append(markdown, { name: `markdown/${note.trashedAt ? 'trash/' : ''}${name}` });
+    }
 
     for (const note of allNotes) {
       for (const att of note.attachments) {

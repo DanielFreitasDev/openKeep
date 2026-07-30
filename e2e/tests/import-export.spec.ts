@@ -13,7 +13,7 @@ test('export produces a downloadable zip from the Import / Export dialog', async
   await page.getByRole('menuitem', { name: 'Import / Export' }).click();
 
   const dialog = page.getByRole('dialog', { name: 'Import / Export' });
-  await expect(dialog.getByText('Import from Google Keep')).toBeVisible();
+  await expect(dialog.getByText('Import from a zip')).toBeVisible();
   await expect(dialog.getByText('Export your data')).toBeVisible();
 
   await dialog.getByRole('button', { name: 'Prepare export' }).click();

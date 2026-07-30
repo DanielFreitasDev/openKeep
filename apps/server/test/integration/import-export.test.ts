@@ -8,6 +8,7 @@ import { ZipArchive } from 'archiver';
 import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import yauzl from 'yauzl';
 import { userJobs } from '../../src/db/schema/jobs.js';
 import { exportUserDataJob, importTakeoutJob, linkPreviewFetchJob } from '../../src/jobs/index.js';
 import {
@@ -457,6 +458,168 @@ describe('takeout import & export', () => {
     await runTakeoutImport(t.db, t.storage, upload.json().jobId);
     const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
     expect((list.json() as FullNote[]).some((n) => n.title === title)).toBe(true);
+  });
+});
+
+/** Multipart body with one part per `.md` file, like the browser sends. */
+function markdownMultipart(files: { name: string; text: string }[]) {
+  const boundary = `----okmd${Math.random().toString(36).slice(2)}`;
+  const parts = files.map((file) =>
+    Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${file.name}"\r\n` +
+        `Content-Type: text/markdown\r\n\r\n${file.text}\r\n`,
+    ),
+  );
+  return {
+    payload: Buffer.concat([...parts, Buffer.from(`--${boundary}--\r\n`)]),
+    headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+  };
+}
+
+describe('markdown import & export', () => {
+  let t: TestApp;
+  let cookie: string;
+
+  beforeAll(async () => {
+    t = await createTestApp();
+    cookie = await t.signUp('md@example.com', 'MD');
+  });
+  afterAll(async () => {
+    await t.close();
+  });
+
+  const importMarkdown = async (files: { name: string; text: string }[]) => {
+    const { payload, headers } = markdownMultipart(files);
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/import/markdown',
+      headers: { ...headers, cookie },
+      payload,
+    });
+    expect(res.statusCode).toBe(200);
+    return res.json() as { imported: number; skipped: number };
+  };
+
+  const notesOf = async () =>
+    (
+      await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } })
+    ).json() as FullNote[];
+
+  it('imports .md files: heading title, formatting, front matter, task lists', async () => {
+    const result = await importMarkdown([
+      {
+        name: 'ignored-name.md',
+        text: '---\nlabels: [Vault, work]\ncolor: mint\npinned: true\n---\n\n# From heading\n\nsome **bold** and `code`\n\n- one\n- two\n',
+      },
+      { name: 'my-todo_list.md', text: '- [ ] milk\n  - [x] bread\n' },
+    ]);
+    expect(result).toEqual({ imported: 2, skipped: 0 });
+
+    const notes = await notesOf();
+    const rich = notes.find((n) => n.title === 'From heading');
+    expect(rich?.bodyHtml).toBe(
+      '<p>some <strong>bold</strong> and <code>code</code></p><ul><li>one</li><li>two</li></ul>',
+    );
+    expect(rich?.color).toBe('mint');
+    expect(rich?.pinned).toBe(true);
+    expect(rich?.labelIds).toHaveLength(2);
+
+    // No heading → the file name becomes the title, and an all-task file is
+    // a checklist note rather than a body full of literal boxes.
+    const todo = notes.find((n) => n.title === 'my todo list');
+    expect(todo?.type).toBe('list');
+    expect(
+      todo?.items.map((i) => ({ text: i.text, checked: i.checked, indent: i.indent })),
+    ).toEqual([
+      { text: 'milk', checked: false, indent: 0 },
+      { text: 'bread', checked: true, indent: 1 },
+    ]);
+  });
+
+  it('skips a re-import of the same file and rejects non-markdown uploads', async () => {
+    const file = { name: 'again.md', text: '# Again\n\nbody\n' };
+    expect(await importMarkdown([file])).toEqual({ imported: 1, skipped: 0 });
+    expect(await importMarkdown([file])).toEqual({ imported: 0, skipped: 1 });
+
+    const { payload, headers } = markdownMultipart([{ name: 'photo.png', text: 'nope' }]);
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/import/markdown',
+      headers: { ...headers, cookie },
+      payload,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('imports a markdown vault zip through the archive job, skipping tool folders', async () => {
+    const zipPath = path.join(
+      t.storage.pathFor('exports', ''),
+      `vault-${randomBytes(4).toString('hex')}.zip`,
+    );
+    const out = fs.createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 1 } });
+    archive.pipe(out);
+    archive.append('# Vault note\n\nfrom a zip\n', { name: 'vault/notes/vault-note.md' });
+    archive.append('# Hidden\n\nno\n', { name: 'vault/.obsidian/plugin.md' });
+    await archive.finalize();
+    await once(out, 'close');
+
+    const upload = await t.app.inject({
+      method: 'POST',
+      url: '/api/import/takeout',
+      headers: {
+        cookie,
+        'content-type': 'multipart/form-data; boundary=b',
+      },
+      payload: Buffer.concat([
+        Buffer.from(
+          '--b\r\nContent-Disposition: form-data; name="file"; filename="vault.zip"\r\nContent-Type: application/zip\r\n\r\n',
+        ),
+        await fsp.readFile(zipPath),
+        Buffer.from('\r\n--b--\r\n'),
+      ]),
+    });
+    expect(upload.statusCode).toBe(202);
+    await runTakeoutImport(t.db, t.storage, upload.json().jobId);
+
+    const notes = await notesOf();
+    expect(notes.some((n) => n.title === 'Vault note')).toBe(true);
+    expect(notes.some((n) => n.title === 'Hidden')).toBe(false);
+    await fsp.rm(zipPath, { force: true });
+  });
+
+  it('writes a markdown copy of every note into the export zip', async () => {
+    const start = await t.app.inject({ method: 'POST', url: '/api/export', headers: { cookie } });
+    const { jobId } = start.json();
+    await runExport(t.db, t.storage, jobId);
+
+    const [job] = await t.db.select().from(userJobs).where(eq(userJobs.id, jobId));
+    const entries = await new Promise<Map<string, string>>((resolve, reject) => {
+      const found = new Map<string, string>();
+      yauzl.open(t.storage.pathFor('exports', job!.fileKey!), { lazyEntries: true }, (err, zip) => {
+        if (err || !zip) return reject(err);
+        zip.on('entry', (entry) => {
+          if (!entry.fileName.startsWith('markdown/')) return zip.readEntry();
+          zip.openReadStream(entry, (streamErr, stream) => {
+            if (streamErr || !stream) return zip.readEntry();
+            const chunks: Buffer[] = [];
+            stream.on('data', (c: Buffer) => chunks.push(c));
+            stream.on('end', () => {
+              found.set(entry.fileName, Buffer.concat(chunks).toString('utf8'));
+              zip.readEntry();
+            });
+          });
+        });
+        zip.on('end', () => resolve(found));
+        zip.readEntry();
+      });
+    });
+
+    const rich = [...entries].find(([name]) => name.includes('From heading'));
+    expect(rich).toBeDefined();
+    expect(rich?.[1]).toContain('labels: [');
+    expect(rich?.[1]).toContain('# From heading');
+    expect(rich?.[1]).toContain('some **bold** and `code`');
   });
 });
 

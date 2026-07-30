@@ -9,6 +9,10 @@ import { errors } from '../../lib/errors.js';
 import type { Storage } from '../../lib/storage.js';
 import * as svc from './service.js';
 
+/** Loose `.md` uploads: generous per file, bounded per request. */
+const MARKDOWN_FILE_MAX_BYTES = 2 * 1024 * 1024;
+const MARKDOWN_FILES_MAX = 100;
+
 const zJob = z.object({
   id: zId,
   kind: z.enum(['import', 'export']),
@@ -79,6 +83,59 @@ export function registerImportExportRoutes(
       const job = await svc.createJob(db, req.user.id, 'import', fileKey);
       await enqueue('import-takeout', job.id);
       return reply.status(202).send({ jobId: job.id });
+    },
+  );
+
+  app.post(
+    '/api/import/markdown',
+    {
+      ...auth,
+      config: { rateLimit: { max: 20, timeWindow: '1 hour' } },
+      schema: {
+        tags: ['import-export'],
+        description:
+          'Import `.md` files as notes (multipart, one part per file). A whole vault goes through /api/import/takeout as a zip instead — that endpoint reads markdown entries too.',
+        response: {
+          200: z.object({ imported: z.number().int(), skipped: z.number().int() }),
+        },
+      },
+    },
+    async (req) => {
+      // Small batches run inline: markdown import is parsing plus inserts, so
+      // the job machinery (and its polling UI) would only add latency here.
+      const files: { fileName: string; text: string }[] = [];
+      let oversized = false;
+      const parts = req.files({
+        limits: { fileSize: MARKDOWN_FILE_MAX_BYTES, files: MARKDOWN_FILES_MAX },
+      });
+      for await (const part of parts) {
+        // Every part is drained even past the cap: abandoning the iterator
+        // mid-stream leaves the request body unconsumed. An over-limit part
+        // either throws or comes back truncated depending on the plugin's
+        // configuration — both mean "skip this one and report it".
+        let buffer: Buffer;
+        try {
+          buffer = await part.toBuffer();
+        } catch {
+          oversized = true;
+          continue;
+        }
+        if (part.file.truncated) {
+          oversized = true;
+          continue;
+        }
+        if (files.length >= MARKDOWN_FILES_MAX) continue;
+        if (!/\.(md|markdown|txt)$/i.test(part.filename)) continue;
+        files.push({ fileName: part.filename, text: buffer.toString('utf8') });
+      }
+      if (files.length === 0) {
+        throw errors.badRequest(
+          oversized
+            ? `Markdown files can be at most ${MARKDOWN_FILE_MAX_BYTES / 1024 / 1024} MB`
+            : 'Expected one or more .md files',
+        );
+      }
+      return svc.importMarkdownFiles(db, req.user.id, files);
     },
   );
 

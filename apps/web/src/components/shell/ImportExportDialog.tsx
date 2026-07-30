@@ -36,6 +36,7 @@ export function ImportExportDialog() {
   const setActiveDialog = useUiStore((s) => s.setActiveDialog);
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const markdownRef = useRef<HTMLInputElement | null>(null);
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [exportJobId, setExportJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,43 @@ export function ImportExportDialog() {
     onSuccess: ({ jobId }) => {
       setError(null);
       setImportJobId(jobId);
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? (err.problem.detail ?? err.problem.title) : t('failed')),
+  });
+
+  /**
+   * Loose `.md` files import synchronously — no job, no polling — because the
+   * work is parsing plus inserts. A whole vault is a zip, which goes through
+   * the archive path above (it reads markdown entries as well as Takeout json).
+   */
+  const importMarkdown = useMutation({
+    mutationFn: async (files: File[]) => {
+      const fd = new FormData();
+      for (const file of files) fd.append('files', file);
+      const res = await fetch('/api/import/markdown', {
+        method: 'POST',
+        body: fd,
+        headers: { 'x-client-id': clientId },
+        credentials: 'same-origin',
+      });
+      if (!res.ok) {
+        const problem = await res.json().catch(() => null);
+        throw new ApiError(
+          problem ?? {
+            type: 'about:blank',
+            title: res.statusText,
+            status: res.status,
+            code: 'internal_error',
+          },
+        );
+      }
+      return (await res.json()) as { imported: number; skipped: number };
+    },
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: notesQuery.queryKey });
+      void queryClient.invalidateQueries({ queryKey: labelsQuery.queryKey });
     },
     onError: (err) =>
       setError(err instanceof ApiError ? (err.problem.detail ?? err.problem.title) : t('failed')),
@@ -145,8 +183,47 @@ export function ImportExportDialog() {
               {t('chooseZip')}
             </button>
             <div className="mt-2">{jobLine(importJob.data)}</div>
-            {error && <p className="mt-1 text-red-600 text-sm dark:text-red-400">{error}</p>}
           </section>
+
+          <section className="mt-6 border-(--outline-variant) border-t pt-4">
+            <h3 className="font-medium text-on-surface text-sm">{t('markdownImportTitle')}</h3>
+            <p className="mt-1 text-on-surface-variant text-xs">{t('markdownImportHint')}</p>
+            <input
+              ref={markdownRef}
+              type="file"
+              accept=".md,.markdown,.txt,text/markdown"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])];
+                e.target.value = '';
+                if (files.length > 0) importMarkdown.mutate(files);
+              }}
+            />
+            <button
+              type="button"
+              disabled={importMarkdown.isPending}
+              className="mt-2 rounded-full border border-(--outline) px-4 py-2 font-medium text-on-surface text-sm hover:bg-(--surface-hover) disabled:opacity-50"
+              onClick={() => markdownRef.current?.click()}
+            >
+              {t('chooseMarkdown')}
+            </button>
+            <div className="mt-2">
+              {importMarkdown.isPending && (
+                <p className="text-on-surface-variant text-sm">{t('working')}</p>
+              )}
+              {importMarkdown.data && (
+                <p className="text-on-surface text-sm">
+                  {t('importDone', {
+                    imported: importMarkdown.data.imported,
+                    skipped: importMarkdown.data.skipped,
+                  })}
+                </p>
+              )}
+            </div>
+          </section>
+
+          {error && <p className="mt-1 text-red-600 text-sm dark:text-red-400">{error}</p>}
 
           <section className="mt-6 border-(--outline-variant) border-t pt-4">
             <h3 className="font-medium text-on-surface text-sm">{t('exportTitle')}</h3>

@@ -5895,6 +5895,43 @@
         }
       }
     },
+    "/api/import/markdown": {
+      "post": {
+        "tags": [
+          "import-export"
+        ],
+        "description": "Import `.md` files as notes (multipart, one part per file). A whole vault goes through /api/import/takeout as a zip instead — that endpoint reads markdown entries too.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "imported": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "imported",
+                    "skipped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/export": {
       "post": {
         "tags": [
