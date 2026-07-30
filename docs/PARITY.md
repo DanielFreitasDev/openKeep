@@ -48,7 +48,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
-| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy | M8 |
+| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ 🔀 hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy/remind/labels (tri-state) — plus bulk collaborator, which Keep has no bulk form of | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ 🔀 phones now mirror the Keep Android app instead (DECISIONS #23) | M8 |
 | Mobile (<768px): search-pill bar, 2-up grid, create FAB, full-screen editor + bottom sheets, long-press select, full-height drawer w/ Settings | Keep web has none (Android app UX) | ✅ 🔀 CSS-breakpoint layer over the same DOM; untouched FAB notes discarded on close; e2e `mobile.spec.ts` | post-1.0 |
@@ -68,8 +68,6 @@ the table above stays honest. Roughly in order of user impact:
   fit button), drawing on top of photos and the auto-extending canvas are not
   in the drawing editor; the page size is fixed at creation and the grid
   choice is saved per drawing.
-- **Bulk "Remind" and "Change labels"** in the selection bar — per-note flows
-  exist; the bulk variants don't.
 - **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing
   "selected item" editor focus state our native-textarea checklist doesn't
   have; removed from the "?" dialog rather than advertised dead.

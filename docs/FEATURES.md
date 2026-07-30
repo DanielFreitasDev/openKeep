@@ -90,7 +90,8 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 ## Multi-select
 
 - Checkmark appears top-left of cards on hover; marquee (rubber-band) selection with the mouse (either button, add-only — a plain background click clears); `Ctrl+A` selects all in view; `x` toggles the focused card.
-- Selection top bar: "N selected" + Pin, Remind, Color, Archive, More (Delete, Change labels, Make a copy). Esc exits.
+- Selection top bar: "N selected" + Pin, Remind, Color, Archive, More (Delete, Change labels, Collaborator, Make a copy). Esc exits. A label only some of the selection carries shows an indeterminate box; clicking it applies the label to all. Below `md` the Remind icon moves into the More menu (six 48px targets do not fit a 360px phone).
+- Bulk Collaborator invites one person to every selected note I own — Keep has no bulk form of it.
 
 ## Keyboard shortcuts
 

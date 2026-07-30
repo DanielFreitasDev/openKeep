@@ -4,10 +4,11 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30** (markdown fases A, B e C — o vocabulário da nota agora é o do
-> markdown, com import/export `.md`; antes: PWA share target, filtro "Pessoas" na busca, auth do WS
-> no handshake, aviso de sharees no import, e2e de login/signup, CSP da API, heartbeat de WS, flush
-> em blur, retenção da lixeira, atalhos do manifest, contador de palavras)
+> Última atualização: **2026-07-30** (ações em massa: lembrete, marcadores e colaborador na barra de
+> seleção; antes: markdown fases A, B e C — o vocabulário da nota agora é o do markdown, com
+> import/export `.md`; PWA share target, filtro "Pessoas" na busca, auth do WS no handshake, aviso
+> de sharees no import, e2e de login/signup, CSP da API, heartbeat de WS, flush em blur, retenção da
+> lixeira, atalhos do manifest, contador de palavras)
 
 **Legenda de esforço** — `P` até ~1 dia · `M` 2–4 dias · `G` 1 semana ou mais.
 **Legenda de impacto** — `alto` muda o dia a dia de quem usa · `médio` melhora perceptível · `baixo` polimento.
@@ -39,12 +40,23 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   também no `search_notes` do MCP. O chip cai no id cru se a pessoa sair da última nota
   compartilhada enquanto o filtro está ligado.
 
-- [ ] **Ações em massa "Lembrete" e "Alterar marcadores"** *(impacto médio · esforço M)*
+- [x] **Ações em massa "Lembrete" e "Alterar marcadores"** *(impacto médio · esforço M)* — feito em 2026-07-30
   **O quê:** na barra de seleção múltipla, o botão Remind e o menu "Change labels" operando sobre
   N notas (os fluxos por nota já existem).
   **Como:** reaproveitar os popovers existentes; no estado de labels, exibir checkbox
   indeterminado quando parte da seleção tem o label (comportamento do Keep). Mutações em lote =
   N PATCHes otimistas (padrão já usado no bulk pin/color/archive).
+  **Entregue:** os três componentes já eram controlados (`ReminderPicker`, `LabelPicker`,
+  `ShareDialog`), então o lote é wiring: `BulkReminderPicker` e `BulkLabelPicker` ao lado dos
+  `Note*` existentes, e nenhuma mudança de API. O tri-estado sai de `selectBulkLabels` (todas ×
+  algumas), e o `indeterminate` só existe no DOM — não há atributo — então é aplicado por ref a
+  cada render, sobre a caixa não-controlada que já existia. Clicar numa caixa mista cai em
+  `checked=true` pelo próprio browser, que é o comportamento do Keep ("aplicar a todas"), e o
+  toggle só dispara PATCH nas notas que de fato mudam. O lembrete em lote recebe *um* lembrete da
+  seleção só para poder oferecer "Excluir lembrete" — aplicar sobrescreve todas, excluir limpa
+  todas as que tinham. **Mobile:** seis alvos de 48px não cabem em 360px (a barra media 397px), então
+  o ícone de lembrete é `max-md:hidden` e vira item do menu "Mais" abaixo de `md` — o e2e mede a
+  barra e falha se ela voltar a estourar.
 
 - [ ] **Atalhos de item de lista `n`/`p`/`Shift+N`/`Shift+P`** *(impacto baixo · esforço M/G)*
   **O quê:** navegar/mover o "item selecionado" do checklist pelo teclado, como no Keep.
@@ -353,9 +365,15 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   rota pública `/s/<token>` (SSR leve ou SPA sem auth) com rate limit; imagens servidas por URL
   assinada derivada do token. Excluir de robots; revogar = deletar linha.
 
-- [ ] **Compartilhar várias notas de uma vez** *(impacto baixo · esforço P)*
+- [x] **Compartilhar várias notas de uma vez** *(impacto baixo · esforço P)* — feito em 2026-07-30
   Na barra de seleção, "Colaborador" aplica o convite às N notas (a Android Police também cita).
   Depende só de reaproveitar o diálogo existente em lote.
+  **Entregue:** o mesmo `ShareDialog`, com a lista de colaboradores vazia (em lote não há uma lista
+  única para remover ninguém — remoção continua sendo por nota) e uma linha nova de subtítulo
+  dizendo em quantas notas o convite vai cair. Só notas minhas entram: a seleção é filtrada por
+  `role === 'owner'` e o item do menu some quando não sobra nenhuma. Convidar dispara N POSTs,
+  fecha o diálogo e limpa a seleção; falhas continuam aparecendo no snackbar de erro do próprio
+  `invite` (uma por nota que recusar, ex.: já colaborador).
 
 - [ ] **Proteger nota com PIN/senha (ocultar)** *(impacto médio · esforço M)*
   **O quê:** nota "trancada": conteúdo borrado/oculto (inclusive na busca) até confirmar senha
