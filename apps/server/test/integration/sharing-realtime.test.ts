@@ -1,5 +1,5 @@
 import type { AddressInfo } from 'node:net';
-import type { FullNote, WsEnvelope } from '@openkeep/shared';
+import { type FullNote, WS_PING, type WsEnvelope } from '@openkeep/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import type { TestApp } from './harness.js';
@@ -109,6 +109,25 @@ describe('sharing & realtime', () => {
     await expect(
       closeCodeOf({ cookie: ownerCookie, origin: 'https://evil.example' }),
     ).resolves.toBe(4403);
+  });
+
+  // Browsers never hand protocol pong frames to JS, so the client heartbeat
+  // rides on an application message the server has to answer.
+  it('answers the client heartbeat and ignores anything else', async () => {
+    const ws = await connectWs(baseUrl, ownerCookie);
+
+    // The listener is attached after the session lookup resolves, so keep
+    // probing rather than racing the tail of the handshake.
+    const probe = setInterval(() => ws.socket.send(WS_PING), 50);
+    const pong = await ws.waitFor('pong').finally(() => clearInterval(probe));
+    expect(pong.type).toBe('pong');
+
+    ws.socket.send('{"type":"note.trashed","payload":{"id":"nope"}}');
+    ws.socket.send('not json at all');
+    await new Promise((r) => setTimeout(r, 100));
+    expect(ws.events.filter((e) => e.type !== 'pong')).toEqual([]);
+
+    ws.close();
   });
 
   it('sharing flow: invite by email, collaborator sees the note', async () => {

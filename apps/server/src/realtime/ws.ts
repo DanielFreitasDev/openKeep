@@ -1,4 +1,5 @@
 import websocket from '@fastify/websocket';
+import { WS_PING, WS_PONG } from '@openkeep/shared';
 import type { App } from '../app.js';
 import type { Auth } from '../auth/auth.js';
 import type { Config } from '../config.js';
@@ -7,7 +8,9 @@ import type { Realtime } from './registry.js';
 
 /**
  * WS endpoint: session cookie validated on upgrade, Origin checked, one
- * logical channel per user. Server pings every 30s; dead sockets reaped.
+ * logical channel per user. Server pings every 30s; dead sockets reaped. The
+ * client runs its own heartbeat on top (`WS_PING`/`WS_PONG`) because browsers
+ * never surface protocol pong frames to JS.
  */
 export async function registerWs(
   app: App,
@@ -48,6 +51,12 @@ export async function registerWs(
       alive = false;
       socket.ping();
     }, 30_000);
+
+    // The socket is server→client for everything real; the only accepted
+    // inbound message is the client's heartbeat probe, echoed straight back.
+    socket.on('message', (raw) => {
+      if (String(raw) === WS_PING) socket.send(WS_PONG);
+    });
 
     socket.on('close', () => {
       clearInterval(ping);

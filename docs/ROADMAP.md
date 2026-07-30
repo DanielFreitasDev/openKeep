@@ -78,9 +78,13 @@ Os 16 adiamentos conscientes listados em PARITY.md ("Known deferrals"), agora co
   é posicionamento absoluto → janela de renderização por faixa de scroll é encaixável sem trocar
   o layout. Cuidado com FLIP animations e âncora de scroll.
 
-- [ ] **Heartbeat de WebSocket no cliente** *(impacto baixo · esforço P)*
+- [x] **Heartbeat de WebSocket no cliente** *(impacto baixo · esforço P)* — feito em 2026-07-30
   O servidor pinga a cada 30s; o cliente confia em reconexão por visibilidade/online. Adicionar
   timer client-side que fecha e reconecta se nenhuma mensagem/pong chegar em N segundos.
+  **Entregue:** heartbeat de camada de aplicação (`WS_PING`/`WS_PONG` no shared) porque o browser
+  nunca expõe frames pong ao JS — o cliente sonda a cada 25s e fecha o socket após 60s de silêncio,
+  caindo no backoff normal. O handler de `visibilitychange` também derruba socket obsoleto (caso
+  do notebook acordando, em que os timers ficaram congelados).
 
 - [ ] **Roving tabindex no grid** *(impacto baixo · esforço P/M)*
   Todos os cards são tab stops (`tabIndex=0`). Implementar roving: um tab stop por grid, setas/j/k

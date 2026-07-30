@@ -53,3 +53,14 @@ export type WsEvent =
   | { type: 'link_preview.resolved'; payload: { url: string } };
 
 export type WsEventType = WsEvent['type'];
+
+/**
+ * Application-level heartbeat, the one thing a client may say over the socket
+ * (everything else is REST). Protocol ping/pong frames are invisible to
+ * browser JS, so a tab that wants to notice a half-open connection — one the
+ * OS still reports as open while nothing crosses it — has to ask out loud and
+ * watch for the answer. Pre-serialized: both ends compare and emit a constant
+ * instead of parsing whatever arrived.
+ */
+export const WS_PING = '{"type":"ping"}';
+export const WS_PONG = '{"type":"pong"}';
