@@ -1,3 +1,22 @@
+## [1.8.2](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.1...v1.8.2) (2026-07-30)
+
+
+### Bug Fixes
+
+* complete the PWA install metadata ([b4f9332](https://github.com/DanielFreitasDev/openKeep/commit/b4f9332a5cc66e56d06b62dc682b9ad55e9453a9))
+* keep the installed-app title bar on the active theme color ([1bb5ac5](https://github.com/DanielFreitasDev/openKeep/commit/1bb5ac56505c23ce7bfc52b26ea18924fe78014c))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.8.2
+```
+
+Or download `compose.yml` below (image pinned to `1.8.2`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openKeep/blob/v1.8.2/docs/DEPLOYMENT.md).
+
 ## [1.8.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.0...v1.8.1) (2026-07-29)
 
 
