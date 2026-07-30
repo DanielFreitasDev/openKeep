@@ -1,3 +1,25 @@
+# [1.13.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.12.0...v1.13.0) (2026-07-30)
+
+
+### Features
+
+* import and export notes as markdown files ([3e50122](https://github.com/DanielFreitasDev/openKeep/commit/3e501223e6b3766f5f8cf51a4c866f311e8a88db))
+* keep formatting through version history and list conversion ([7b1d78e](https://github.com/DanielFreitasDev/openKeep/commit/7b1d78e8cd57a688e0896b0c1f904402d021aece))
+* MCP note bodies speak markdown ([b6c5bd4](https://github.com/DanielFreitasDev/openKeep/commit/b6c5bd4be18968eed412f3f00e14bab3609a73a8))
+* type, paste and download the full markdown syntax ([39ab2fb](https://github.com/DanielFreitasDev/openKeep/commit/39ab2fbc56ce037f2c272f765a3bf1d6a89a2929))
+* widen the note vocabulary to what markdown expresses ([cc221c5](https://github.com/DanielFreitasDev/openKeep/commit/cc221c57b1f9ba59ffc288620a60286753413a73))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.13.0
+```
+
+Or download `compose.yml` below (image pinned to `1.13.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.13.0/docs/DEPLOYMENT.md).
+
 # [1.12.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.11.0...v1.12.0) (2026-07-30)
 
 
