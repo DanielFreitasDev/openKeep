@@ -8,7 +8,10 @@ import { positionBetween } from '@openkeep/shared';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { NoteCard } from '../notes/NoteCard.js';
+import type { DragItem, DragSnapshot, DropTarget } from './drag.js';
+import { dragTargetAt, insertIndexFor, previewLayout, sameDropTarget } from './drag.js';
 import { estimateNoteHeight } from './estimate.js';
+import type { MasonryLayout } from './masonry.js';
 import { CARD_W, columnsForWidth, GUTTER, gridWidth, layoutMasonry } from './masonry.js';
 
 /**
@@ -59,8 +62,10 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragPreview, setDragPreview] = useState<{ overId: string; before: boolean } | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const snapshotRef = useRef<DragSnapshot | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
   const [containerW, setContainerW] = useState(0);
   const heightsRef = useRef(new Map<string, number>());
   const [measureVersion, bumpMeasure] = useReducer((x: number) => x + 1, 0);
@@ -82,6 +87,18 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
    */
   const patchStateRef = useRef(m.patchState);
   patchStateRef.current = m.patchState;
+
+  /**
+   * The laid-out grid as it stands, for the drag monitor to freeze at dragstart
+   * (assigned below, once the layout for this render exists).
+   */
+  const geometryRef = useRef<{
+    layout: MasonryLayout;
+    heights: Map<string, number>;
+    cols: number;
+    cardW: number;
+    gutter: number;
+  } | null>(null);
 
   /**
    * Whether the current press started on a card control. Lives in a ref because
@@ -142,55 +159,103 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     for (const id of ids) knownIds.add(id);
   }, [notes, knownIds]);
 
+  // The section itself is the drop target: the gap is placed from the pointer
+  // against frozen geometry (see ./drag.ts), so per-card targets would only
+  // narrow the drop zone to the cards and leave the gutters dead.
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el || !dndSection) return;
+    return dropTargetForElements({
+      element: el,
+      getData: () => ({ gridSection: dndSection }),
+    });
+  }, [dndSection]);
+
   // Manual drag-reorder (per-user fractional positions). Dropping a card from
   // the other section also flips its pin (Keep behavior).
   useEffect(() => {
     if (!dndSection) return;
+    /** The gap the pointer is over, or null when it is not over this section. */
+    const targetFor = (location: { input: { clientX: number; clientY: number } }) => {
+      const snap = snapshotRef.current;
+      const el = innerRef.current;
+      if (!snap || !el) return null;
+      const rect = el.getBoundingClientRect();
+      return dragTargetAt(
+        snap,
+        location.input.clientX - rect.left,
+        location.input.clientY - rect.top,
+      );
+    };
     return monitorForElements({
       canMonitor: ({ source }) => typeof source.data.gridNoteId === 'string',
-      onDragStart: ({ source }) => setDraggingId(source.data.gridNoteId as string),
-      // Live re-layout preview: while hovering this section, other cards glide
-      // to show where the drop would land.
-      onDrag: ({ location }) => {
-        const target = location.current.dropTargets.find(
-          (dt) => dt.data.gridSection === dndSection,
-        );
-        if (!target) {
-          setDragPreview((p) => (p === null ? p : null));
-          return;
-        }
-        const overId = target.data.gridNoteId as string;
-        const rect = (target.element as HTMLElement).getBoundingClientRect();
-        const before = (location.current.input.clientY ?? 0) < rect.top + rect.height / 2;
-        setDragPreview((p) =>
-          p?.overId === overId && p.before === before ? p : { overId, before },
-        );
-      },
-      onDrop: ({ source, location }) => {
-        setDraggingId(null);
-        setDragPreview(null);
-        const target = location.current.dropTargets.find(
-          (dt) => dt.data.gridSection === dndSection,
-        );
-        if (!target) return;
+      // Freeze the grid as the user sees it right now; the whole drag previews
+      // against this and nothing re-packs until the drop.
+      onDragStart: ({ source }) => {
+        const geometry = geometryRef.current;
         const dragId = source.data.gridNoteId as string;
-        const overId = target.data.gridNoteId as string;
-        if (dragId === overId) return;
+        if (geometry) {
+          const items: DragItem[] = [];
+          for (const note of notesRef.current) {
+            const rect = geometry.layout.rects.get(note.id);
+            if (!rect) continue;
+            items.push({
+              id: note.id,
+              x: rect.x,
+              y: rect.y,
+              height: geometry.heights.get(note.id) ?? 0,
+            });
+          }
+          snapshotRef.current = {
+            dragId,
+            // A card dragged in from the other section was never measured here.
+            dragHeight:
+              geometry.heights.get(dragId) ??
+              Math.round(source.element.getBoundingClientRect().height),
+            cols: geometry.cols,
+            cardW: geometry.cardW,
+            gutter: geometry.gutter,
+            items,
+            containerHeight: geometry.layout.containerHeight,
+          };
+        }
+        setDraggingId(dragId);
+      },
+      onDrag: ({ location }) => {
+        const over = location.current.dropTargets.some((dt) => dt.data.gridSection === dndSection);
+        const next = over ? targetFor(location.current) : null;
+        setDropTarget((prev) => (sameDropTarget(prev, next) ? prev : next));
+      },
+      // The drop reads the pointer again rather than trusting the last preview:
+      // a drag fast enough to land between two frames never previewed at all.
+      onDrop: ({ source, location }) => {
+        const snap = snapshotRef.current;
+        const target = targetFor(location.current);
+        snapshotRef.current = null;
+        setDraggingId(null);
+        setDropTarget(null);
+        if (!snap || !target) return;
+        // A cancelled drag (Escape, dropped outside) lands on no drop target,
+        // and must leave the order alone even though a gap was open.
+        if (!location.current.dropTargets.some((dt) => dt.data.gridSection === dndSection)) return;
 
+        const dragId = snap.dragId;
         const ordered = notesRef.current.filter((n) => n.id !== dragId);
-        const overIdx = ordered.findIndex((n) => n.id === overId);
-        if (overIdx === -1) return;
-        const rect = (target.element as HTMLElement).getBoundingClientRect();
-        const pointerY = location.current.input.clientY;
-        const before = pointerY < rect.top + rect.height / 2;
-        const insertAt = before ? overIdx : overIdx + 1;
-        const prev = ordered[insertAt - 1];
-        const next = ordered[insertAt];
-        const position = positionBetween(prev?.position ?? null, next?.position ?? null);
+        const insertAt = insertIndexFor(
+          ordered.map((n) => n.id),
+          target,
+        );
+        if (insertAt === null) return;
+        const sameSection = source.data.gridSection === dndSection;
+        // Re-inserting a card where it already sits is not a reorder.
+        if (sameSection && insertAt === notesRef.current.findIndex((n) => n.id === dragId)) return;
 
-        const sourceSection = source.data.gridSection as string | undefined;
+        const position = positionBetween(
+          ordered[insertAt - 1]?.position ?? null,
+          ordered[insertAt]?.position ?? null,
+        );
         const patch: { position: string; pinned?: boolean } = { position };
-        if (sourceSection !== dndSection) patch.pinned = dndSection === 'pinned';
+        if (!sameSection) patch.pinned = dndSection === 'pinned';
         patchStateRef.current.mutate({ id: dragId, patch });
       },
     });
@@ -219,28 +284,28 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
       ? Math.min(600, containerW)
       : CARD_W;
 
-  // While dragging within this section, lay out the preview order instead.
-  const orderedForLayout = useMemo(() => {
-    if (!draggingId || !dragPreview || dragPreview.overId === draggingId) return notes;
-    const without = notes.filter((n) => n.id !== draggingId);
-    if (without.length === notes.length) return notes; // dragged card lives in the other section
-    const overIdx = without.findIndex((n) => n.id === dragPreview.overId);
-    const dragged = notes.find((n) => n.id === draggingId);
-    if (overIdx === -1 || !dragged) return notes;
-    const insertAt = dragPreview.before ? overIdx : overIdx + 1;
-    return [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
-  }, [notes, draggingId, dragPreview]);
-
   const { layout, heights } = useMemo(() => {
     void measureVersion;
     const heightOf = new Map<string, number>();
-    const items = orderedForLayout.map((n) => {
+    const items = notes.map((n) => {
       const h = heightsRef.current.get(n.id) ?? estimateNoteHeight(n, cardW);
       heightOf.set(n.id, h);
       return { id: n.id, height: h };
     });
     return { layout: layoutMasonry(items, cols, cardW, gutter), heights: heightOf };
-  }, [orderedForLayout, cols, cardW, gutter, measureVersion]);
+  }, [notes, cols, cardW, gutter, measureVersion]);
+  geometryRef.current = { layout, heights, cols, cardW, gutter };
+
+  /**
+   * While dragging, positions come from the frozen snapshot instead — a
+   * re-measure or a note arriving mid-drag must not move the grid under the
+   * pointer. A note the snapshot never saw falls back to the live layout.
+   */
+  const dragLayout = useMemo(() => {
+    const snap = snapshotRef.current;
+    if (draggingId === null || snap === null) return null;
+    return previewLayout(snap, dropTarget);
+  }, [draggingId, dropTarget]);
 
   // Follow the scroll in BAND_STEP jumps: within a step the current slice
   // still covers the viewport, so no re-render is needed.
@@ -298,16 +363,12 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
       const cleanups = [() => cardObserver.unobserve(el)];
       if (dndSection) {
         cleanups.push(
+          // Drag state is owned by the section monitor below: it also sees the
+          // cards dragged in from the other section.
           draggable({
             element: el,
             canDrag: () => !pressedControlRef.current,
             getInitialData: () => ({ gridNoteId: noteId, gridSection: dndSection }),
-            onDragStart: () => setDraggingId(noteId),
-            onDrop: () => setDraggingId(null),
-          }),
-          dropTargetForElements({
-            element: el,
-            getData: () => ({ gridNoteId: noteId, gridSection: dndSection }),
           }),
         );
       }
@@ -319,15 +380,21 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   );
 
   const innerW = cols === 1 ? cardW : gridWidth(cols, cardW, gutter);
+  // A drag never shrinks the grid: the drop target is this box, and a box that
+  // shrank out from under the pointer would drop the preview it just opened.
+  const containerHeight = dragLayout
+    ? Math.max(dragLayout.containerHeight, snapshotRef.current?.containerHeight ?? 0)
+    : layout.containerHeight;
 
   return (
     <div ref={containerRef} className="w-full">
       <div
+        ref={innerRef}
         className="relative mx-auto"
-        style={{ width: innerW || '100%', height: layout.containerHeight }}
+        style={{ width: innerW || '100%', height: containerHeight }}
       >
         {visibleNotes.map((note) => {
-          const rect = layout.rects.get(note.id);
+          const rect = dragLayout?.rects.get(note.id) ?? layout.rects.get(note.id);
           const measured = heightsRef.current.has(note.id);
           return (
             <div
@@ -337,8 +404,8 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
               data-selectable={note.trashedAt === null ? '' : undefined}
               ref={cardRef}
               className={`${
-                animate && draggingId !== note.id
-                  ? 'transition-transform duration-[180ms] motion-reduce:transition-none'
+                animate
+                  ? 'transition-transform duration-[180ms] ease-out motion-reduce:transition-none'
                   : ''
               } ${draggingId === note.id ? 'opacity-40' : ''} ${
                 animate && !knownIds.has(note.id) ? 'note-enter' : ''
