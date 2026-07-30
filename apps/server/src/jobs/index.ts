@@ -127,7 +127,7 @@ export async function startJobs(
   await boss.createQueue('purge-trash');
   await boss.schedule('purge-trash', '0 * * * *');
   await boss.work('purge-trash', async () => {
-    const purged = await purgeExpiredTrash(db, new Date(), storage);
+    const purged = await purgeExpiredTrash(db, new Date(), storage, config.TRASH_RETENTION_DAYS);
     if (purged > 0) log.info({ purged }, 'purged expired trash');
   });
 

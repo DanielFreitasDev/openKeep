@@ -67,6 +67,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` | OAuth sign-in buttons |
 | `SMTP_URL`, `SMTP_FROM` | Password-reset emails |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web-push reminders (`pnpm --filter @openkeep/server gen:vapid`) |
+| `TRASH_RETENTION_DAYS` | How long trashed notes survive the hourly purge (default `7`, Keep parity). The Trash banner states whatever you set. |
 
 ## MCP / AI clients
 

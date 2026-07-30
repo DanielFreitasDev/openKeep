@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { LIMITS } from '@openkeep/shared';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
@@ -24,6 +25,8 @@ const EnvSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true'),
+  /** Days a trashed note survives. Keep's 7 by default; capped so the banner stays truthful. */
+  TRASH_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(LIMITS.trashRetentionDays),
 });
 
 export type Config = z.infer<typeof EnvSchema> & {

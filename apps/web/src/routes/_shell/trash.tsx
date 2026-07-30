@@ -1,4 +1,5 @@
 import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
+import { LIMITS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
@@ -10,7 +11,7 @@ import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { selectTrashed } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
-import { settingsQuery } from '../../lib/queries.js';
+import { metaQuery, settingsQuery } from '../../lib/queries.js';
 
 export const Route = createFileRoute('/_shell/trash')({
   component: TrashView,
@@ -20,6 +21,8 @@ function TrashView() {
   const { t } = useTranslation('trash');
   const { data: trashed, isSuccess } = useQuery({ ...notesQuery, select: selectTrashed });
   const { data: settings } = useQuery(settingsQuery);
+  // The instance decides how long the Trash holds; the banner must not promise 7.
+  const { data: meta } = useQuery(metaQuery);
   const m = useNoteMutations();
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   usePublishViewOrder(useMemo(() => (trashed ?? []).map((n) => n.id), [trashed]));
@@ -29,7 +32,9 @@ function TrashView() {
   return (
     <div className="px-3 py-4 md:px-6">
       <div className="mx-auto mb-4 flex max-w-[960px] items-center justify-center gap-4">
-        <p className="text-on-surface text-sm italic">{t('banner')}</p>
+        <p className="text-on-surface text-sm italic">
+          {t('banner', { count: meta?.trashRetentionDays ?? LIMITS.trashRetentionDays })}
+        </p>
         {!isEmpty && (
           <button
             type="button"

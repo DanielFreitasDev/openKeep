@@ -16,6 +16,21 @@ describe('loadConfig', () => {
     expect(cfg.LOG_LEVEL).toBe('info');
   });
 
+  it('defaults trash retention to Keep parity and takes a valid override', () => {
+    expect(loadConfig({ ...valid }).TRASH_RETENTION_DAYS).toBe(7);
+    expect(loadConfig({ ...valid, TRASH_RETENTION_DAYS: '30' }).TRASH_RETENTION_DAYS).toBe(30);
+  });
+
+  // A zero or fractional window would silently purge on the next hourly run.
+  it('rejects a trash retention that is not a positive whole number of days', () => {
+    expect(() => loadConfig({ ...valid, TRASH_RETENTION_DAYS: '0' })).toThrow(
+      /TRASH_RETENTION_DAYS/,
+    );
+    expect(() => loadConfig({ ...valid, TRASH_RETENTION_DAYS: '1.5' })).toThrow(
+      /TRASH_RETENTION_DAYS/,
+    );
+  });
+
   it('rejects a missing DATABASE_URL with a readable message', () => {
     const { DATABASE_URL: _omitted, ...rest } = valid;
     expect(() => loadConfig(rest)).toThrow(/DATABASE_URL/);

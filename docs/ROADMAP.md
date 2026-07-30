@@ -341,9 +341,12 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   Mesmo dilema de plugin do item anterior (plugin `passkey`/`twoFactor` vs não ter). Se a decisão
   do OIDC for "aceitar plugin pinado", este pega carona; senão, adiar — não bloqueia nada.
 
-- [ ] **Retenção da lixeira configurável** *(impacto baixo · esforço P)*
+- [x] **Retenção da lixeira configurável** *(impacto baixo · esforço P)* — feito em 2026-07-30
   7 dias fixo (paridade). Env `TRASH_RETENTION_DAYS` lido pelo job de purge horário + banner
   dinâmico ("As notas na lixeira são excluídas após N dias") — string i18n nos dois idiomas.
+  **Entregue:** env validado (inteiro ≥ 1), `purgeExpiredTrash` recebe a janela, e o valor sai em
+  `/api/meta` (`zInstanceMeta`) para o banner plural (`banner_one`/`banner_other`) nos dois
+  idiomas. Documentado em DEPLOYMENT.md e `.env.example`.
 
 - [ ] **Armazenamento de anexos em S3/MinIO** *(impacto médio · esforço M/G)*
   Hoje anexos vivem em disco. Interface de storage (disco = default, S3 opcional por env) para

@@ -22,9 +22,11 @@ export const zUserSettingsPatch = zUserSettings.partial();
 export type UserSettings = z.infer<typeof zUserSettings>;
 export type UserSettingsPatch = z.infer<typeof zUserSettingsPatch>;
 
-/** Public instance metadata for the login page. */
+/** Public instance metadata for the login page, plus instance-wide policy the UI states out loud. */
 export const zInstanceMeta = z.object({
   oauth: z.object({ google: z.boolean(), github: z.boolean() }),
   passwordReset: z.boolean(),
+  /** How long trashed notes survive before the hourly purge takes them. */
+  trashRetentionDays: z.number().int().positive(),
 });
 export type InstanceMeta = z.infer<typeof zInstanceMeta>;

@@ -125,7 +125,8 @@ describe('sharing & realtime', () => {
     ws.socket.send('{"type":"note.trashed","payload":{"id":"nope"}}');
     ws.socket.send('not json at all');
     await new Promise((r) => setTimeout(r, 100));
-    expect(ws.events.filter((e) => e.type !== 'pong')).toEqual([]);
+    // `pong` is transport plumbing, deliberately outside the WsEvent union.
+    expect(ws.events.filter((e) => (e.type as string) !== 'pong')).toEqual([]);
 
     ws.close();
   });

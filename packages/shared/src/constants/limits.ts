@@ -28,7 +28,7 @@ export const LIMITS = {
   drawingStrokesMax: 2_000,
   drawingPointsPerStrokeMax: 10_000,
   drawingDataMaxBytes: 1024 * 1024,
-  /** Trash retention before permanent purge, in days (Keep parity). */
+  /** Default trash retention before permanent purge, in days (Keep parity; TRASH_RETENTION_DAYS overrides). */
   trashRetentionDays: 7,
   /** Version snapshots kept per note (oldest pruned). */
   versionsPerNoteMax: 50,

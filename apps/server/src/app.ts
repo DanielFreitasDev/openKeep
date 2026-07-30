@@ -114,6 +114,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
         github: config.GITHUB_CLIENT_ID !== undefined,
       },
       passwordReset: config.SMTP_URL !== undefined,
+      trashRetentionDays: config.TRASH_RETENTION_DAYS,
     }),
   );
 

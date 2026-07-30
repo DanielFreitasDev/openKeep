@@ -1,5 +1,6 @@
 {
-  "banner": "Notes in Trash are deleted after 7 days.",
+  "banner_one": "Notes in Trash are deleted after {{count}} day.",
+  "banner_other": "Notes in Trash are deleted after {{count}} days.",
   "emptyTrashAction": "Empty Trash",
   "noteInTrash": "Note in Trash",
   "restore": "Restore",

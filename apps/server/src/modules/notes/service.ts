@@ -831,8 +831,9 @@ export async function purgeExpiredTrash(
   db: Db,
   now: Date = new Date(),
   storage?: Storage,
+  retentionDays: number = LIMITS.trashRetentionDays,
 ): Promise<number> {
-  const cutoff = new Date(now.getTime() - LIMITS.trashRetentionDays * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
   const expiredIds = (
     await db
       .select({ id: notes.id })

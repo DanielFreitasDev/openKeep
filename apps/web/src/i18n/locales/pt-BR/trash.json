@@ -1,5 +1,6 @@
 {
-  "banner": "As notas na Lixeira são excluídas após 7 dias.",
+  "banner_one": "As notas na Lixeira são excluídas após {{count}} dia.",
+  "banner_other": "As notas na Lixeira são excluídas após {{count}} dias.",
   "emptyTrashAction": "Esvaziar Lixeira",
   "noteInTrash": "Nota na Lixeira",
   "restore": "Restaurar",

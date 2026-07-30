@@ -268,6 +268,20 @@ describe('notes core', () => {
       const row = await t.db.select().from(notes).where(eq(notes.id, n.id));
       expect(row).toHaveLength(0);
     });
+
+    // TRASH_RETENTION_DAYS moves the cutoff; the same note is spared or taken
+    // depending only on the window the instance configured.
+    it('honours a custom retention window', async () => {
+      const n = await create({ title: 'Long-lived trash' });
+      await t.app.inject({ method: 'POST', url: `/api/notes/${n.id}/trash`, headers: { cookie } });
+      const eightDaysHence = new Date(Date.now() + 8 * 24 * 3600 * 1000);
+
+      expect(await purgeExpiredTrash(t.db, eightDaysHence, undefined, 30)).toBe(0);
+      expect(await t.db.select().from(notes).where(eq(notes.id, n.id))).toHaveLength(1);
+
+      expect(await purgeExpiredTrash(t.db, eightDaysHence, undefined, 1)).toBeGreaterThanOrEqual(1);
+      expect(await t.db.select().from(notes).where(eq(notes.id, n.id))).toHaveLength(0);
+    });
   });
 
   describe('copy & convert', () => {
