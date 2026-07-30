@@ -1,3 +1,21 @@
+## [1.9.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.9.0...v1.9.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* allow blob: images so composer previews render in production ([3fd9db3](https://github.com/DanielFreitasDev/openKeep/commit/3fd9db349415847423256b00173c011e8ca331a4))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.9.1
+```
+
+Or download `compose.yml` below (image pinned to `1.9.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.9.1/docs/DEPLOYMENT.md).
+
 # [1.9.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.8.3...v1.9.0) (2026-07-30)
 
 
