@@ -261,6 +261,33 @@ describe('search (FTS)', () => {
     expect(await search('q=groceries&color=coral')).toEqual([]);
   });
 
+  it('filters by collaborator (the "People" filter)', async () => {
+    const otherCookie = await t.signUp('search-collab@example.com', 'Collab');
+    const others = await t.app.inject({
+      method: 'GET',
+      url: '/api/notes',
+      headers: { cookie: otherCookie },
+    });
+    expect(others.json()).toEqual([]);
+
+    const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
+    const groceries = (list.json() as FullNote[]).find((n) => n.title === 'Groceries')!;
+    const invite = await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${groceries.id}/collaborators`,
+      headers: { cookie },
+      payload: { email: 'search-collab@example.com' },
+    });
+    expect(invite.statusCode).toBe(201);
+    const collabId = (invite.json() as { userId: string }).userId;
+
+    expect(await search(`collaborator=${collabId}`)).toEqual(['Groceries']);
+    expect(await search(`q=groceries&collaborator=${collabId}`)).toEqual(['Groceries']);
+    expect(await search(`q=peru&collaborator=${collabId}`)).toEqual([]);
+    // Someone who shares nothing with me matches nothing, never everything.
+    expect(await search('collaborator=nobody')).toEqual([]);
+  });
+
   it('neutralizes tsquery operator injection', async () => {
     // Operators are stripped; remaining terms AND-join: gold + coin both
     // appear in "Archived treasure" (and nothing 500s).

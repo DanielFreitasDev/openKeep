@@ -27,11 +27,15 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
 
 ### 1.1 Funcionalidade visível
 
-- [ ] **Filtro "Pessoas" na busca** *(impacto alto · esforço P)*
+- [x] **Filtro "Pessoas" na busca** *(impacto alto · esforço P)* — feito em 2026-07-30
   **O quê:** tile "People" nos filtros da busca (avatares dos colaboradores) + filtro combinável.
   **Como:** o corpus do cliente já carrega colaboradores → seletor client-side é imediato; no
   servidor, um parâmetro `collaborator` em `/api/search` vira um `EXISTS` sobre `note_members`.
-  É o adiamento de maior impacto/menor custo — bom primeiro item.
+  **Entregue:** `selectPeople` monta os tiles a partir do próprio corpus (dedup, sem mim, sem
+  lixeira) e `?collaborator=<userId>` combina com texto/tipo/label/cor. No servidor o `EXISTS` é
+  um self-join de `note_members` (a linha de fora é a minha, a de dentro é a dele), exposto
+  também no `search_notes` do MCP. O chip cai no id cru se a pessoa sair da última nota
+  compartilhada enquanto o filtro está ligado.
 
 - [ ] **Ações em massa "Lembrete" e "Alterar marcadores"** *(impacto médio · esforço M)*
   **O quê:** na barra de seleção múltipla, o botão Remind e o menu "Change labels" operando sobre

@@ -33,7 +33,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Settings dialog (6 toggles/fields) | ✓ | ✅ instant-apply + theme select | M3 |
 | Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ✅ per-user; case-insensitive uniqueness | M4 |
 | `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
-| Search: instant, filter tiles (Types/Labels/Colors) | ✓ | ✅ client-side instant + server FTS endpoint (ts_headline snippet); all six type tiles. People filter deferred (see below) | M4 |
+| Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ✅ client-side instant + server FTS endpoint (ts_headline snippet); all six type tiles, People tiles built from the corpus, every filter combinable | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
 | Drawings: full-screen editor (pen/marker/highlighter, 28 colors × 8 sizes, stroke eraser + Clear page, grid paper, undo/redo, New drawing / Export as image / Delete current drawing), re-editable | ✓ | ✅ 🔀 vector strokes + ink-cropped PNG render, in-place re-save cache-busted; lasso/zoom/draw-on-image deferred (below) | post-1.0 |
@@ -60,9 +60,6 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 Planned (or Keep-parity) items consciously not shipped in v1.0 — tracked here so
 the table above stays honest. Roughly in order of user impact:
 
-- **Search "People" filter** — no client tile/param and no `collaborator` filter
-  on `/api/search`. The corpus carries collaborator data, so this is client
-  selector + one SQL EXISTS away.
 - **Drawing tool extras** — the lasso select tool, canvas zoom/pan (Keep's
   fit button), drawing on top of photos and the auto-extending canvas are not
   in the drawing editor; the page size is fixed at creation and the grid

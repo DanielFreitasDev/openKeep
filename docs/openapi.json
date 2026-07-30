@@ -4475,6 +4475,15 @@
             "in": "query",
             "name": "color",
             "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "query",
+            "name": "collaborator",
+            "required": false
           }
         ],
         "responses": {

@@ -275,7 +275,13 @@ export class FetchClient implements OpenKeepClient {
 
   search(query: SearchQuery): Promise<SearchResult[]> {
     return this.json('/api/search', {
-      query: { q: query.q, type: query.type, label: query.label, color: query.color },
+      query: {
+        q: query.q,
+        type: query.type,
+        label: query.label,
+        color: query.color,
+        collaborator: query.collaborator,
+      },
     });
   }
 

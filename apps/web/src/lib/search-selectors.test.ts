@@ -1,6 +1,15 @@
-import type { FullNote } from '@openkeep/shared';
+import type { Collaborator, FullNote } from '@openkeep/shared';
 import { describe, expect, it } from 'vitest';
-import { matchesQuery, normalizeForSearch, selectSearch } from './note-selectors.js';
+import { matchesQuery, normalizeForSearch, selectPeople, selectSearch } from './note-selectors.js';
+
+const me: Collaborator = { userId: 'me', email: 'me@x.dev', name: 'Me', role: 'owner' };
+const ana: Collaborator = {
+  userId: 'u-ana',
+  email: 'ana@x.dev',
+  name: 'Ana',
+  role: 'collaborator',
+};
+const bo: Collaborator = { userId: 'u-bo', email: 'bo@x.dev', name: 'Bo', role: 'collaborator' };
 
 let seq = 0;
 function note(over: Partial<FullNote>): FullNote {
@@ -67,6 +76,8 @@ describe('selectSearch', () => {
     note({ title: 'Linked', bodyHtml: '<p>see https://x.dev</p>', hasLinks: true }),
     note({ title: 'Colored', bodyHtml: '<p>hello paint</p>', color: 'coral' }),
     note({ title: 'Labeled', bodyHtml: '<p>hello tag</p>', labelIds: ['lbl-1'] }),
+    note({ title: 'Shared with Ana', bodyHtml: '<p>hello ana</p>', collaborators: [me, ana] }),
+    note({ title: 'Shared with Bo', bodyHtml: '<p>hello bo</p>', collaborators: [me, bo] }),
   ];
 
   it('returns nothing when no query or filters', () => {
@@ -97,5 +108,32 @@ describe('selectSearch', () => {
     ]);
     expect(selectSearch(corpus, { q: 'paint', color: 'coral' }).active).toHaveLength(1);
     expect(selectSearch(corpus, { q: 'nothing', color: 'coral' }).active).toHaveLength(0);
+  });
+
+  it('filters by collaborator, combinable with text', () => {
+    expect(
+      selectSearch(corpus, { q: '', collaboratorId: 'u-ana' }).active.map((n) => n.title),
+    ).toEqual(['Shared with Ana']);
+    expect(selectSearch(corpus, { q: 'hello', collaboratorId: 'u-bo' }).active).toHaveLength(1);
+    expect(selectSearch(corpus, { q: 'ana', collaboratorId: 'u-bo' }).active).toHaveLength(0);
+    expect(selectSearch(corpus, { q: '', collaboratorId: 'nobody' }).active).toHaveLength(0);
+  });
+});
+
+describe('selectPeople', () => {
+  it('dedupes collaborators, drops me and trashed notes, sorts by name', () => {
+    const people = selectPeople(
+      [
+        note({ collaborators: [me, bo] }),
+        note({ collaborators: [me, ana] }),
+        note({ collaborators: [me, ana] }),
+        note({
+          collaborators: [me, { userId: 'u-zed', email: 'z@x.dev', name: 'Zed', role: 'owner' }],
+          trashedAt: '2026-07-20T00:00:00.000Z',
+        }),
+      ],
+      'me',
+    );
+    expect(people.map((p) => p.userId)).toEqual(['u-ana', 'u-bo']);
   });
 });

@@ -33,6 +33,8 @@ export interface SearchQuery {
   type?: SearchType;
   label?: string;
   color?: string;
+  /** User id of a collaborator the note is shared with. */
+  collaborator?: string;
 }
 
 export type SearchResult = FullNote & { headline: string | null };

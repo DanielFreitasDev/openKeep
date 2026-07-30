@@ -1,5 +1,6 @@
 import { LIMITS, zFullNote } from '@openkeep/shared';
 import { and, eq, exists, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import type { App } from '../../app.js';
 import type { Db } from '../../db/client.js';
@@ -15,6 +16,8 @@ const zSearchQuery = z.object({
   type: z.enum(['list', 'url', 'image', 'audio', 'drawing', 'reminder']).optional(),
   label: z.string().max(LIMITS.labelNameMax).optional(),
   color: z.string().max(30).optional(),
+  /** User id of a collaborator the note is shared with (the "People" filter). */
+  collaborator: z.string().max(64).optional(),
 });
 
 /**
@@ -34,7 +37,7 @@ export function registerSearchRoutes(app: App, db: Db): void {
       },
     },
     async (req) => {
-      const { q, type, label, color } = req.query;
+      const { q, type, label, color, collaborator } = req.query;
       const userId = req.user.id;
 
       const conditions = [eq(noteMembers.userId, userId), isNull(notes.trashedAt)];
@@ -73,6 +76,20 @@ export function registerSearchRoutes(app: App, db: Db): void {
       }
 
       if (color) conditions.push(eq(noteMembers.color, color));
+
+      if (collaborator) {
+        // Self-join on note_members: the outer row is my membership, this one
+        // is theirs, so the note is one we both hold.
+        const shared = alias(noteMembers, 'shared_with');
+        conditions.push(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(shared)
+              .where(and(eq(shared.noteId, notes.id), eq(shared.userId, collaborator))),
+          ),
+        );
+      }
 
       if (label) {
         conditions.push(

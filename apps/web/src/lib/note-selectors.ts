@@ -1,4 +1,4 @@
-import type { FullNote } from '@openkeep/shared';
+import type { Collaborator, FullNote } from '@openkeep/shared';
 import { comparePositions } from '@openkeep/shared';
 
 export interface MainSections {
@@ -61,6 +61,25 @@ export interface SearchFilters {
   type?: 'list' | 'url' | 'image' | 'audio' | 'drawing' | 'reminder' | undefined;
   labelId?: string | undefined;
   color?: string | undefined;
+  collaboratorId?: string | undefined;
+}
+
+/**
+ * Everyone I share a note with, deduped across the corpus — the "People"
+ * filter tiles. Trashed notes are excluded so a person only lingers while a
+ * live note still ties us together; I am never my own filter.
+ */
+export function selectPeople(notes: FullNote[], myId: string | undefined): Collaborator[] {
+  const people = new Map<string, Collaborator>();
+  for (const n of notes) {
+    if (n.trashedAt !== null) continue;
+    for (const c of n.collaborators) {
+      if (c.userId !== myId) people.set(c.userId, c);
+    }
+  }
+  return [...people.values()].sort((a, b) =>
+    (a.name || a.email).localeCompare(b.name || b.email, undefined, { sensitivity: 'base' }),
+  );
 }
 
 /** Accent-fold + lowercase (client twin of the server's unaccent config). */
@@ -116,7 +135,7 @@ export interface SearchResults {
 
 /** Instant client-side search over the corpus (Keep behavior). */
 export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults {
-  const hasAny = f.q.trim() !== '' || f.type || f.labelId || f.color;
+  const hasAny = f.q.trim() !== '' || f.type || f.labelId || f.color || f.collaboratorId;
   if (!hasAny) return { active: [], archived: [] };
 
   const words = queryWords(f.q);
@@ -132,6 +151,8 @@ export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults
     if (f.type === 'reminder' && n.reminder === null) return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;
+    if (f.collaboratorId && !n.collaborators.some((c) => c.userId === f.collaboratorId))
+      return false;
     return matchesWords(n, words);
   });
 

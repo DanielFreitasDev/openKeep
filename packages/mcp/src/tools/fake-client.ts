@@ -406,6 +406,8 @@ export class FakeOpenKeepClient implements OpenKeepClient {
         if (query.type === 'list' && n.type !== 'list') return false;
         if (query.type === 'reminder' && !n.reminder) return false;
         if (query.color && n.color !== query.color) return false;
+        if (query.collaborator && !n.collaborators.some((c) => c.userId === query.collaborator))
+          return false;
         return (
           q === '' ||
           n.title.toLowerCase().includes(q) ||

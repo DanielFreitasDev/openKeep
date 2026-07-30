@@ -16,11 +16,21 @@ export const searchNotes = defineTool({
       ),
     label: z.string().optional().describe('Only notes carrying this label (name)'),
     color: z.string().optional().describe('Only notes with this color'),
+    collaborator: z
+      .string()
+      .optional()
+      .describe('Only notes shared with this person (user id, as returned by list_collaborators)'),
   }),
   annotations: { readOnlyHint: true },
   handler: async (client, args) => {
     const [results, labels] = await Promise.all([
-      client.search({ q: args.q, type: args.type, label: args.label, color: args.color }),
+      client.search({
+        q: args.q,
+        type: args.type,
+        label: args.label,
+        color: args.color,
+        collaborator: args.collaborator,
+      }),
       labelMap(client),
     ]);
     return {
