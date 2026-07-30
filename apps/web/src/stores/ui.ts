@@ -29,8 +29,22 @@ export function isDarkEffective(pref: ThemePref): boolean {
   return pref === 'dark';
 }
 
+// Mirror --surface in styles/app.css. Also hardcoded in index.html and
+// public/theme-init.js (plain files that cannot import).
+const SURFACE_LIGHT = '#ffffff';
+const SURFACE_DARK = '#202124';
+
 function applyTheme(pref: ThemePref) {
-  document.documentElement.classList.toggle('dark', isDarkEffective(pref));
+  const dark = isDarkEffective(pref);
+  document.documentElement.classList.toggle('dark', dark);
+  // Keep the installed-PWA title bar on the app surface color: forced prefs
+  // override both media-scoped <meta name="theme-color"> tags; "system"
+  // restores their defaults so the OS scheme picks the active one.
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const metaIsDark = meta.getAttribute('media')?.includes('dark') ?? false;
+    const effectiveDark = pref === 'system' ? metaIsDark : dark;
+    meta.setAttribute('content', effectiveDark ? SURFACE_DARK : SURFACE_LIGHT);
+  }
 }
 
 interface UiState {
