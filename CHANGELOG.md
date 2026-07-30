@@ -1,3 +1,26 @@
+# [1.10.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.9.1...v1.10.0) (2026-07-30)
+
+
+### Features
+
+* add create shortcuts to the installed app icon ([47034f8](https://github.com/DanielFreitasDev/openKeep/commit/47034f8baa6293faf73113b28b5532ab2c65c861))
+* flush the autosave when a field loses focus ([1938cb6](https://github.com/DanielFreitasDev/openKeep/commit/1938cb605f326503a3f962fdf994a25d61baf561))
+* make trash retention configurable per instance ([89b9813](https://github.com/DanielFreitasDev/openKeep/commit/89b9813f617ca8293028250be158f1592dfb0d34))
+* reconnect the WebSocket when it goes half-open ([5c8c4a4](https://github.com/DanielFreitasDev/openKeep/commit/5c8c4a4895d78fcb19b9159f9ab0da4855fa619f))
+* send a locked-down CSP on API JSON responses ([35dedc7](https://github.com/DanielFreitasDev/openKeep/commit/35dedc7469c8b8fea4bc2fc1fe43fbcd33a5774e))
+* show word and character counts in the editor footer ([08c5e2c](https://github.com/DanielFreitasDev/openKeep/commit/08c5e2cb9db14c1971b45f5342231a492a632d24))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.10.0
+```
+
+Or download `compose.yml` below (image pinned to `1.10.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.10.0/docs/DEPLOYMENT.md).
+
 ## [1.9.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.9.0...v1.9.1) (2026-07-30)
 
 
