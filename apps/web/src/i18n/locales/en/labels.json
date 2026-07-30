@@ -5,6 +5,7 @@
   "deleteLabel": "Delete label",
   "renameLabel": "Rename label",
   "labelNote": "Label note",
+  "labelNotes": "Label notes",
   "enterLabelName": "Enter label name",
   "createNamed": "Create “{{name}}”",
   "addLabel": "Add label",

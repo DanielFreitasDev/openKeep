@@ -12,6 +12,8 @@ interface ShareDialogProps {
   collaborators: Collaborator[];
   isOwner: boolean;
   inviting?: boolean;
+  /** Line under the title — the bulk path says how many notes it will share. */
+  subtitle?: string;
   onInvite: (email: string) => void;
   onRemove: (userId: string) => void;
 }
@@ -26,6 +28,7 @@ export function ShareDialog({
   collaborators,
   isOwner,
   inviting = false,
+  subtitle,
   onInvite,
   onRemove,
 }: ShareDialogProps) {
@@ -42,6 +45,7 @@ export function ShareDialog({
           <Dialog.Title className="px-6 pt-5 pb-2 font-medium text-lg text-on-surface">
             {t('title')}
           </Dialog.Title>
+          {subtitle && <p className="px-6 pb-1 text-on-surface-variant text-sm">{subtitle}</p>}
 
           <div className="flex-1 overflow-y-auto px-4 pb-2">
             {collaborators.map((c) => (

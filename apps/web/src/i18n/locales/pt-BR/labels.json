@@ -5,6 +5,7 @@
   "deleteLabel": "Excluir marcador",
   "renameLabel": "Renomear marcador",
   "labelNote": "Marcar nota",
+  "labelNotes": "Marcar notas",
   "enterLabelName": "Digite o nome do marcador",
   "createNamed": "Criar “{{name}}”",
   "addLabel": "Adicionar marcador",

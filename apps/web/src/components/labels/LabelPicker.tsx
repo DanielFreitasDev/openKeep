@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { labelsQuery } from '../../lib/labels-api.js';
-import { normalizeForSearch } from '../../lib/note-selectors.js';
+import { normalizeForSearch, selectBulkLabels } from '../../lib/note-selectors.js';
 import { Icon } from '../Icon.js';
 
 /**
@@ -15,12 +15,17 @@ import { Icon } from '../Icon.js';
  */
 export function LabelPicker({
   selectedIds,
+  mixedIds = [],
   onToggle,
   initialFilter = '',
+  title,
 }: {
   selectedIds: string[];
+  /** Labels only some of the notes carry — rendered indeterminate (bulk). */
+  mixedIds?: string[];
   onToggle: (labelId: string, on: boolean) => void;
   initialFilter?: string;
+  title?: string;
 }) {
   const { t } = useTranslation('labels');
   const { data: labels } = useQuery(labelsQuery);
@@ -41,7 +46,7 @@ export function LabelPicker({
 
   return (
     <div className="flex w-56 flex-col py-2">
-      <div className="px-3 pb-1 font-medium text-on-surface text-sm">{t('labelNote')}</div>
+      <div className="px-3 pb-1 font-medium text-on-surface text-sm">{title ?? t('labelNote')}</div>
       <input
         type="text"
         value={filter}
@@ -59,15 +64,22 @@ export function LabelPicker({
       <div className="max-h-64 overflow-y-auto">
         {visible.map((label) => {
           const checked = selectedIds.includes(label.id);
+          const mixed = mixedIds.includes(label.id);
           return (
             <label
               key={label.id}
               className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-on-surface text-sm hover:bg-(--surface-hover)"
             >
-              {/* Uncontrolled: must flip in the click's frame; cache sync follows. */}
+              {/* Uncontrolled: must flip in the click's frame; cache sync follows.
+                  `indeterminate` has no attribute — it is DOM-only, so the ref
+                  (re-run on every render) is the only way to keep it in sync.
+                  Clicking one lands on checked=true: mixed → applies to all. */}
               <input
                 type="checkbox"
                 defaultChecked={checked}
+                ref={(el) => {
+                  if (el) el.indeterminate = mixed;
+                }}
                 className="h-4 w-4 accent-(--on-surface-variant)"
                 onChange={(e) => onToggle(label.id, e.target.checked)}
               />
@@ -87,6 +99,29 @@ export function LabelPicker({
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * The picker wired to a multi-selection: tri-state boxes, and a toggle fans out
+ * to the notes it actually changes (a mixed label lands on "apply to all").
+ */
+export function BulkLabelPicker({ notes }: { notes: FullNote[] }) {
+  const { t } = useTranslation('labels');
+  const m = useLabelMutations();
+  const { checked, mixed } = selectBulkLabels(notes);
+  return (
+    <LabelPicker
+      title={t('labelNotes')}
+      selectedIds={checked}
+      mixedIds={mixed}
+      onToggle={(labelId, on) => {
+        for (const note of notes) {
+          if (note.labelIds.includes(labelId) !== on)
+            m.setNoteLabel.mutate({ noteId: note.id, labelId, on });
+        }
+      }}
+    />
   );
 }
 

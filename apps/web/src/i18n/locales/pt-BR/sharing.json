@@ -5,6 +5,8 @@
   "you": "você",
   "ownerBadge": "Proprietário",
   "emailPlaceholder": "Pessoa ou e-mail para compartilhar",
+  "shareCount_one": "Compartilhando {{count}} nota selecionada",
+  "shareCount_other": "Compartilhando {{count}} notas selecionadas",
   "invite": "Compartilhar",
   "remove": "Remover",
   "leave": "Sair",

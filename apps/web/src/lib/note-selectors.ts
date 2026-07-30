@@ -54,6 +54,22 @@ export function selectByLabel(notes: FullNote[], labelId: string): MainSections 
   return selectMain(notes.filter((n) => n.labelIds.includes(labelId)));
 }
 
+/**
+ * Label state across a multi-selection: a label is `checked` when every note
+ * carries it and `mixed` when only some do (Keep renders the latter as an
+ * indeterminate box, and clicking it applies the label to the whole selection).
+ */
+export function selectBulkLabels(notes: FullNote[]): { checked: string[]; mixed: string[] } {
+  const counts = new Map<string, number>();
+  for (const n of notes) {
+    for (const id of new Set(n.labelIds)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const checked: string[] = [];
+  const mixed: string[] = [];
+  for (const [id, count] of counts) (count === notes.length ? checked : mixed).push(id);
+  return { checked, mixed };
+}
+
 // ---------------------------------------------------------------- search
 
 export interface SearchFilters {

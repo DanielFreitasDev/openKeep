@@ -4,6 +4,7 @@ import {
   mergeNote,
   removeNote,
   selectArchived,
+  selectBulkLabels,
   selectMain,
   selectTrashed,
   upsertNote,
@@ -81,5 +82,27 @@ describe('note selectors', () => {
     expect(withB.find((n) => n.id === a.id)?.title).toBe('a');
 
     expect(removeNote(merged, a.id)).toHaveLength(1);
+  });
+
+  it('splits bulk label state into fully applied and mixed', () => {
+    const notes = [
+      note({ labelIds: ['work', 'home'] }),
+      note({ labelIds: ['work'] }),
+      note({ labelIds: ['work', 'home', 'trip'] }),
+    ];
+    const { checked, mixed } = selectBulkLabels(notes);
+    expect(checked).toEqual(['work']);
+    expect(mixed.sort()).toEqual(['home', 'trip']);
+  });
+
+  it('counts a label once per note and reports none for an empty selection', () => {
+    // A duplicated id in one note must not pass for "every note has it".
+    const { checked, mixed } = selectBulkLabels([
+      note({ labelIds: ['work', 'work'] }),
+      note({ labelIds: [] }),
+    ]);
+    expect(checked).toEqual([]);
+    expect(mixed).toEqual(['work']);
+    expect(selectBulkLabels([])).toEqual({ checked: [], mixed: [] });
   });
 });
