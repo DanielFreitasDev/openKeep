@@ -1,3 +1,27 @@
+# [1.11.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.10.1...v1.11.0) (2026-07-30)
+
+
+### Bug Fixes
+
+* authenticate the WebSocket before accepting the upgrade ([bb1280b](https://github.com/DanielFreitasDev/openKeep/commit/bb1280b881f12987f645fdee6e53a9e6ec67cd37))
+
+
+### Features
+
+* filter search by the people a note is shared with ([95c953c](https://github.com/DanielFreitasDev/openKeep/commit/95c953c6041bf5021495945c052fd5815fdc5215))
+* report notes that were shared in Keep after a Takeout import ([e23a25f](https://github.com/DanielFreitasDev/openKeep/commit/e23a25f531307a76f6243930fa5bd24874308143))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.11.0
+```
+
+Or download `compose.yml` below (image pinned to `1.11.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.11.0/docs/DEPLOYMENT.md).
+
 ## [1.10.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.10.0...v1.10.1) (2026-07-30)
 
 
