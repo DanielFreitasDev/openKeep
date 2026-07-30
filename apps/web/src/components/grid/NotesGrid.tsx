@@ -8,8 +8,15 @@ import { positionBetween } from '@openkeep/shared';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { NoteCard } from '../notes/NoteCard.js';
-import type { DragItem, DragSnapshot, DropTarget } from './drag.js';
-import { dragTargetAt, insertIndexFor, previewLayout, sameDropTarget } from './drag.js';
+import type { DragCard, DragSnapshot, DropTarget } from './drag.js';
+import {
+  buildDragSnapshot,
+  dragTargetAt,
+  insertIndexFor,
+  previewLayout,
+  sameDropTarget,
+  targetForIndex,
+} from './drag.js';
 import { estimateNoteHeight } from './estimate.js';
 import type { MasonryLayout } from './masonry.js';
 import { CARD_W, columnsForWidth, GUTTER, gridWidth, layoutMasonry } from './masonry.js';
@@ -89,8 +96,8 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   patchStateRef.current = m.patchState;
 
   /**
-   * The laid-out grid as it stands, for the drag monitor to freeze at dragstart
-   * (assigned below, once the layout for this render exists).
+   * The measurements the drag monitor freezes at dragstart (assigned below,
+   * once this render's layout exists).
    */
   const geometryRef = useRef<{
     layout: MasonryLayout;
@@ -99,6 +106,16 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     cardW: number;
     gutter: number;
   } | null>(null);
+  /**
+   * Where the dragged card sits until the pointer asks for somewhere else —
+   * its own slot, so picking a card up moves nothing.
+   */
+  const homeTargetRef = useRef<DropTarget | null>(null);
+  /**
+   * The gap the user can currently see. The drop follows it rather than
+   * re-reading the pointer, so the card cannot land anywhere else.
+   */
+  const dropTargetRef = useRef<DropTarget | null>(null);
 
   /**
    * Whether the current press started on a card control. Lives in a ref because
@@ -189,49 +206,53 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     };
     return monitorForElements({
       canMonitor: ({ source }) => typeof source.data.gridNoteId === 'string',
-      // Freeze the grid as the user sees it right now; the whole drag previews
-      // against this and nothing re-packs until the drop.
+      // Freeze the section with the dragged card out of the flow; the whole
+      // drag previews against that, and nothing re-packs until the drop.
       onDragStart: ({ source }) => {
         const geometry = geometryRef.current;
         const dragId = source.data.gridNoteId as string;
         if (geometry) {
-          const items: DragItem[] = [];
+          const cards: DragCard[] = [];
+          let homeIndex = -1;
           for (const note of notesRef.current) {
-            const rect = geometry.layout.rects.get(note.id);
-            if (!rect) continue;
-            items.push({
-              id: note.id,
-              x: rect.x,
-              y: rect.y,
-              height: geometry.heights.get(note.id) ?? 0,
-            });
+            if (note.id === dragId) {
+              homeIndex = cards.length;
+              continue;
+            }
+            cards.push({ id: note.id, height: geometry.heights.get(note.id) ?? 0 });
           }
-          snapshotRef.current = {
+          const snap = buildDragSnapshot(
+            cards,
             dragId,
             // A card dragged in from the other section was never measured here.
-            dragHeight:
-              geometry.heights.get(dragId) ??
+            geometry.heights.get(dragId) ??
               Math.round(source.element.getBoundingClientRect().height),
-            cols: geometry.cols,
-            cardW: geometry.cardW,
-            gutter: geometry.gutter,
-            items,
-            containerHeight: geometry.layout.containerHeight,
-          };
+            geometry.cols,
+            geometry.cardW,
+            geometry.gutter,
+            geometry.layout,
+          );
+          snapshotRef.current = snap;
+          // Inserting the card back at its own index is its current slot, so
+          // this is the grid exactly as it stands.
+          homeTargetRef.current = homeIndex === -1 ? null : targetForIndex(snap, homeIndex);
         }
         setDraggingId(dragId);
       },
       onDrag: ({ location }) => {
         const over = location.current.dropTargets.some((dt) => dt.data.gridSection === dndSection);
         const next = over ? targetFor(location.current) : null;
+        dropTargetRef.current = next;
         setDropTarget((prev) => (sameDropTarget(prev, next) ? prev : next));
       },
-      // The drop reads the pointer again rather than trusting the last preview:
-      // a drag fast enough to land between two frames never previewed at all.
+      // The gap on screen is a promise, so the drop keeps it. Only a drag that
+      // ended before a single frame previewed falls back to the pointer.
       onDrop: ({ source, location }) => {
         const snap = snapshotRef.current;
-        const target = targetFor(location.current);
+        const target = dropTargetRef.current ?? targetFor(location.current);
         snapshotRef.current = null;
+        homeTargetRef.current = null;
+        dropTargetRef.current = null;
         setDraggingId(null);
         setDropTarget(null);
         if (!snap || !target) return;
@@ -304,7 +325,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const dragLayout = useMemo(() => {
     const snap = snapshotRef.current;
     if (draggingId === null || snap === null) return null;
-    return previewLayout(snap, dropTarget);
+    return previewLayout(snap, dropTarget ?? homeTargetRef.current);
   }, [draggingId, dropTarget]);
 
   // Follow the scroll in BAND_STEP jumps: within a step the current slice

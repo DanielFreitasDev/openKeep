@@ -19,6 +19,12 @@ export interface MasonryRect {
 export interface MasonryLayout {
   rects: Map<string, MasonryRect>;
   containerHeight: number;
+  /**
+   * Each column's height, trailing gutter included — the y a card appended to
+   * that column would take. The drag preview needs that free slot to promise a
+   * drop position the flow can actually deliver.
+   */
+  colHeights: number[];
 }
 
 export function layoutMasonry(
@@ -41,7 +47,7 @@ export function layoutMasonry(
   }
 
   const tallest = Math.max(0, ...colHeights);
-  return { rects, containerHeight: tallest > 0 ? tallest - gutter : 0 };
+  return { rects, containerHeight: tallest > 0 ? tallest - gutter : 0, colHeights };
 }
 
 /** Keep's column fit: floor((w + gutter) / (cardW + gutter)), min 1. */
