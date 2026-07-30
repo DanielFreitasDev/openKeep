@@ -308,7 +308,7 @@ describe('notes core', () => {
       expect(copy.role).toBe('owner');
     });
 
-    it('converts text → list (lines become items) and back (checks dropped)', async () => {
+    it('converts text → list (lines become items) and back (bullets, checks dropped)', async () => {
       const n = await create({ title: 'Groceries', bodyHtml: '<p>milk</p><p>bread</p><p></p>' });
 
       const toList = await t.app.inject({
@@ -332,7 +332,17 @@ describe('notes core', () => {
       const text = toText.json() as FullNote;
       expect(text.type).toBe('text');
       expect(text.items).toHaveLength(0);
-      expect(text.bodyHtml).toBe('<p>milk</p><p>bread</p>');
+      // Items come back as a bullet list — structure the body can now hold —
+      // and converting again reads the markers back as items.
+      expect(text.bodyHtml).toBe('<ul><li>milk</li><li>bread</li></ul>');
+
+      const again = await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${n.id}/convert`,
+        headers: { cookie },
+        payload: { to: 'list' },
+      });
+      expect((again.json() as FullNote).items.map((i) => i.text)).toEqual(['milk', 'bread']);
     });
   });
 
@@ -368,7 +378,7 @@ describe('notes core', () => {
         headers: { cookie },
       });
       expect(download.statusCode).toBe(200);
-      expect(download.headers['content-type']).toContain('text/plain');
+      expect(download.headers['content-type']).toContain('text/markdown');
       expect(download.body).toContain('V1');
       expect(download.body).toContain('first');
 

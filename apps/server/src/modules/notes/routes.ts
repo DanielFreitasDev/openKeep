@@ -228,14 +228,14 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
     '/api/notes/:id/versions/:versionId/download',
     { ...auth, schema: { tags: ['versions'], params: zVersionParams } },
     async (req, reply) => {
-      const { filename, content } = await svc.versionAsText(
+      const { filename, content } = await svc.versionAsMarkdown(
         db,
         req.user.id,
         req.params.id,
         req.params.versionId,
       );
       return reply
-        .header('content-type', 'text/plain; charset=utf-8')
+        .header('content-type', 'text/markdown; charset=utf-8')
         .header('content-disposition', `attachment; filename="${filename}"`)
         .send(content);
     },

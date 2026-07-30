@@ -20,8 +20,9 @@ import { reminders as remindersTable } from '../../db/schema/reminders.js';
 import { errors } from '../../lib/errors.js';
 import {
   detectLinks,
+  htmlToMarkdown,
   htmlToPlainText,
-  plainTextToHtml,
+  renderMarkdown,
   sanitizeNoteHtml,
 } from '../../lib/sanitize.js';
 import type { Storage } from '../../lib/storage.js';
@@ -332,7 +333,7 @@ export async function snapshotVersion(
   await tx.insert(noteVersions).values({
     noteId: note.id,
     title: note.title,
-    bodyText: note.bodyText,
+    bodyText: versionBody(note),
     items: versionItems,
     createdBy: byUserId,
   });
@@ -351,6 +352,18 @@ export async function snapshotVersion(
       ),
     );
   }
+}
+
+/**
+ * What a version stores for the body: markdown, not plain text.
+ *
+ * Snapshots used to keep `bodyText`, so restoring a formatted note handed back
+ * flat paragraphs — the history quietly destroyed the formatting it was meant
+ * to protect. Markdown is the note vocabulary written down, so a restore is
+ * lossless, and the stored text stays readable in the download.
+ */
+function versionBody(note: NoteRow): string {
+  return note.type === 'list' ? '' : htmlToMarkdown(note.bodyHtml);
 }
 
 /** Two snapshots are the same version when title, body and items all match. */
@@ -381,7 +394,7 @@ export async function maybeSnapshot(
   const items = (await loadItems(tx, [note.id])).get(note.id) ?? [];
   const candidate = {
     title: note.title,
-    bodyText: note.bodyText,
+    bodyText: versionBody(note),
     items: (note.type === 'list'
       ? items.map((i) => ({ text: i.text, checked: i.checked, indent: i.indent }))
       : null) as VersionItem[] | null,
@@ -673,14 +686,29 @@ export async function convertNote(
     await maybeSnapshot(tx, note, userId, { force: true });
 
     if (to === 'list') {
-      // Body lines become unchecked items; body clears.
+      // Body lines become items. A body that already holds a markdown list
+      // converts marker for marker — bullets, nesting and `[x]` boxes — so
+      // ticking checkboxes on a list you wrote by hand keeps its structure.
       const lines = note.bodyText.split('\n').filter((l) => l.trim() !== '');
-      if (lines.length > 0) {
-        const positions = positionsBetween(null, null, lines.length);
+      const parsed = lines.map((line) => {
+        const marker = /^(\s*)(?:[-*+]|\d{1,9}[.)])[ \t]+(.*)$/.exec(line);
+        const indent = marker ? Math.min(1, Math.floor(marker[1]!.length / 2)) : 0;
+        const rest = marker ? (marker[2] ?? '') : line.trim();
+        const box = /^\[([ xX])\][ \t]*(.*)$/.exec(rest);
+        return {
+          text: (box ? (box[2] ?? '') : rest).slice(0, LIMITS.itemTextMax),
+          checked: box ? (box[1] ?? ' ').toLowerCase() === 'x' : false,
+          indent: (marker ? indent : 0) as 0 | 1,
+        };
+      });
+      if (parsed.length > 0) {
+        const positions = positionsBetween(null, null, parsed.length);
         await tx.insert(noteItems).values(
-          lines.map((text, i) => ({
+          parsed.map((item, i) => ({
             noteId,
-            text: text.slice(0, LIMITS.itemTextMax),
+            text: item.text,
+            checked: item.checked,
+            indent: item.indent,
             position: positions[i]!,
           })),
         );
@@ -690,22 +718,19 @@ export async function convertNote(
         .set({ type: 'list', bodyHtml: '', bodyText: '', hasLinks: false, lastEditedBy: userId })
         .where(eq(notes.id, noteId));
     } else {
-      // Items join into body lines; check state drops (Keep parity).
+      // Items become a bullet list, which is now something the body can hold —
+      // structure and indent survive the trip. Check state still drops (Keep
+      // parity), and converting back re-reads the bullets as items.
       const items = (await loadItems(tx, [noteId])).get(noteId) ?? [];
-      const bodyText = items
-        .map((i) => i.text)
-        .filter((t) => t !== '')
+      const markdown = items
+        .filter((i) => i.text !== '')
+        .map((i) => `${i.indent === 1 ? '  ' : ''}- ${i.text}`)
         .join('\n');
+      const { bodyHtml, bodyText, hasLinks } = deriveContent(renderMarkdown(markdown));
       await tx.delete(noteItems).where(eq(noteItems.noteId, noteId));
       await tx
         .update(notes)
-        .set({
-          type: 'text',
-          bodyHtml: plainTextToHtml(bodyText),
-          bodyText,
-          hasLinks: detectLinks(bodyText),
-          lastEditedBy: userId,
-        })
+        .set({ type: 'text', bodyHtml, bodyText, hasLinks, lastEditedBy: userId })
         .where(eq(notes.id, noteId));
     }
 
@@ -733,7 +758,7 @@ export async function listVersions(
   }));
 }
 
-export async function versionAsText(
+export async function versionAsMarkdown(
   db: Db,
   userId: string,
   noteId: string,
@@ -747,19 +772,21 @@ export async function versionAsText(
     .limit(1);
   if (!v) throw errors.notFound();
 
+  // Markdown, matching the note's own `.md` download: task items for a
+  // checklist, the stored markdown body for a text note.
   const body = v.items
     ? v.items
-        .map((i) => `${i.indent === 1 ? '  ' : ''}[${i.checked ? 'x' : ' '}] ${i.text}`)
+        .map((i) => `${i.indent === 1 ? '  ' : ''}- [${i.checked ? 'x' : ' '}] ${i.text}`)
         .join('\n')
     : v.bodyText;
-  const content = v.title ? `${v.title}\n\n${body}` : body;
+  const content = `${v.title ? `# ${v.title}\n\n` : ''}${body}\n`;
   const stamp = v.createdAt.toISOString().slice(0, 10);
   const namePart =
     (v.title || 'note')
       .slice(0, 40)
       .replace(/[^\p{L}\p{N} _-]/gu, '')
       .trim() || 'note';
-  return { filename: `${namePart}-${stamp}.txt`, content };
+  return { filename: `${namePart}-${stamp}.md`, content };
 }
 
 export async function restoreVersion(
@@ -812,9 +839,8 @@ export async function restoreVersion(
         .set({
           type: 'text',
           title: v.title,
-          bodyHtml: plainTextToHtml(v.bodyText),
-          bodyText: v.bodyText,
-          hasLinks: detectLinks(v.bodyText),
+          // Versions hold markdown, so the formatting comes back with the text.
+          ...deriveContent(renderMarkdown(v.bodyText)),
           lastEditedBy: userId,
         })
         .where(eq(notes.id, noteId));
