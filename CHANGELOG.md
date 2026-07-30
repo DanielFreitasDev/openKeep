@@ -1,3 +1,21 @@
+# [1.14.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.13.0...v1.14.0) (2026-07-30)
+
+
+### Features
+
+* bulk reminder, labels and collaborator in the selection bar ([810a621](https://github.com/DanielFreitasDev/openKeep/commit/810a6215cc6d8fc073a01d06cca4cc573912337e))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.14.0
+```
+
+Or download `compose.yml` below (image pinned to `1.14.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.14.0/docs/DEPLOYMENT.md).
+
 # [1.13.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.12.0...v1.13.0) (2026-07-30)
 
 
