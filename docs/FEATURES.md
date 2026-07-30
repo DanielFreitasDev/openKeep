@@ -4,13 +4,14 @@ The v1.0 scope: full parity with the Google Keep **web** app as researched in Ju
 
 ## Notes
 
-- Text notes with limited rich formatting — exactly Keep web's May-2025 set: **H1, H2, normal**, **bold**, *italic*, underline, clear formatting. Body only; the title is plain text.
+- Text notes with rich formatting. v1.0 shipped exactly Keep web's May-2025 set (**H1, H2, normal**, **bold**, *italic*, underline, clear formatting); post-1.0 it widened to what markdown expresses *(divergence)*: H1–H6, ~~strikethrough~~, `inline code`, code blocks, quotes, dividers, bullet/numbered lists and links. Body only; the title is plain text.
+- Markdown is the note's second language *(divergence)*: the syntax formats as you type it, pasted markdown converts, a note downloads as `.md`, and `.md` files (or a zipped vault) import back — see [ROADMAP.md](ROADMAP.md) §3.1 and DECISIONS #26.
 - Autosave (debounced; flush on close/navigation — per-field blur flush *deferred in v1.0*). No explicit save button.
 - Limits: body 19,999 characters, title ~999 characters.
 - "Empty note discarded" when a composer/editor closes with no content.
 - Edited timestamp in editor footer, with created-date tooltip on hover.
 - Session-scoped Undo/Redo inside the editor (cleared when the editor closes; v1.0 covers the body — title/list-item undo *deferred*).
-- Version history: text snapshots per editing session, dated list, download as `.txt`; in-place restore (small enhancement over Keep).
+- Version history: markdown snapshots per editing session, dated list, download as `.md`; in-place restore keeps the formatting (small enhancement over Keep).
 - "Make a copy": copies content, color, labels, images; does **not** copy reminders, collaborators, or pin state.
 
 ## Checklists
@@ -116,6 +117,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 ## Import / export
 
 - **Google Takeout import**: upload the Keep zip; async job with progress; maps colors/labels/pins/archive/trash; idempotent re-import.
+- **Markdown import** *(divergence)*: `.md` files upload directly, or a zipped vault (Obsidian, Joplin, a folder of notes) goes through the same archive job — front matter restores labels/color/pin, a file of `- [ ]` items becomes a checklist, and re-importing an unchanged file is a no-op.
 - JSON export of all your data (+ attachment files) as a zip.
 
 ## AI integration (MCP) *(divergence: OpenKeep addition — real Keep has no API)*

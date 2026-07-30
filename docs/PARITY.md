@@ -20,11 +20,13 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
 | Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; morphs open/closed from its card; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
-| Markdown as you type and paste | Keep has none | ✅ 🔀 `# `/`## ` → H1/H2, `**b**`/`*i*` (and `__`/`_`) inline; pasted markdown converts to rich text within the same allowlist. `#` still quick-labels everywhere except a line start, where the next character decides | post-1.0 |
+| Markdown as you type and paste | Keep has none | ✅ 🔀 headings 1–6, `**b**`/`*i*`/`~~s~~`/`` `code` ``, ``` fences, `> ` quotes, `---` rules, `- `/`1. ` lists and `[text](url)` links — typed, pasted or imported. `#` still quick-labels everywhere except a line start, where the next character decides | post-1.0 |
+| Note formatting vocabulary | H1/H2/B/I/U (May-2025 set) | ✅ 🔀 widened to what markdown expresses: H1–H6, strikethrough, inline code, code blocks, quotes, rules, bullet/ordered lists, links (sanitizer allowlist, DECISIONS #26) | post-1.0 |
+| Markdown import / export | Keep has none | ✅ 🔀 per-note "Download as .md", a `markdown/` copy of every note in the export zip (YAML front matter for labels/color/pin), `.md` upload and markdown-vault zips on import | post-1.0 |
 | Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 🔀 500ms debounce, dirty-field patches, flush on blur; footer word/character count warns before the body cap | M2 |
 | Archive view + undo snackbar | ✓ | ✅ inverse-mutation undo | M2 |
 | Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ 🔀 + hourly purge job; retention configurable via `TRASH_RETENTION_DAYS` (default 7) and the banner states it | M2 |
-| Version history + .txt download | ✓ (+restore 🔀) | ✅ session-boundary snapshots | M2 |
+| Version history + download | ✓ (.txt) | ✅ 🔀 session-boundary snapshots; snapshots store markdown, so a restore keeps the formatting and the download is a `.md` | M2 |
 | Grid ↔ list toggle | ✓ | ✅ synced via settings.viewMode | M2 |
 | Checklists: Enter split, indent 1 level, drag reorder | ✓ | ✅ (Tab/Ctrl+] too; first item can't indent; parent check cascades) | M3 |
 | Completed items section (collapsible, per setting) | ✓ | ✅ | M3 |

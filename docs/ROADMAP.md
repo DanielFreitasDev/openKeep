@@ -4,9 +4,10 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30** (markdown fase A, PWA share target; antes: filtro "Pessoas" na
-> busca, auth do WS no handshake, aviso de sharees no import, e2e de login/signup, CSP da API,
-> heartbeat de WS, flush em blur, retenção da lixeira, atalhos do manifest, contador de palavras)
+> Última atualização: **2026-07-30** (markdown fases A, B e C — o vocabulário da nota agora é o do
+> markdown, com import/export `.md`; antes: PWA share target, filtro "Pessoas" na busca, auth do WS
+> no handshake, aviso de sharees no import, e2e de login/signup, CSP da API, heartbeat de WS, flush
+> em blur, retenção da lixeira, atalhos do manifest, contador de palavras)
 
 **Legenda de esforço** — `P` até ~1 dia · `M` 2–4 dias · `G` 1 semana ou mais.
 **Legenda de impacto** — `alto` muda o dia a dia de quem usa · `médio` melhora perceptível · `baixo` polimento.
@@ -72,6 +73,13 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   **Entregue:** `onBlur` no textarea de título e no `useEditor` do corpo, ambos chamando
   `autosave.flush()`. O guard anti-stomp não regride: o PATCH disparado pelo flush fica in-flight
   e in-flight próprio já é excluído do merge remoto.
+
+- [x] **Versões guardam markdown, não texto puro** *(impacto médio · esforço P)* — feito em 2026-07-30
+  Não estava no roadmap: apareceu ao fazer a fase B. O snapshot guardava `bodyText`, então
+  restaurar uma nota formatada devolvia parágrafos lisos — o histórico destruía calado justamente a
+  formatação que deveria proteger. Agora o snapshot guarda markdown (mesmo serializer do export), o
+  restore reconstrói o html e o download da versão virou `.md`. Linhas antigas continuam válidas:
+  texto puro é markdown válido.
 
 - [ ] **Undo/redo de sessão para título e itens de lista** *(impacto médio · esforço M)*
   O histórico do TipTap cobre só o corpo. Construir o ring buffer de snapshots
@@ -197,20 +205,52 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   devolve `null` quando não há markdown e o caminho normal do editor assume. As *paste rules* do
   StarterKit foram desligadas (`enablePasteRules: false`) porque são mais frouxas que as guardas
   daqui e italicizavam `2 * 3 * 4`.
+  *(Na fase B esse conversor saiu de `apps/web/src/lib/markdown.ts` para `@openkeep/shared` — virou
+  o mesmo motor usado por colagem, import, export, versões e MCP.)*
 
-- [ ] **⭐ Markdown — Fase B: importar e exportar `.md`** *(impacto alto · esforço M)*
+- [x] **⭐ Markdown — Fase B: importar e exportar `.md`** *(impacto alto · esforço M)* — feito em 2026-07-30
   **O quê:** exportar nota como `.md` (menu da nota + em massa no export zip) e importar arquivos
   `.md` criando notas (título = H1 ou nome do arquivo; `- [ ]`/`- [x]` viram itens de checklist).
   **Como:** serializer ProseMirror→markdown no servidor (vale para o export JSON existente e
   para o MCP); import como job leve reaproveitando o pipeline do Takeout. Abre interoperabilidade
   com Obsidian/Joplin — a razão nº 1 de migração citada nos fóruns.
+  **Entregue:** o serializer não é ProseMirror→markdown e sim html→markdown (`markdown-serialize.ts`
+  no shared), porque o html sanitizado é o formato que todo mundo já tem em mãos — servidor, MCP e
+  navegador — e o ProseMirror só existe no navegador. "Baixar como .md" sai do menu da nota e do
+  card sem passar pelo servidor (mesmo serializer dos dois lados; funciona offline), e o zip de
+  backup ganhou uma pasta `markdown/` com uma cópia de cada nota — essas com front matter YAML
+  (labels, cor, fixada, datas), que o import lê de volta: exportar e importar é ida e volta, não
+  perda. Na entrada há dois caminhos: `.md` avulsos vão por `POST /api/import/markdown` e importam
+  na hora (é parse + insert, o job só adicionaria latência), e um cofre inteiro entra como zip pela
+  rota do Takeout, que agora indexa entradas `.md` além dos JSON (pastas de ferramenta como
+  `.obsidian/` ficam de fora). Fingerprint = nome + bytes, então reimportar um cofre intacto não
+  duplica nada. Arquivo só de `- [ ]` vira nota de lista; arquivo misto vira texto com as caixas
+  literais — o modelo tem uma checklist por nota e não sabe intercalar (ver "Texto e checklist na
+  mesma nota").
 
-- [ ] **⭐ Markdown — Fase C: sintaxe estendida** *(impacto médio · esforço M/G)*
+- [x] **⭐ Markdown — Fase C: sintaxe estendida** *(impacto médio · esforço M/G)* — feito em 2026-07-30
   **O quê:** tachado (`~~x~~`), código inline e bloco de código, citação (`> `), régua (`---`),
   link nomeado (`[texto](url)`). Divergência do set May-2025 do Keep — marcar 🔀.
   **Como:** adicionar as extensões TipTap correspondentes + **ampliar o allowlist do sanitizador
   no servidor** (hoje casado com o set do Keep) + renderização no card. FTS não muda (indexa
   texto). Decidir tema de bloco de código (sem highlight na v1 é ok).
+  **Entregue:** o vocabulário virou `NOTE_HTML_TAGS` no shared — h1–h6 (não só três: markdown tem
+  seis e clampar perdia hierarquia no import), `s`, `code`, `pre`, `blockquote`, `ul`/`ol`/`li`,
+  `hr`, `a` — e o sanitizador do servidor passou a ser gerado dele. Continua sem nenhum atributo de
+  estilo: sobram `a[href]` (esquema limitado a http/https/mailto, `target=_blank` +
+  `rel="noopener noreferrer nofollow"`; href reprovado derruba a tag e mantém o texto),
+  `ol[start]` e a classe `language-*` do `code`. Sem highlight, como combinado.
+  **O bug que apareceu no caminho:** as *input rules* do StarterKit não são só frouxas, elas não
+  disparavam depois de um `<br>` — a fase A entregou markdown que funcionava só na primeira linha
+  de cada parágrafo. O texto que o TipTap casa escreve quebra dura como `%leaf%`, e o anchor
+  `(?:^|\s)` não vê isso; pior, consumir `%leaf%` no match desalinha a verificação de offset do
+  TipTap (6 caracteres para um nó de 1 posição), então o anchor virou lookbehind. As regras de marca
+  agora são nossas (as do StarterKit ficam desligadas por `enableInputRules`, que é uma whitelist —
+  regra que casa primeiro vence, então adicionar regra melhor ao lado não adiantaria) e guardam os
+  dois lados do delimitador, igual ao parser de colagem: `2 * 3 * 4` não vira itálico digitado nem
+  colado. ```` ``` ```` abre bloco de código no terceiro crase, sem esperar linguagem — nota não é
+  editor de código. Barra de formatação ganhou H3, tachado, listas, citação, código, bloco, link
+  (com campo de url) e régua, e virou rolável na horizontal por causa do mobile.
 
 - [ ] **Busca dentro da nota (Ctrl+F)** *(impacto alto · esforço P/M)*
   **O quê:** localizar/realçar termos dentro de uma nota aberta — ausência famosa do Keep por
@@ -247,7 +287,10 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 - [ ] **Tabelas simples** *(impacto baixo · esforço G)*
   Pedido clássico, mas pesado: extensão de tabela do TipTap + sanitizador + render no card +
-  export. Só atacar depois do markdown C; avaliar se a demanda real aparece.
+  export. A dependência ("depois do markdown C") caiu — falta o `|---|` no parser/serializer do
+  shared, `table/tr/td` no allowlist e uma UI mínima de linha/coluna. Avaliar se a demanda aparece:
+  é a única parte grande do markdown que ficou de fora, junto de listas de tarefas no corpo (essas
+  esbarram no modelo de uma checklist por nota, ver o item abaixo).
 
 - [x] **Contador de palavras/caracteres** *(impacto baixo · esforço P)* — feito em 2026-07-30
   No rodapé do editor (junto do "Edited…"), contagem de palavras/caracteres do corpo — os limites
@@ -468,14 +511,15 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
-1. **Markdown fase B** (3.1) — export/import `.md`. A fase A já saiu; o conversor
-   markdown→HTML de `apps/web/src/lib/markdown.ts` é o ponto de partida do caminho inverso.
-2. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
-3. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-4. **Vincular notas + backlinks** (3.1).
-5. **Link público somente leitura** (3.3).
-6. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
-7. **Resto dos quick wins de 1.2**: roving tabindex, `/metrics`. O que sobrou da rodada.
+1. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
+2. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
+3. **Vincular notas + backlinks** (3.1) — o `[[` reaproveita o popover do `#`, e o link já é
+   marca TipTap suportada de ponta a ponta desde a fase C.
+4. **Link público somente leitura** (3.3).
+5. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
+6. **Resto dos quick wins de 1.2**: roving tabindex, `/metrics`. O que sobrou da rodada.
+7. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
+   compartilhado é onde a sintaxe `|---|` entraria.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes), virtualização do grid.

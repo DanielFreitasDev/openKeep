@@ -103,9 +103,11 @@ The process probes the connection at startup and fails fast on stderr with an ac
 
 Also exposed: resources `openkeep://notes` (active-note cards) and `openkeep://notes/{id}` (full note JSON), plus two prompts — `capture_note` and `daily_review`.
 
-## Text ↔ HTML contract
+## Markdown ↔ HTML contract
 
-Tools speak **plain text by default**: note bodies come back as derived plain text, and `text` inputs become paragraphs. HTML appears only on request — `get_note`/`list_notes` accept `include_html`, and `create_note`/`update_note` accept `body_html` restricted to the sanitized allowlist (`h1, h2, p, br, strong, em, u`; anything else is stripped server-side). Checklist `position` is deliberately absent from the tool surface — ordering is a UI concern.
+Tools speak **markdown by default**: a text note's body comes back as `markdown`, and `create_note`/`update_note` accept a `markdown` input. It is the surface to reach for — what comes out goes back in, so read → edit → write keeps the formatting instead of flattening it. An unformatted note reads exactly like plain text, and the older plain `text` input is still accepted (its lines become paragraphs).
+
+HTML appears only on request — `get_note`/`list_notes` accept `include_html`, and `create_note`/`update_note` accept `body_html`. Either way the body is restricted to the sanitized allowlist server-side: `h1`–`h6`, `p`, `br`, `strong`, `em`, `u`, `s`, `code`, `pre`, `blockquote`, `ul`, `ol`, `li`, `hr`, `a` (http/https/mailto only). Anything else is stripped, so markdown constructs outside that vocabulary — tables, footnotes, images — arrive as the literal characters instead of disappearing. Checklist `position` is deliberately absent from the tool surface — ordering is a UI concern.
 
 ## Behavior notes
 

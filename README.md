@@ -20,8 +20,9 @@ Where Google has *removed* features (native reminders moved to Google Tasks in l
 - Native reminders: presets, custom date/time, recurrence, web push
 - Sharing with per-user pin/archive/color/labels/reminders and ~1s realtime sync
 - Full-text search (English + Portuguese, accent-insensitive) with Keep's filter tiles
-- Images on notes, link preview chips, version history with `.txt` download
+- Images on notes, link preview chips, version history with `.md` download
 - Multi-select with bulk actions, complete keyboard shortcut map (`?` to view)
+- Markdown as you type, plus `.md` import/export
 - Google Takeout import, JSON export
 - Installable PWA with cached reads
 - i18n: English and Português (Brasil)
