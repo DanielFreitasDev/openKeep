@@ -11,6 +11,7 @@ import checkboxBlankSvg from '@material-symbols/svg-700/outlined/check_box_outli
 import contentCopySvg from '@material-symbols/svg-700/outlined/content_copy.svg?raw';
 import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
 import deleteSweepSvg from '@material-symbols/svg-700/outlined/delete_sweep.svg?raw';
+import downloadSvg from '@material-symbols/svg-700/outlined/download.svg?raw';
 import formatSvg from '@material-symbols/svg-700/outlined/format_color_text.svg?raw';
 import historySvg from '@material-symbols/svg-700/outlined/history.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
@@ -35,12 +36,13 @@ import { useAutosave } from '../../hooks/use-autosave.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
+import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
 import { noteMutationKeys } from '../../lib/note-mutation-defaults.js';
 import { removeNote } from '../../lib/note-selectors.js';
 import { deleteNoteForever, notesQuery, trashNote } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
-import { noteExtensions } from '../../lib/tiptap.js';
+import { NOTE_INPUT_RULES, noteExtensions } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { useUiStore } from '../../stores/ui.js';
 import { BottomSheet, SheetItem } from '../BottomSheet.js';
@@ -77,6 +79,8 @@ function isDesktopMorph(): boolean {
 }
 
 function htmlIsBlank(html: string): boolean {
+  // A divider carries no text but is still something the user put there.
+  if (/<hr\s*\/?>/i.test(html)) return false;
   return (
     html
       .replace(/<[^>]+>/g, '')
@@ -343,6 +347,7 @@ function EditorBody({
     // The markdown extension owns pasted plain text end to end; StarterKit's
     // own paste rules are looser (they italicize `2 * 3 * 4`) and would fire
     // on the text this one deliberately leaves alone.
+    enableInputRules: NOTE_INPUT_RULES,
     enablePasteRules: false,
     onUpdate: ({ editor: ed }) => {
       bodyEmptyRef.current = ed.isEmpty;
@@ -502,11 +507,19 @@ function EditorBody({
     }
   };
 
+  /** The note as it reads right now, including edits the autosave still owes. */
+  const currentNote = (): FullNote => ({
+    ...note,
+    title: titleRef.current?.value ?? note.title,
+    bodyHtml: !isList && editor ? editor.getHTML() : note.bodyHtml,
+  });
+
   const shareNote = () => {
+    const live = currentNote();
     const body = isList
       ? note.items.map((i) => `${i.checked ? '☑' : '☐'} ${i.text}`).join('\n')
-      : htmlToShareText(note.bodyHtml);
-    const text = note.title ? `${note.title}\n\n${body}` : body;
+      : htmlToShareText(live.bodyHtml);
+    const text = live.title ? `${live.title}\n\n${body}` : body;
     void navigator.share({ text }).catch(() => undefined);
   };
 
@@ -802,6 +815,15 @@ function EditorBody({
                         </Menu.Item>
                         <Menu.Item
                           className={menuItemClass}
+                          onClick={() => {
+                            autosave.flush();
+                            downloadNoteMarkdown(currentNote());
+                          }}
+                        >
+                          {t('downloadMarkdown')}
+                        </Menu.Item>
+                        <Menu.Item
+                          className={menuItemClass}
                           onClick={() =>
                             m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' })
                           }
@@ -1048,6 +1070,15 @@ function EditorBody({
               onClick={() => {
                 setSheet(null);
                 setShowVersions(true);
+              }}
+            />
+            <SheetItem
+              svg={downloadSvg}
+              label={t('downloadMarkdown')}
+              onClick={() => {
+                setSheet(null);
+                autosave.flush();
+                downloadNoteMarkdown(currentNote());
               }}
             />
             {isList && (

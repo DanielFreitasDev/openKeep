@@ -1,8 +1,14 @@
+import { markdownToHtml } from '@openkeep/shared';
 import { Placeholder } from '@tiptap/extensions';
 import { Plugin } from '@tiptap/pm/state';
-import { Extension, InputRule } from '@tiptap/react';
+import {
+  type Editor,
+  Extension,
+  InputRule,
+  markInputRule,
+  textblockTypeInputRule,
+} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { markdownToHtml } from './markdown.js';
 
 /**
  * Keep's `#` quick-labeling, minus the one place it collided with markdown.
@@ -25,8 +31,8 @@ const QuickLabel = Extension.create<{ onQuickLabel?: (seed: string) => void }>({
     return [
       new InputRule({
         // `#` or `##` immediately followed by a non-space, non-`#` character.
-        // Disjoint from the heading rule, which needs whitespace; `###` is
-        // left alone because H3 is outside the note vocabulary.
+        // Disjoint from the heading rule, which needs whitespace; longer runs
+        // are left alone so `###…` can still become a deeper heading.
         find: /^(#{1,2})([^\s#])$/,
         handler: ({ range, match, chain }) => {
           chain().deleteRange(range).run();
@@ -45,9 +51,8 @@ const QuickLabel = Extension.create<{ onQuickLabel?: (seed: string) => void }>({
             if (event.key !== '#' || event.ctrlKey || event.metaKey) return false;
             const { $from, empty } = view.state.selection;
             // Heading syntax can only be building up while the block holds
-            // nothing but the hashes typed so far — that covers `##` for H2
-            // and lets `###…` stay literal text instead of tripping the
-            // picker on its third keystroke.
+            // nothing but the hashes typed so far — that covers every level
+            // up to `######` and still hands `#` to the picker mid-text.
             const typedSoFar = $from.parent.textBetween(0, $from.parentOffset);
             const buildingHeading =
               empty &&
@@ -65,6 +70,88 @@ const QuickLabel = Extension.create<{ onQuickLabel?: (seed: string) => void }>({
 });
 
 /**
+ * The markdown gestures, replacing StarterKit's mark rules rather than adding
+ * to them (see `NOTE_INPUT_RULES` for how the built-ins are switched off).
+ *
+ * Two things were wrong with the built-ins. They anchor on `(?:^|\s)`, and the
+ * text TipTap matches against spells a hard break `%leaf%` — so from the
+ * second line of a paragraph down (Shift+Enter, which is how a note gets a
+ * line break) `**bold**` never fired at all. And they only reject a delimiter
+ * hugging whitespace on the opening side, so typing `2 * 3 * 4` italicized the
+ * middle of an arithmetic expression. The rules here take the break into the
+ * anchor and guard both sides, matching the paste parser exactly: the same
+ * text typed and pasted produces the same note.
+ *
+ * The anchor has to be a lookbehind rather than a consumed group: TipTap
+ * re-checks a match against the document by length, and `%leaf%` is six
+ * characters standing in for a one-position node — consuming it would put
+ * every offset six characters out and the rule would be discarded.
+ *
+ * The fence rule is new rather than widened: StarterKit turns ``` into a code
+ * block only once a space or a language follows, and a note is not a code
+ * editor — three backticks mean "code block" the moment they are typed.
+ */
+const START = '(?:(?<=^)|(?<=\\s)|(?<=%leaf%))';
+
+const MarkdownGestures = Extension.create({
+  name: 'markdownGestures',
+  // Above StarterKit, so the shortcut below is reached before its owner's.
+  priority: 1000,
+
+  addKeyboardShortcuts() {
+    return {
+      // Ctrl+Shift+8 is Keep's "show checkboxes" (it converts the whole note),
+      // and bulletList claims the same combo. Keep parity wins; a bullet list
+      // is still one `- ` or one toolbar button away.
+      'Mod-Shift-8': () => true,
+    };
+  },
+
+  addInputRules() {
+    const { schema } = this.editor;
+    const rules: InputRule[] = [];
+    /** `delimiter` … `delimiter`, with no whitespace hugging either end. */
+    const mark = (name: string, delimiter: string, inner: string) => {
+      const type = schema.marks[name];
+      if (!type) return;
+      const find = new RegExp(
+        `${START}(${delimiter}(?![\\s${inner}])([^${inner}]+?)(?<![\\s${inner}])${delimiter})$`,
+      );
+      rules.push(markInputRule({ find, type }));
+    };
+
+    mark('bold', '\\*\\*', '*');
+    mark('bold', '__', '_');
+    mark('italic', '\\*', '*');
+    mark('italic', '_', '_');
+    mark('strike', '~~', '~');
+    mark('code', '`', '`');
+
+    const codeBlock = schema.nodes.codeBlock;
+    if (codeBlock) {
+      rules.push(textblockTypeInputRule({ find: /^(?:```|~~~)$/, type: codeBlock }));
+    }
+    return rules;
+  },
+});
+
+/**
+ * Which extensions may run input rules — a whitelist, because the only way to
+ * take StarterKit's looser mark rules out of the chain is to leave their
+ * extensions off this list (a rule that matches first wins, so adding stricter
+ * rules alongside them would change nothing).
+ */
+export const NOTE_INPUT_RULES = [
+  'heading',
+  'blockquote',
+  'bulletList',
+  'orderedList',
+  'horizontalRule',
+  'quickLabel',
+  'markdownGestures',
+];
+
+/**
  * Pasting markdown as rich text. Only plain-text clipboards are inspected:
  * when the source app also offers `text/html` (a browser, a doc editor) that
  * is already richer than markdown, so ProseMirror's own path wins.
@@ -77,9 +164,11 @@ const MarkdownPaste = Extension.create({
     return [
       new Plugin({
         props: {
-          handlePaste: (_view, event) => {
+          handlePaste: (view, event) => {
             const data = event.clipboardData;
             if (!data || data.getData('text/html')) return false;
+            // Inside a code block the clipboard is code, not markdown.
+            if (view.state.selection.$from.parent.type.spec.code) return false;
             const text = data.getData('text/plain');
             if (!text) return false;
             const html = markdownToHtml(text);
@@ -94,8 +183,9 @@ const MarkdownPaste = Extension.create({
 });
 
 /**
- * The note rich-text feature set — Keep's allowlist (headings, bold/italic/
- * underline). Shared so the composer and the editor modal stay identical.
+ * The note rich-text feature set: Keep's allowlist plus everything markdown
+ * expresses (NOTE_HTML_TAGS on the server sanitizer, DECISIONS #26). Shared so
+ * the composer and the editor modal stay identical.
  *
  * `onQuickLabel` receives the seed the user already typed, so the label picker
  * opens filtered.
@@ -103,19 +193,30 @@ const MarkdownPaste = Extension.create({
 export function noteExtensions(placeholder: string, onQuickLabel?: (seed: string) => void) {
   return [
     StarterKit.configure({
-      heading: { levels: [1, 2] },
-      blockquote: false,
-      bulletList: false,
-      orderedList: false,
-      listItem: false,
-      code: false,
-      codeBlock: false,
-      horizontalRule: false,
-      strike: false,
-      link: false,
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
+      link: {
+        // Typed URLs stay plain text: that is what feeds the link-preview
+        // chips, and autolinking would rewrite a URL mid-typing.
+        autolink: false,
+        openOnClick: true,
+        protocols: ['mailto'],
+        HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer nofollow' },
+      },
     }),
     Placeholder.configure({ placeholder }),
     QuickLabel.configure({ onQuickLabel }),
+    MarkdownGestures,
     MarkdownPaste,
   ];
+}
+
+/** Applies a link to the selection, or clears it when the url is empty. */
+export function applyLink(editor: Editor, url: string): void {
+  const href = url.trim();
+  if (href === '') {
+    editor.chain().focus().unsetLink().run();
+    return;
+  }
+  const withScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href) ? href : `https://${href}`;
+  editor.chain().focus().extendMarkRange('link').setLink({ href: withScheme }).run();
 }

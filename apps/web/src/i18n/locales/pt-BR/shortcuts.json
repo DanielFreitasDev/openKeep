@@ -27,5 +27,10 @@
   "outdentItem": "Remover recuo do item",
   "bold": "Negrito",
   "italic": "Itálico",
-  "underline": "Sublinhado"
+  "underline": "Sublinhado",
+  "strikethrough": "Tachado",
+  "inlineCode": "Código em linha",
+  "codeBlock": "Bloco de código",
+  "quote": "Citação",
+  "numberedList": "Lista numerada"
 }

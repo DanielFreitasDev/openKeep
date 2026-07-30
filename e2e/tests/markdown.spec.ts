@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { cardByTitle, signUpFreshUser } from './helpers.js';
 
 /**
- * Markdown phase A: the note understands markdown as it is typed and pasted.
+ * Markdown: the note understands it as typed, pasted, exported and imported.
  *
  * The interesting case is `#`, which Keep spends on quick-labeling and
  * markdown spends on headings. Both gestures are asserted here because the
@@ -92,6 +92,94 @@ test('pasting markdown converts it to rich text', async ({ page }) => {
 
   await expect(body(page).locator('h1')).toHaveText('Pasted');
   await expect(body(page).locator('strong')).toHaveText('strong');
+});
+
+test('marks still fire on a soft-broken line, not only at a block start', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await body(page).click();
+
+  // Shift+Enter is how a note gets a line break, and ProseMirror shows the
+  // break to input rules as an object character — the anchor every built-in
+  // rule missed, so `**bold**` from the second line down did nothing.
+  await page.keyboard.type('first line');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('**bold** and *italic* and ~~gone~~ and `code`');
+
+  await expect(body(page).locator('strong')).toHaveText('bold');
+  await expect(body(page).locator('em')).toHaveText('italic');
+  await expect(body(page).locator('s')).toHaveText('gone');
+  await expect(body(page).locator('code')).toHaveText('code');
+});
+
+test('typing the extended syntax builds blocks', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await body(page).click();
+
+  // Three backticks alone: a note is not a code editor, so the fence does not
+  // wait for a language before turning into a block.
+  await page.keyboard.type('```');
+  await expect(body(page).locator('pre code')).toHaveCount(1);
+  await page.keyboard.type('const a = 1;');
+  await expect(body(page).locator('pre code')).toHaveText('const a = 1;');
+
+  // Arrow-down out of the code block, then the other block gestures.
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.type('- first item');
+  await expect(body(page).locator('ul li')).toHaveText('first item');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('> quoted');
+  await expect(body(page).locator('blockquote')).toContainText('quoted');
+
+  await page.getByLabel('Title', { exact: true }).fill('Blocks typed');
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  // The sanitizer keeps every one of them on the way back.
+  await cardByTitle(page, 'Blocks typed').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('pre code')).toHaveText('const a = 1;');
+  await expect(dialog.locator('ul li')).toHaveText('first item');
+  await expect(dialog.locator('blockquote')).toContainText('quoted');
+  await page.keyboard.press('Escape');
+});
+
+test('a note downloads as .md and comes back as a note', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await body(page).click();
+  await page.keyboard.type('# Heading\n');
+  await page.keyboard.type('body with **bold**');
+  await page.getByLabel('Title', { exact: true }).fill('Round trip');
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  await cardByTitle(page, 'Round trip').click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.getByRole('dialog').getByLabel('More').first().click();
+      await page.getByRole('menuitem', { name: 'Download as .md' }).click();
+    })(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/\.md$/);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  const markdown = Buffer.concat(chunks).toString('utf8');
+  expect(markdown).toContain('# Round trip');
+  expect(markdown).toContain('# Heading');
+  expect(markdown).toContain('body with **bold**');
+  await page.keyboard.press('Escape');
+
+  // …and the same text imports back as a note.
+  await page.getByLabel('Settings', { exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Import / Export' }).click();
+  await page.locator('input[type="file"][accept*=".md"]').setInputFiles({
+    name: 'imported.md',
+    mimeType: 'text/markdown',
+    buffer: Buffer.from(markdown),
+  });
+  await expect(page.getByText('Imported 1 notes (0 already existed).')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(cardByTitle(page, 'Round trip')).toHaveCount(2);
 });
 
 test('pasting plain text stays plain', async ({ page }) => {

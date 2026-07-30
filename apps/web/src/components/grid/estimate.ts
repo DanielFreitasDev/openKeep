@@ -54,7 +54,7 @@ function lines(text: string, charWidth: number, availW: number): number {
   return Math.max(1, Math.ceil(text.length / perLine));
 }
 
-const BLOCK_END = /<br\s*\/?>|<\/(?:p|div|li|h[1-6]|blockquote|pre)\s*>/gi;
+const BLOCK_END = /<br\s*\/?>|<hr\s*\/?>|<\/(?:p|div|li|h[1-6]|blockquote|pre)\s*>/gi;
 /** Stands in for a line break while tags are stripped; never in note text. */
 const MARK = String.fromCharCode(0);
 

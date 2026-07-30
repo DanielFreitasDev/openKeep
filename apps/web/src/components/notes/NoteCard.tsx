@@ -18,6 +18,7 @@ import { memo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { setEditorOrigin } from '../../lib/editor-origin.js';
 import { useSelectionStore } from '../../stores/selection.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -355,6 +356,9 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
                     </Menu.Item>
                     <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                       {t('editor:versionHistory')}
+                    </Menu.Item>
+                    <Menu.Item className={menuItemClass} onClick={() => downloadNoteMarkdown(note)}>
+                      {t('editor:downloadMarkdown')}
                     </Menu.Item>
                     <Menu.Item
                       className={menuItemClass}

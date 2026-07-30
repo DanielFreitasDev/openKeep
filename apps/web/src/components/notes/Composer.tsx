@@ -28,7 +28,7 @@ import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
 import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
 import { sessionQuery } from '../../lib/queries.js';
-import { noteExtensions } from '../../lib/tiptap.js';
+import { NOTE_INPUT_RULES, noteExtensions } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
@@ -110,6 +110,7 @@ export function Composer() {
     // The markdown extension owns pasted plain text end to end; StarterKit's
     // own paste rules are looser (they italicize `2 * 3 * 4`) and would fire
     // on the text this one deliberately leaves alone.
+    enableInputRules: NOTE_INPUT_RULES,
     enablePasteRules: false,
     editorProps: {
       // ProseMirror's contenteditable has no implicit role; name it so the

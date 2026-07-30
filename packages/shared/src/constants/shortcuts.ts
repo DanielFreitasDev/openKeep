@@ -211,4 +211,46 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'underline',
     group: 'editor',
   },
+  // The markdown vocabulary (DECISIONS #26). Display-only entries, like the
+  // three above: TipTap owns the keymap, the dialog just makes it findable.
+  {
+    id: 'strikethrough',
+    keys: ['mod+shift+x'],
+    display: 'Ctrl + Shift + x',
+    scope: 'editor',
+    labelKey: 'strikethrough',
+    group: 'editor',
+  },
+  {
+    id: 'inline-code',
+    keys: ['mod+e'],
+    display: 'Ctrl + e',
+    scope: 'editor',
+    labelKey: 'inlineCode',
+    group: 'editor',
+  },
+  {
+    id: 'code-block',
+    keys: ['mod+alt+c'],
+    display: 'Ctrl + Alt + c',
+    scope: 'editor',
+    labelKey: 'codeBlock',
+    group: 'editor',
+  },
+  {
+    id: 'quote',
+    keys: ['mod+shift+b'],
+    display: 'Ctrl + Shift + b',
+    scope: 'editor',
+    labelKey: 'quote',
+    group: 'editor',
+  },
+  {
+    id: 'numbered-list',
+    keys: ['mod+shift+7'],
+    display: 'Ctrl + Shift + 7',
+    scope: 'editor',
+    labelKey: 'numberedList',
+    group: 'editor',
+  },
 ];

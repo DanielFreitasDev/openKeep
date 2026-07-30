@@ -1,7 +1,7 @@
+import { markdownToHtml, plainTextToHtml } from '@openkeep/shared';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { useCreateAndOpenNote } from '../../hooks/use-create-note.js';
-import { plainTextToHtml } from '../../lib/html.js';
 import { sharedToNote, takeSharedPayload } from '../../lib/share-target.js';
 
 export const Route = createFileRoute('/_shell/share')({
@@ -35,9 +35,11 @@ function ShareTarget() {
         return;
       }
       const { title, body } = sharedToNote(shared.payload);
+      // Shared text is often markdown (a README, a chat message, a snippet
+      // from another notes app); it lands formatted, exactly as if pasted.
       createNote('text', {
         title: title.slice(0, 999),
-        bodyHtml: body ? plainTextToHtml(body) : '',
+        bodyHtml: body ? (markdownToHtml(body) ?? plainTextToHtml(body)) : '',
         files: shared.files,
         to: '/',
         replace: true,
