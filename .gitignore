@@ -17,3 +17,4 @@ e2e/blob-report/
 .vite/
 .claude/scheduled_tasks.lock
 dist-release/
+.idea/
