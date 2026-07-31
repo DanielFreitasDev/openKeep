@@ -3,7 +3,9 @@ import type { ChecklistRow } from './checklist-logic.js';
 import {
   applyCheck,
   canIndent,
+  DRAG_INDENT_PX,
   displayGroups,
+  indentFromDragX,
   positionAfterRow,
   positionAtIndex,
   splitText,
@@ -34,6 +36,17 @@ describe('checklist logic', () => {
     const rows = [row({}), row({})];
     expect(canIndent(rows, rows[0]!.key)).toBe(false);
     expect(canIndent(rows, rows[1]!.key)).toBe(true);
+  });
+
+  it('reads horizontal drag travel as indent, and small travel as nothing', () => {
+    expect(indentFromDragX(DRAG_INDENT_PX, 0)).toBe(1);
+    expect(indentFromDragX(-DRAG_INDENT_PX, 1)).toBe(0);
+    // Below the threshold the gesture is a plain reorder, in either direction.
+    expect(indentFromDragX(DRAG_INDENT_PX - 1, 0)).toBeNull();
+    expect(indentFromDragX(1 - DRAG_INDENT_PX, 1)).toBeNull();
+    // Already at the level the gesture asks for: nothing to write.
+    expect(indentFromDragX(DRAG_INDENT_PX * 4, 1)).toBeNull();
+    expect(indentFromDragX(-DRAG_INDENT_PX * 4, 0)).toBeNull();
   });
 
   it('computes insert positions between neighbors', () => {

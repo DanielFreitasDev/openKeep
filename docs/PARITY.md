@@ -32,7 +32,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Trash: 7-day banner, read-only, restore/delete forever/empty | ✓ | ✅ 🔀 + hourly purge job; retention configurable via `TRASH_RETENTION_DAYS` (default 7) and the banner states it | M2 |
 | Version history + download | ✓ (.txt) | ✅ 🔀 session-boundary snapshots; snapshots store markdown, so a restore keeps the formatting and the download is a `.md` | M2 |
 | Grid ↔ list toggle | ✓ | ✅ synced via settings.viewMode | M2 |
-| Checklists: Enter split, indent 1 level, drag reorder | ✓ | ✅ (Tab/Ctrl+] too; first item can't indent; parent check cascades) | M3 |
+| Checklists: Enter split, indent 1 level, drag reorder | ✓ | ✅ (Tab/Ctrl+] and dragging ~24px sideways too; first item can't indent; parent check cascades) | M3 |
 | Completed items section (collapsible, per setting) | ✓ | ✅ | M3 |
 | Uncheck all / Delete checked | ✓ | ✅ | M3 |
 | Note ↔ list conversion (Ctrl+Shift+8) | ✓ | ✅ card + editor menus + shortcut | M3 |
@@ -80,9 +80,6 @@ the table above stays honest. Roughly in order of user impact:
 - **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing
   "selected item" editor focus state our native-textarea checklist doesn't
   have; removed from the "?" dialog rather than advertised dead.
-- **Checklist indent by dragging right** — Keep also indents when an item is
-  dragged rightward; we ship `Ctrl+]`/`[` and Tab/Shift+Tab only (item drag
-  changes order, not indent).
 - **Offline media** — composer image files live only in memory: an
   offline-composed note restores its text/labels/reminder after a reload, but
   not unsaved images. Attachment uploads pause while offline and resume within

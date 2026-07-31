@@ -1,5 +1,42 @@
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { cardByTitle, cardRootByTitle, signUpFreshUser } from './helpers.js';
+
+/** The editor morphs open from its card; pixel math has to wait for it to land. */
+async function settledEditor(page: Page) {
+  const dialog = page.getByRole('dialog');
+  let previous = -1;
+  await expect
+    .poll(async () => {
+      const width = (await dialog.boundingBox())?.width ?? -1;
+      const settled = width > 0 && width === previous;
+      previous = width;
+      return settled;
+    })
+    .toBe(true);
+  return dialog;
+}
+
+/**
+ * Drag a checklist row's handle `dx` px horizontally. `dragTo` rather than raw
+ * mouse moves: only the former starts a native HTML5 drag under Chromium. It
+ * releases the pointer *on an element* and refuses one that something else
+ * covers, so the target is whichever surface is really on top at the drop point
+ * — a drop past the editor's edge lands on the scrim.
+ */
+async function dragRowHandle(page: Page, handle: Locator, dx: number) {
+  const box = await handle.boundingBox();
+  if (!box) throw new Error('drag handle has no box');
+  const x = box.x + box.width / 2 + dx;
+  const y = box.y + box.height / 2;
+  const dialog = page.getByRole('dialog');
+  const dialogBox = await dialog.boundingBox();
+  const overEditor = !!dialogBox && x >= dialogBox.x && x <= dialogBox.x + dialogBox.width;
+  const target = overEditor ? dialog : page.locator('.editor-scrim');
+  const targetBox = await target.boundingBox();
+  if (!targetBox) throw new Error('drop target has no box');
+  await handle.dragTo(target, { targetPosition: { x: x - targetBox.x, y: y - targetBox.y } });
+}
 
 test.beforeEach(async ({ context, page }) => {
   await signUpFreshUser(context);
@@ -84,6 +121,49 @@ test('indent rules: first item cannot indent; Tab indents; parent check cascades
   // Parent check cascades to the indented child.
   await dialog.getByRole('checkbox', { name: 'Parent' }).check();
   await expect(dialog.getByText('2 Completed items', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+});
+
+test('dragging an item sideways indents and un-indents it', async ({ page }) => {
+  await page.getByRole('button', { name: 'New list' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Drag indent');
+  const row = page.getByRole('textbox', { name: 'List item' }).last();
+  await row.fill('Parent');
+  await row.press('Enter');
+  await page.getByRole('textbox', { name: 'List item' }).last().fill('Child');
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  await cardByTitle(page, 'Drag indent').click();
+  const dialog = await settledEditor(page);
+  const rows = dialog.locator('[data-indent]');
+  const handles = dialog.getByRole('button', { name: 'Drag item' });
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(1)).toHaveAttribute('data-indent', '0');
+
+  // Right past the threshold: indented, no reorder (it never left its own row).
+  const indented = page.waitForResponse(
+    (r) => r.request().method() === 'PATCH' && r.url().includes('/items/'),
+  );
+  await dragRowHandle(page, handles.nth(1), 60);
+  await expect(rows.nth(1)).toHaveAttribute('data-indent', '1');
+  await expect(rows.nth(1).getByRole('textbox')).toHaveValue('Child');
+  await indented;
+
+  // And it is the server's answer, not just local state.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await cardByTitle(page, 'Drag indent').click();
+  await settledEditor(page);
+  await expect(rows.nth(1)).toHaveAttribute('data-indent', '1');
+
+  // Left again: back to level 0.
+  await dragRowHandle(page, handles.nth(1), -60);
+  await expect(rows.nth(1)).toHaveAttribute('data-indent', '0');
+
+  // The first item is never indentable, however far right the pointer goes.
+  await dragRowHandle(page, handles.nth(0), 60);
+  await expect(rows.nth(0)).toHaveAttribute('data-indent', '0');
   await page.keyboard.press('Escape');
 });
 

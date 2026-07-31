@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -67,10 +67,26 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   nativo). Criar um "modo seleção de item" no editor de checklist; devolver os atalhos ao
   diálogo `?` (foram removidos de lá para não anunciar atalho morto).
 
-- [ ] **Indentar item de checklist arrastando para a direita** *(impacto baixo · esforço P/M)*
+- [x] **Indentar item de checklist arrastando para a direita** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   **O quê:** além de `Tab`/`Ctrl+]`, arrastar o item ~24px à direita indenta (paridade Keep).
   **Como:** no drag handler (pragmatic-drag-and-drop), usar o deslocamento X do ponteiro para
   decidir indent vs reorder; primeiro item continua não indentável.
+  **Entregue:** o mesmo gesto passa a ter duas metades — a vertical continua decidindo a posição
+  fracionária, a horizontal decide o nível —, e as duas viajam num PATCH só (`indent` e `position`
+  já eram campos do mesmo corpo, então nenhuma rota mudou). Soltar sem sair da própria linha, que
+  antes era um no-op, agora é justamente o gesto de indentar.
+  **A origem do gesto é a alça, não o ponteiro:** `dragstart` só dispara alguns pixels depois do
+  clique (e, em automação, já no destino), enquanto a caixa da alça está exatamente onde a linha
+  ainda está — então `getInitialData` guarda o centro dela e o deslocamento é medido a partir dali.
+  O nível é julgado contra **onde a linha cai**, não de onde saiu: arrastada para a direita e para o
+  topo da lista ela é a primeira linha, e a primeira nunca indenta — o mesmo `canIndent` também
+  desfaz o caso antigo em que um simples reordenar levava uma linha indentada para o topo.
+  Como 24px é um limiar invisível, a linha se desloca sob o ponteiro durante o arrasto (só a
+  fantasma na lista; a prévia nativa é uma foto do início).
+  **No e2e:** `dragTo` do Playwright, não mouse cru — só ele inicia o DnD nativo do Chromium —, e o
+  alvo de soltura é escolhido por quem está por cima no ponto (desindentar termina à esquerda da
+  coluna do editor, sobre o scrim). O teste também precisou esperar o **morph** do editor assentar:
+  medir a caixa do diálogo no meio da animação dava larguras diferentes a cada execução.
 
 - [ ] **Extras do editor de desenho** *(impacto médio · esforço G)*
   **O quê:** ferramenta de laço (mover seleção de traços), zoom/pan do canvas, desenhar sobre

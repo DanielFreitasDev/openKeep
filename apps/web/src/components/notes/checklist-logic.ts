@@ -26,6 +26,21 @@ export function canIndent(rows: ChecklistRow[], key: string): boolean {
   return idx > 0;
 }
 
+/** How far right a row must travel for the drag to read as "indent". */
+export const DRAG_INDENT_PX = 24;
+
+/**
+ * Keep parity: dragging a row to the right indents it, to the left un-indents.
+ * Returns null when the horizontal travel is noise from a vertical reorder, or
+ * when the row already sits at the level the gesture asks for — the caller
+ * treats null as "leave the indent alone", so a plain reorder never rewrites it.
+ */
+export function indentFromDragX(dx: number, current: 0 | 1): 0 | 1 | null {
+  if (dx >= DRAG_INDENT_PX) return current === 1 ? null : 1;
+  if (dx <= -DRAG_INDENT_PX) return current === 0 ? null : 0;
+  return null;
+}
+
 /** Position for a row inserted after `afterKey` (null = start). */
 export function positionAfterRow(rows: ChecklistRow[], afterKey: string | null): string {
   const ordered = [...rows].sort(byPosition);

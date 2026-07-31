@@ -3,11 +3,12 @@ import {
   dropTargetForElements,
   monitorForElements,
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import type { DragLocationHistory } from '@atlaskit/pragmatic-drag-and-drop/types';
 import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import dragSvg from '@material-symbols/svg-700/outlined/drag_indicator.svg?raw';
 import chevronSvg from '@material-symbols/svg-700/outlined/keyboard_arrow_down.svg?raw';
-import type { FullNote, NoteItem } from '@openkeep/shared';
+import type { FullNote, NoteItem, PatchItemInput } from '@openkeep/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useCallback,
@@ -37,10 +38,20 @@ import {
   byPosition,
   canIndent,
   displayGroups,
+  indentFromDragX,
   positionAfterRow,
   positionAtIndex,
   splitText,
 } from './checklist-logic.js';
+
+/**
+ * How far right (negative: left) the pointer has travelled from the drag
+ * handle it grabbed — the horizontal half of the drop gesture.
+ */
+function dragTravelX(data: Record<string, unknown>, location: DragLocationHistory): number {
+  const originX = typeof data.originX === 'number' ? data.originX : location.initial.input.clientX;
+  return location.current.input.clientX - originX;
+}
 
 export interface ChecklistHandle {
   uncheckAll: () => void;
@@ -380,6 +391,12 @@ export function ChecklistEditor({
   // ---------------------------------------------------------------- dnd
 
   const [dragKey, setDragKey] = useState<string | null>(null);
+  /**
+   * Indent the current drag would apply on release. A 24px threshold is
+   * invisible without it — the row shifts under the pointer so the gesture
+   * announces itself before the drop.
+   */
+  const [dragIndent, setDragIndent] = useState<0 | 1 | null>(null);
 
   // ------------------------------------------------------------ remote merge
   // Collaborator edits land in the ['notes'] cache (WS deltas); fold them into
@@ -444,27 +461,52 @@ export function ChecklistEditor({
     if (!el || readOnly) return;
     return monitorForElements({
       canMonitor: ({ source }) => source.data.noteId === noteId,
+      onDrag: ({ source, location }) => {
+        const row = rowsRef.current.find((r) => r.key === source.data.rowKey);
+        if (!row) return;
+        const next = indentFromDragX(dragTravelX(source.data, location), row.indent);
+        setDragIndent((prev) => (prev === next ? prev : next));
+      },
       onDrop: ({ source, location }) => {
         setDragKey(null);
+        setDragIndent(null);
         const key = source.data.rowKey as string;
+        const row = rowsRef.current.find((r) => r.key === key);
+        if (!row) return;
+        const patch: PatchItemInput = {};
+
+        // Vertical half: which row we're over, and which side of it.
         const target = location.current.dropTargets[0];
-        if (!target) return;
-        const overKey = target.data.rowKey as string;
-        if (overKey === key) return;
-        const ordered = [...rowsRef.current].sort(byPosition).filter((r) => !r.checked);
-        const overIdx = ordered.findIndex((r) => r.key === overKey);
-        if (overIdx === -1) return;
-        const rect = (target.element as HTMLElement).getBoundingClientRect();
-        const clientY = location.current.input.clientY ?? rect.top + rect.height / 2;
-        const before = clientY < rect.top + rect.height / 2;
-        const toIndex = before ? overIdx : overIdx + 1;
-        const position = positionAtIndex(
-          rowsRef.current.filter((r) => !r.checked),
-          key,
-          toIndex,
-        );
-        setRows((prev) => prev.map((r) => (r.key === key ? { ...r, position } : r)));
-        patchServer(key, { position });
+        const overKey = target?.data.rowKey;
+        if (target && typeof overKey === 'string' && overKey !== key) {
+          const unchecked = rowsRef.current.filter((r) => !r.checked);
+          const overIdx = [...unchecked].sort(byPosition).findIndex((r) => r.key === overKey);
+          if (overIdx !== -1) {
+            const rect = (target.element as HTMLElement).getBoundingClientRect();
+            const clientY = location.current.input.clientY ?? rect.top + rect.height / 2;
+            const before = clientY < rect.top + rect.height / 2;
+            patch.position = positionAtIndex(unchecked, key, before ? overIdx : overIdx + 1);
+          }
+        }
+
+        // Horizontal half. The indent is judged against where the row LANDS,
+        // not where it started: dragged right AND to the top of the list it is
+        // now the first item, which Keep never indents.
+        const landed = patch.position
+          ? rowsRef.current.map((r) =>
+              r.key === key ? { ...r, position: patch.position as string } : r,
+            )
+          : rowsRef.current;
+        const desired =
+          indentFromDragX(dragTravelX(source.data, location), row.indent) ?? row.indent;
+        // The clamp also catches a plain reorder that drops an indented row at
+        // the top: first item, indent 0, whatever the pointer did sideways.
+        const nextIndent = desired === 1 && !canIndent(landed, key) ? 0 : desired;
+        if (nextIndent !== row.indent) patch.indent = nextIndent;
+
+        if (patch.position === undefined && patch.indent === undefined) return;
+        setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+        patchServer(key, patch);
       },
     });
   }, [noteId, readOnly, patchServer]);
@@ -513,6 +555,7 @@ export function ChecklistEditor({
           noteId={noteId}
           readOnly={readOnly}
           dragging={dragKey === row.key}
+          indent={dragKey === row.key && dragIndent !== null ? dragIndent : row.indent}
           onDragStart={() => setDragKey(row.key)}
           inputRefs={inputRefs}
           find={find}
@@ -551,6 +594,7 @@ export function ChecklistEditor({
                 noteId={noteId}
                 readOnly={readOnly}
                 dragging={false}
+                indent={row.indent}
                 onDragStart={() => {}}
                 inputRefs={inputRefs}
                 find={find}
@@ -573,6 +617,8 @@ interface RowProps {
   noteId: string;
   readOnly: boolean;
   dragging: boolean;
+  /** `row.indent`, except mid-drag, where it previews the pending level. */
+  indent: 0 | 1;
   onDragStart: () => void;
   inputRefs: React.RefObject<Map<string, HTMLTextAreaElement>>;
   find?: ChecklistFind;
@@ -589,6 +635,7 @@ function Row({
   noteId,
   readOnly,
   dragging,
+  indent,
   onDragStart,
   inputRefs,
   find,
@@ -618,7 +665,14 @@ function Row({
         draggable({
           element: el,
           dragHandle: handle,
-          getInitialData: () => ({ rowKey: row.key, noteId }),
+          getInitialData: () => {
+            // The grab point for the indent gesture is the HANDLE, not the
+            // pointer: `dragstart` can fire a few pixels into the movement (and
+            // in automation, at the destination), while the handle's box is
+            // exactly where the row still sits.
+            const rect = handle.getBoundingClientRect();
+            return { rowKey: row.key, noteId, originX: rect.left + rect.width / 2 };
+          },
           onDragStart,
         }),
       );
@@ -634,8 +688,9 @@ function Row({
     <div
       ref={rootRef}
       data-find-current={currentHit ? 'true' : undefined}
-      className={`group/row flex items-start gap-1 border-transparent border-b py-0.5 ${
-        row.indent === 1 ? 'ml-7' : ''
+      data-indent={indent}
+      className={`group/row flex items-start gap-1 border-transparent border-b py-0.5 motion-safe:transition-[margin-left] motion-safe:duration-100 ${
+        indent === 1 ? 'ml-7' : ''
       } ${dragging ? 'opacity-40' : ''} ${
         hit ? (currentHit ? 'find-field find-field-current' : 'find-field') : ''
       }`}
