@@ -1,3 +1,21 @@
+# [1.17.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.16.0...v1.17.0) (2026-07-31)
+
+
+### Features
+
+* sort notes by title, creation or edit date ([c8df8eb](https://github.com/DanielFreitasDev/openKeep/commit/c8df8eb21f09c3654e1a7479eaef6027da03dbbe))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.17.0
+```
+
+Or download `compose.yml` below (image pinned to `1.17.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.17.0/docs/DEPLOYMENT.md).
+
 # [1.16.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.15.0...v1.16.0) (2026-07-31)
 
 
