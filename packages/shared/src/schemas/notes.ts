@@ -105,6 +105,13 @@ export type NoteStateResult = z.infer<typeof zNoteStateResult>;
 
 export const zConvertNote = z.object({ to: zNoteType });
 
+/**
+ * Merge: the FIRST id is the survivor (it keeps its id and per-user state);
+ * the rest are folded into it and trashed.
+ */
+export const zMergeNotes = z.object({ noteIds: z.array(zId).min(2).max(50) });
+export type MergeNotes = z.infer<typeof zMergeNotes>;
+
 export const zNoteVersionMeta = z.object({
   id: zId,
   createdAt: z.iso.datetime(),

@@ -4,6 +4,7 @@ import {
   zFullNote,
   zId,
   zListNotesQuery,
+  zMergeNotes,
   zNoteContentResult,
   zNoteStateResult,
   zNoteVersionMeta,
@@ -207,6 +208,38 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
         { type: 'note.converted', payload: { note } },
         originOf(req),
       );
+      return note;
+    },
+  );
+
+  app.post(
+    '/api/notes/merge',
+    {
+      ...auth,
+      schema: { tags: ['notes'], body: zMergeNotes, response: { 200: zFullNote } },
+    },
+    async (req) => {
+      const sourceIds = req.body.noteIds.slice(1);
+      // Members are read BEFORE the merge: a collaborator on a source must be
+      // told it is gone, and after the merge the membership rows say nothing
+      // about who was watching.
+      const membersBySource = new Map<string, string[]>();
+      for (const id of sourceIds) membersBySource.set(id, await memberIds(db, id));
+
+      const note = await svc.mergeNotes(db, req.user.id, req.body.noteIds, storage);
+
+      realtime.publishToUsers(
+        await memberIds(db, note.id),
+        { type: 'note.converted', payload: { note } },
+        originOf(req),
+      );
+      for (const [id, members] of membersBySource) {
+        realtime.publishToUsers(
+          members,
+          { type: 'note.trashed', payload: { id, trashedAt: new Date().toISOString() } },
+          originOf(req),
+        );
+      }
       return note;
     },
   );

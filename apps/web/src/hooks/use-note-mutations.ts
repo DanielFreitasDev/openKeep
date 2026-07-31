@@ -89,6 +89,23 @@ export function useNoteMutations() {
     onSuccess: (note) => setNotes((old) => upsertNote(old, note)),
   });
 
+  /**
+   * Merge: the first id survives with its own id, the rest are folded in and
+   * trashed server-side — so the cache marks them trashed rather than dropping
+   * them, exactly like a bulk trash.
+   */
+  const merge = useMutation({
+    mutationFn: (ids: string[]) => apiNotes.mergeNotes(ids),
+    onSuccess: (note, ids) =>
+      setNotes((old) => {
+        let next = upsertNote(old, note);
+        for (const id of ids.slice(1)) {
+          next = mergeNote(next, id, { trashedAt: new Date().toISOString(), pinned: false });
+        }
+        return next;
+      }),
+  });
+
   const convert = useMutation({
     mutationFn: ({ id, to }: { id: string; to: 'text' | 'list' }) => apiNotes.convertNote(id, to),
     onSuccess: (note) => setNotes((old) => upsertNote(old, note)),
@@ -174,6 +191,19 @@ export function useNoteMutations() {
     });
   };
 
+  /**
+   * No Undo action, deliberately: the sources are recoverable from the trash,
+   * but the survivor already holds the merged text — a button that only put
+   * the sources back would leave every note duplicated. The pre-merge content
+   * is one click away in the note's version history.
+   */
+  const mergeWithToast = (ids: string[]) => {
+    if (ids.length < 2) return;
+    merge.mutate(ids, {
+      onSuccess: () => show({ message: t('notesMerged', { count: ids.length }) }),
+    });
+  };
+
   const restoreWithUndo = (note: FullNote) => {
     restore.mutate(note.id);
     show({
@@ -208,6 +238,8 @@ export function useNoteMutations() {
     emptyTrash: emptyTrashMut,
     copy,
     convert,
+    merge,
+    mergeWithToast,
     uncheckAll,
     toggleItem,
     deleteChecked,

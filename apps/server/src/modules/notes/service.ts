@@ -8,7 +8,13 @@ import type {
   PatchNoteContent,
   PatchNoteState,
 } from '@openkeep/shared';
-import { comparePositions, LIMITS, positionBefore, positionsBetween } from '@openkeep/shared';
+import {
+  comparePositions,
+  LIMITS,
+  noteToMarkdown,
+  positionBefore,
+  positionsBetween,
+} from '@openkeep/shared';
 import { and, asc, desc, eq, exists, inArray, isNotNull, lt, min, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
@@ -672,6 +678,184 @@ export async function copyNote(
   });
 }
 
+/**
+ * Merge N notes into the first one (Apple Notes has this; Keep does not).
+ *
+ * The survivor is an EXISTING note, not a new one: it keeps its id, so deep
+ * links, reminders, collaborators and per-user state all survive, and the
+ * sources go to the trash — which is the undo, for as long as retention lasts.
+ * A forced version snapshot is taken first, so the pre-merge content is one
+ * click away in the history even after the trash is emptied.
+ *
+ * The survivor's TYPE decides how the sources are folded in: into a text note
+ * each source arrives as markdown (its title demoted to `## `), into a list
+ * note each source arrives as items (a text source's lines parsed the same way
+ * "convert to list" parses them). The model has one checklist per note, so
+ * there is no third option — see the roadmap's mixed text+checklist item.
+ */
+export async function mergeNotes(
+  db: Db,
+  userId: string,
+  noteIds: string[],
+  storage?: Storage,
+): Promise<FullNote> {
+  const ids = [...new Set(noteIds)];
+  if (ids.length < 2) throw errors.badRequest('Merging needs at least two distinct notes');
+  const [targetId, ...sourceIds] = ids as [string, ...string[]];
+
+  return db.transaction(async (tx) => {
+    // Ownership on every note, including the survivor: a merge trashes the
+    // sources, and trashing is owner-only.
+    const loaded = [];
+    for (const id of ids) {
+      const { note } = await assertNoteAccess(tx as unknown as Db, userId, id, 'owner');
+      assertNotTrashed(note);
+      loaded.push(note);
+    }
+    const [target, ...sources] = loaded as [NoteRow, ...NoteRow[]];
+    const itemsByNote = await loadItems(tx, ids);
+
+    await maybeSnapshot(tx, target, userId, { force: true });
+
+    if (target.type === 'list') {
+      const existing = itemsByNote.get(targetId) ?? [];
+      const appended: { text: string; checked: boolean; indent: 0 | 1 }[] = [];
+      for (const source of sources) {
+        // The title would otherwise be the one thing a merge silently drops.
+        if (source.title.trim() !== '') {
+          appended.push({
+            text: source.title.trim().slice(0, LIMITS.itemTextMax),
+            checked: false,
+            indent: 0,
+          });
+        }
+        if (source.type === 'list') {
+          for (const item of itemsByNote.get(source.id) ?? []) {
+            appended.push({
+              text: item.text,
+              checked: item.checked,
+              indent: (item.indent === 1 ? 1 : 0) as 0 | 1,
+            });
+          }
+        } else {
+          appended.push(...bodyTextToItems(source.bodyText));
+        }
+      }
+      if (existing.length + appended.length > LIMITS.itemsPerNoteMax) {
+        throw errors.conflict(
+          'item_limit_reached',
+          'Item limit reached',
+          `A merged list cannot exceed ${LIMITS.itemsPerNoteMax} items.`,
+        );
+      }
+      if (appended.length > 0) {
+        const last = existing.at(-1)?.position ?? null;
+        const positions = positionsBetween(last, null, appended.length);
+        await tx.insert(noteItems).values(
+          appended.map((item, i) => ({
+            noteId: targetId,
+            text: item.text,
+            checked: item.checked,
+            indent: item.indent,
+            position: positions[i]!,
+          })),
+        );
+      }
+    } else {
+      const blocks = [htmlToMarkdown(target.bodyHtml)];
+      for (const source of sources) {
+        const md = noteToMarkdown({
+          title: source.title,
+          type: source.type as 'text' | 'list',
+          bodyHtml: source.bodyHtml,
+          items: (itemsByNote.get(source.id) ?? []).map((i) => ({
+            text: i.text,
+            checked: i.checked,
+            indent: (i.indent === 1 ? 1 : 0) as 0 | 1,
+          })),
+        });
+        // The survivor already has a title, so a source's `# ` becomes a `## `
+        // section head rather than a second document title.
+        blocks.push(md.startsWith('# ') ? `#${md}` : md);
+      }
+      const markdown = blocks
+        .map((b) => b.trim())
+        .filter((b) => b !== '')
+        .join('\n\n');
+      const derived = deriveContent(renderMarkdown(markdown));
+      if (derived.bodyText.length > LIMITS.noteBodyTextMax) {
+        throw errors.conflict(
+          'conflict',
+          'Merged note too long',
+          `The merged note would be ${derived.bodyText.length} characters; the limit is ${LIMITS.noteBodyTextMax}.`,
+        );
+      }
+      await tx
+        .update(notes)
+        .set({ ...derived, lastEditedBy: userId })
+        .where(eq(notes.id, targetId));
+    }
+
+    // Attachments follow their note, so the merge copies the files rather than
+    // re-pointing rows: the source stays intact in the trash and restores whole.
+    if (storage) {
+      const [{ count: attCount } = { count: 0 }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(attachmentsTable)
+        .where(inArray(attachmentsTable.noteId, ids));
+      if (attCount > LIMITS.attachmentsPerNoteMax) {
+        throw errors.conflict(
+          'attachment_limit_reached',
+          'Attachment limit reached',
+          `A merged note cannot exceed ${LIMITS.attachmentsPerNoteMax} attachments.`,
+        );
+      }
+      for (const source of sources) {
+        await copyAttachments(tx as unknown as Db, storage, source.id, targetId);
+      }
+    }
+
+    // Labels are per-user, so the union is simply mine from every source.
+    const labelsBySource = await loadLabelIds(tx, userId, sourceIds);
+    const targetLabels = new Set((await loadLabelIds(tx, userId, [targetId])).get(targetId) ?? []);
+    const newLabels = [...new Set([...labelsBySource.values()].flat())].filter(
+      (id) => !targetLabels.has(id),
+    );
+    if (newLabels.length > 0) {
+      await tx
+        .insert(noteLabels)
+        .values(newLabels.map((labelId) => ({ noteId: targetId, userId, labelId })))
+        .onConflictDoNothing();
+    }
+
+    await tx.update(notes).set({ trashedAt: new Date() }).where(inArray(notes.id, sourceIds));
+    await tx
+      .update(noteMembers)
+      .set({ pinned: false })
+      .where(inArray(noteMembers.noteId, sourceIds));
+
+    return loadFullNote(tx, userId, targetId);
+  });
+}
+
+/** Plain body lines → checklist items, markdown markers and `[x]` boxes read. */
+function bodyTextToItems(bodyText: string): { text: string; checked: boolean; indent: 0 | 1 }[] {
+  return bodyText
+    .split('\n')
+    .filter((l) => l.trim() !== '')
+    .map((line) => {
+      const marker = /^(\s*)(?:[-*+]|\d{1,9}[.)])[ \t]+(.*)$/.exec(line);
+      const indent = marker ? Math.min(1, Math.floor(marker[1]!.length / 2)) : 0;
+      const rest = marker ? (marker[2] ?? '') : line.trim();
+      const box = /^\[([ xX])\][ \t]*(.*)$/.exec(rest);
+      return {
+        text: (box ? (box[2] ?? '') : rest).slice(0, LIMITS.itemTextMax),
+        checked: box ? (box[1] ?? ' ').toLowerCase() === 'x' : false,
+        indent: (marker ? indent : 0) as 0 | 1,
+      };
+    });
+}
+
 export async function convertNote(
   db: Db,
   userId: string,
@@ -689,18 +873,7 @@ export async function convertNote(
       // Body lines become items. A body that already holds a markdown list
       // converts marker for marker — bullets, nesting and `[x]` boxes — so
       // ticking checkboxes on a list you wrote by hand keeps its structure.
-      const lines = note.bodyText.split('\n').filter((l) => l.trim() !== '');
-      const parsed = lines.map((line) => {
-        const marker = /^(\s*)(?:[-*+]|\d{1,9}[.)])[ \t]+(.*)$/.exec(line);
-        const indent = marker ? Math.min(1, Math.floor(marker[1]!.length / 2)) : 0;
-        const rest = marker ? (marker[2] ?? '') : line.trim();
-        const box = /^\[([ xX])\][ \t]*(.*)$/.exec(rest);
-        return {
-          text: (box ? (box[2] ?? '') : rest).slice(0, LIMITS.itemTextMax),
-          checked: box ? (box[1] ?? ' ').toLowerCase() === 'x' : false,
-          indent: (marker ? indent : 0) as 0 | 1,
-        };
-      });
+      const parsed = bodyTextToItems(note.bodyText);
       if (parsed.length > 0) {
         const positions = positionsBetween(null, null, parsed.length);
         await tx.insert(noteItems).values(

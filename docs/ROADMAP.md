@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -406,11 +406,26 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   Salvar uma combinação busca+filtros como atalho no sidebar (vira "label inteligente").
   Depende dos operadores acima; persistir em settings.
 
-- [ ] **Mesclar notas** *(impacto baixo · esforço P/M)*
+- [x] **Mesclar notas** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   Na seleção múltipla, "Mesclar" concatena corpos/itens/imagens numa nota (Apple Notes tem, o
   pessoal sente falta —
   [Jornal em Destaque](https://www.jornalemdestaque.com/tecnologia/eu-uso-o-google-keep-todos-os-dias-mas-esses-recursos-do-apple-notes-ainda-me-deixam-com-ciumes/580398/)).
   Original vai para a lixeira (desfazível por 7 dias).
+  **Entregue:** `POST /api/notes/merge` recebe a lista e **a primeira nota sobrevive** — ela não é
+  uma nota nova: mantém o id (deep link, lembrete, colaboradores e estado por usuário seguem
+  intactos) e as outras vão para a lixeira. Quem decide quem é a primeira é a **ordem da tela**
+  (`viewNoteIds`), não a ordem do corpus: o usuário está olhando para o quadro.
+  **O tipo da sobrevivente decide o resto:** nota de texto recebe cada fonte como markdown, com o
+  título da fonte rebaixado de `#` para `##` (o serializer é o mesmo do export `.md`, então
+  formatação, listas e código sobrevivem); nota de lista recebe itens, e o título de cada fonte
+  vira um item — senão seria a única coisa que a mesclagem apagaria em silêncio. Não há terceira
+  opção porque o modelo tem uma checklist por nota (ver "Texto e checklist na mesma nota"). Anexos
+  são **copiados**, não repontados, para que a fonte na lixeira continue inteira e restaure completa.
+  **Sem botão de desfazer, de propósito:** as fontes estão na lixeira, mas a sobrevivente já tem o
+  texto mesclado — um "desfazer" que só devolvesse as fontes deixaria tudo duplicado. O caminho de
+  volta é o snapshot forçado no histórico de versões (feito antes de mesclar) mais a lixeira.
+  Exige ser dono de **todas** as notas, inclusive da sobrevivente: mesclar joga fora as fontes, e
+  jogar fora é coisa de dono.
 
 - [ ] **Visão calendário dos lembretes** *(impacto baixo · esforço M)*
   Alternativa mensal à lista de Reminders, mostrando as ocorrências (o wrapper de rrule já

@@ -43,6 +43,10 @@ export const copyNote = (id: string) => api<FullNote>(`/api/notes/${id}/copy`, {
 export const convertNote = (id: string, to: 'text' | 'list') =>
   api<FullNote>(`/api/notes/${id}/convert`, { method: 'POST', body: { to } });
 
+/** First id survives (keeps its id and state); the rest are folded in + trashed. */
+export const mergeNotes = (noteIds: string[]) =>
+  api<FullNote>('/api/notes/merge', { method: 'POST', body: { noteIds } });
+
 export const listVersions = (id: string) => api<NoteVersionMeta[]>(`/api/notes/${id}/versions`);
 
 export const restoreVersion = (id: string, versionId: string) =>

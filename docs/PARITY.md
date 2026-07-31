@@ -22,6 +22,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
 | Markdown as you type and paste | Keep has none | ✅ 🔀 headings 1–6, `**b**`/`*i*`/`~~s~~`/`` `code` ``, ``` fences, `> ` quotes, `---` rules, `- `/`1. ` lists and `[text](url)` links — typed, pasted or imported. `#` still quick-labels everywhere except a line start, where the next character decides | post-1.0 |
 | Note formatting vocabulary | H1/H2/B/I/U (May-2025 set) | ✅ 🔀 widened to what markdown expresses: H1–H6, strikethrough, inline code, code blocks, quotes, rules, bullet/ordered lists, links (sanitizer allowlist, DECISIONS #26) | post-1.0 |
+| Merge notes | Keep has none (Apple Notes does) | ✅ 🔀 "Merge" in the selection bar: the first note on the board keeps its id and per-user state, the rest are folded in (markdown sections into a text note, items into a list) and trashed | post-1.0 |
 | Markdown import / export | Keep has none | ✅ 🔀 per-note "Download as .md", a `markdown/` copy of every note in the export zip (YAML front matter for labels/color/pin), `.md` upload and markdown-vault zips on import | post-1.0 |
 | Print / "Save as PDF" | Keep has none | ✅ 🔀 "Print" in the note and card menus builds a clean sheet in the browser (title, images, body or checklist, labels + edited stamp), hides the app for `@media print` and names the PDF after the note | post-1.0 |
 | Autosave + limits (title ~999, body 19,999) | ✓ | ✅ 🔀 500ms debounce, dirty-field patches, flush on blur; footer word/character count warns before the body cap | M2 |
@@ -51,7 +52,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
 | Grid keyboard focus | j/k + Tab through cards | ✅ 🔀 roving tabindex — one tab stop per grid, arrows move it geometrically (masonry columns), j/k keep reading order | post-1.0 |
-| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ 🔀 hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy/remind/labels (tri-state) — plus bulk collaborator, which Keep has no bulk form of | M8 |
+| Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ 🔀 hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy/remind/labels (tri-state) — plus bulk collaborator and bulk merge, which Keep has neither of | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Sort the grid | Keep has manual order only | ✅ 🔀 "Sort notes" in the top bar: manual (default) · date edited · date created · title, roaming via `settings.noteSort`. Client-side over the corpus in Notes/Archive/label/search — Trash and Reminders keep their own order — and no sort writes a position, so drag is disabled off manual and switching back restores the arrangement | post-1.0 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ 🔀 phones now mirror the Keep Android app instead (DECISIONS #23) | M8 |

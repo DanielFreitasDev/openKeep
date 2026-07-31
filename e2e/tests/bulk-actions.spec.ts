@@ -181,3 +181,37 @@ test('bulk collaborator: one invite shares every selected note', async ({ browse
   await ownerCtx.close();
   await collabCtx.close();
 });
+
+test('merge: the first note on the board survives, the others go to the trash', async ({
+  context,
+  page,
+}) => {
+  await signUpFreshUser(context);
+  await page.goto('/');
+  await expect(page.getByLabel('Take a note…')).toBeVisible();
+
+  await composeNote(page, { title: 'Older note', body: 'first written' });
+  await composeNote(page, { title: 'Newer note', body: 'second written' });
+
+  // Newest first, so "Newer note" is the one on top — and the survivor.
+  await select(page, 'Older note');
+  await select(page, 'Newer note');
+  await expect(page.getByText('2 selected')).toBeVisible();
+
+  await bar(page).getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Merge' }).click();
+
+  await expect(page.getByText('2 notes merged')).toBeVisible();
+  await expect(cardByTitle(page, 'Older note')).toHaveCount(0);
+
+  const survivor = cardRootByTitle(page, 'Newer note');
+  await expect(survivor).toBeVisible();
+  await expect(survivor).toContainText('second written');
+  // The merged source arrives as a section, title and all.
+  await expect(survivor).toContainText('Older note');
+  await expect(survivor).toContainText('first written');
+
+  // The source is recoverable — that is the undo.
+  await page.getByRole('link', { name: 'Trash' }).click();
+  await expect(cardByTitle(page, 'Older note')).toBeVisible();
+});

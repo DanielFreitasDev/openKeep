@@ -16,6 +16,7 @@ import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { useSelectionStore } from '../../stores/selection.js';
+import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
 import { BulkLabelPicker } from '../labels/LabelPicker.js';
@@ -56,6 +57,7 @@ export function SelectionBar() {
   const selected = useSelectionStore((s) => s.selected);
   const clear = useSelectionStore((s) => s.clear);
   const { data: notes } = useQuery(notesQuery);
+  const viewOrder = useUiStore((s) => s.viewNoteIds);
   const m = useNoteMutations();
   const collaboratorM = useCollaboratorMutations();
   // Panels the overflow menu opens, anchored under it (a menu item cannot own
@@ -67,6 +69,13 @@ export function SelectionBar() {
   const picked = (notes ?? []).filter((n) => selected.has(n.id));
   // Only the owner may invite, so a mixed selection shares the notes it can.
   const owned = picked.filter((n) => n.role === 'owner');
+  /**
+   * Merge order is BOARD order, not corpus order: the first note on screen is
+   * the one that survives, and the user is looking at the board. Notes shared
+   * by someone else are excluded — merging trashes the sources, which is not
+   * ours to do.
+   */
+  const mergeable = [...owned].sort((a, b) => viewOrder.indexOf(a.id) - viewOrder.indexOf(b.id));
 
   const bulk = {
     pin: () => {
@@ -91,6 +100,11 @@ export function SelectionBar() {
     copy: () => {
       for (const n of picked) m.copy.mutate(n.id);
       clear();
+    },
+    merge: () => {
+      const ids = mergeable.map((n) => n.id);
+      clear();
+      m.mergeWithToast(ids);
     },
     invite: (email: string) => {
       for (const n of owned) collaboratorM.invite.mutate({ noteId: n.id, email });
@@ -191,6 +205,11 @@ export function SelectionBar() {
                 <Menu.Item className={menuItemClass} onClick={bulk.copy}>
                   {t('makeACopy')}
                 </Menu.Item>
+                {mergeable.length > 1 && (
+                  <Menu.Item className={menuItemClass} onClick={bulk.merge}>
+                    {t('mergeNotes')}
+                  </Menu.Item>
+                )}
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>
