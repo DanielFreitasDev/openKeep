@@ -26,6 +26,10 @@
   "chip_before": "Editadas antes de {{value}}",
   "chip_after": "Editadas a partir de {{value}}",
   "chip_not": "sem {{term}}",
+  "saveSearch": "Salvar busca",
+  "saveSearchName": "Dê um nome a esta busca",
+  "removeSavedSearch": "Busca salva",
+  "savedSearchesFull": "Você atingiu o limite de buscas salvas.",
   "archiveSection": "Arquivo",
   "noResults": "Nenhum resultado encontrado."
 }

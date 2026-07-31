@@ -228,6 +228,39 @@
                         "created",
                         "title"
                       ]
+                    },
+                    "savedSearches": {
+                      "maxItems": 20,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "q": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "collaborator": {
+                            "type": "string",
+                            "maxLength": 64
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "q"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -240,7 +273,8 @@
                     "reminderEvening",
                     "timezone",
                     "viewMode",
-                    "noteSort"
+                    "noteSort",
+                    "savedSearches"
                   ],
                   "additionalProperties": false
                 }
@@ -303,6 +337,38 @@
                       "created",
                       "title"
                     ]
+                  },
+                  "savedSearches": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        },
+                        "q": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "collaborator": {
+                          "type": "string",
+                          "maxLength": 64
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "q"
+                      ]
+                    }
                   }
                 }
               }
@@ -360,6 +426,39 @@
                         "created",
                         "title"
                       ]
+                    },
+                    "savedSearches": {
+                      "maxItems": 20,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "q": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "collaborator": {
+                            "type": "string",
+                            "maxLength": 64
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "q"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -372,7 +471,8 @@
                     "reminderEvening",
                     "timezone",
                     "viewMode",
-                    "noteSort"
+                    "noteSort",
+                    "savedSearches"
                   ],
                   "additionalProperties": false
                 }

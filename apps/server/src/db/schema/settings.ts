@@ -1,5 +1,6 @@
+import type { SavedSearch } from '@openkeep/shared';
 import { sql } from 'drizzle-orm';
-import { boolean, check, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, check, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { user } from './auth.js';
 
 // Inlined as a literal (sql.raw) — parameters are illegal in CHECK constraints.
@@ -33,6 +34,12 @@ export const userSettings = pgTable(
     viewMode: text().notNull().default('grid'),
     /** Grid order: manual (the fractional position) or a client-side view of it. */
     noteSort: text().notNull().default('manual'),
+    /**
+     * Saved searches, as sidebar shortcuts: `{id, name, q, collaborator?}`.
+     * A document rather than a table because the whole list is read and written
+     * as one — it travels inside the settings DTO the client already holds.
+     */
+    savedSearches: jsonb().$type<SavedSearch[]>().notNull().default(sql`'[]'::jsonb`),
     /**
      * Secret in the iCalendar feed URL. Null = no feed; rotating it revokes
      * every subscription at once. Not part of the settings DTO — a bearer

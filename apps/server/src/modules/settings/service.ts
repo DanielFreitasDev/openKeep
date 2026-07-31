@@ -18,6 +18,7 @@ function toDto(row: SettingsRow): UserSettings {
     timezone: row.timezone,
     viewMode: row.viewMode as UserSettings['viewMode'],
     noteSort: row.noteSort as UserSettings['noteSort'],
+    savedSearches: row.savedSearches,
   };
 }
 

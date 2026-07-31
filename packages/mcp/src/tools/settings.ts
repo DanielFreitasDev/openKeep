@@ -5,7 +5,7 @@ import { defineTool } from './types.js';
 export const getSettings = defineTool({
   name: 'get_settings',
   description:
-    'Read the account settings: checklist behavior, link previews, sharing, reminder default times, timezone, view mode.',
+    'Read the account settings: checklist behavior, link previews, sharing, reminder default times, timezone, view mode, saved searches (each with the query string search_notes accepts).',
   inputSchema: z.object({}),
   annotations: { readOnlyHint: true },
   handler: async (client) => client.getSettings(),

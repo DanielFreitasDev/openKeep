@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -443,10 +443,25 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   filtro puro — o corpus só tem ids, então a rota traduz nome→id (nome que ninguém tem resolve para
   ele mesmo e casa com nada, que é a resposta honesta para `label:typo`).
 
-- [ ] **Buscas salvas** *(impacto baixo · esforço P/M)*
+- [x] **Buscas salvas** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   Salvar uma combinação busca+filtros como atalho no sidebar (vira "label inteligente").
   Destravado: os operadores acima já são a linguagem a salvar — a busca inteira cabe numa string
   (`q`), então o atalho é um nome + essa string em settings, sem esquema novo.
+  **Entregue:** botão "Salvar busca" na própria tela de busca, ao lado dos chips, e a lista em
+  `settings.savedSearches` (coluna `jsonb` em `user_settings`, teto de 20) — o mesmo DTO que o
+  cliente já tem em mãos, então o PATCH de settings e o evento `settings.updated` fazem o atalho
+  aparecer nas outras abas sem rota nova.
+  **A decisão que sustenta o resto: o que é salvo é a query canônica.** Os tiles de tipo, marcador
+  e cor são dobrados para dentro do `q` (`has:list`, `label:"a fazer"`, `color:coral`), porque a
+  linguagem de busca já os expressa — assim existe **uma** representação para guardar, mostrar e
+  entregar a um agente, em vez de um atalho com metade dos filtros na string e metade ao lado. A
+  exceção é o filtro "Pessoas": colaborador é um id de usuário, que nenhum operador escreve, então
+  viaja num campo próprio da entrada e faz parte da identidade dela.
+  **Onde ficou o gerenciamento:** o botão é um estado só — busca não salva oferece o nome, busca
+  salva oferece a remoção. É o mesmo motivo pelo qual o arrasto dos marcadores foi para o diálogo:
+  no sidebar cada item é um `Link` de navegação, e pendurar um "×" ali disputa com o clique que
+  navega. O nome vem preenchido com a própria query (é o que a pessoa acabou de digitar) e o link
+  do sidebar casa por caminho **e** busca — senão dois atalhos acenderiam juntos na mesma rota.
 
 - [x] **Mesclar notas** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   Na seleção múltipla, "Mesclar" concatena corpos/itens/imagens numa nota (Apple Notes tem, o
@@ -714,8 +729,7 @@ O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
 do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
 
-Com os operadores de busca no ar, **buscas salvas** virou item barato (a busca inteira já cabe numa
-string) — bom candidato a entrar antes dos grandes acima quando a fila permitir.
+**Buscas salvas** saíram junto (2026-07-31): eram o item barato que os operadores destravaram.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

@@ -54,6 +54,7 @@ describe('auth & settings', () => {
       timezone: null,
       viewMode: 'grid',
       noteSort: 'manual',
+      savedSearches: [],
     });
   });
 
@@ -117,6 +118,70 @@ describe('auth & settings', () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe('validation_failed');
+  });
+
+  // One account for the three of them: sign-ups are rate limited at 10/min/IP,
+  // and this file already spends most of that budget.
+  describe('saved searches', () => {
+    let cookie: string;
+    beforeAll(async () => {
+      cookie = await t.signUp('frank@example.com', 'Frank');
+    });
+
+    it('stores them and hands them back whole', async () => {
+      const savedSearches = [
+        { id: 'aaa', name: 'Market', q: 'milk has:list label:market' },
+        { id: 'bbb', name: 'With Ana', q: 'is:pinned', collaborator: 'user-1' },
+      ];
+      const patch = await t.app.inject({
+        method: 'PATCH',
+        url: '/api/settings',
+        headers: { cookie },
+        payload: { savedSearches },
+      });
+      expect(patch.statusCode).toBe(200);
+      expect(patch.json().savedSearches).toEqual(savedSearches);
+
+      const read = await t.app.inject({ method: 'GET', url: '/api/settings', headers: { cookie } });
+      expect(read.json().savedSearches).toEqual(savedSearches);
+
+      // The list is written whole, so removal is an assignment, not a delete.
+      const removed = await t.app.inject({
+        method: 'PATCH',
+        url: '/api/settings',
+        headers: { cookie },
+        payload: { savedSearches: [savedSearches[0]] },
+      });
+      expect(removed.json().savedSearches).toHaveLength(1);
+    });
+
+    it('rejects one without a name', async () => {
+      const res = await t.app.inject({
+        method: 'PATCH',
+        url: '/api/settings',
+        headers: { cookie },
+        payload: { savedSearches: [{ id: 'aaa', name: '  ', q: 'milk' }] },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().code).toBe('validation_failed');
+    });
+
+    it('caps how many an account can keep', async () => {
+      const res = await t.app.inject({
+        method: 'PATCH',
+        url: '/api/settings',
+        headers: { cookie },
+        payload: {
+          savedSearches: Array.from({ length: 21 }, (_, i) => ({
+            id: `id-${i}`,
+            name: `Search ${i}`,
+            q: `term${i}`,
+          })),
+        },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().code).toBe('validation_failed');
+    });
   });
 
   it('requires auth for settings', async () => {

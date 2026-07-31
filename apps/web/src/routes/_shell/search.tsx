@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Icon } from '../../components/Icon.js';
+import { SaveSearchButton } from '../../components/shell/SaveSearchButton.js';
 import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { formatSearchDay } from '../../lib/dates.js';
 import { labelsQuery } from '../../lib/labels-api.js';
@@ -170,12 +171,8 @@ function SearchView() {
 
   return (
     <div className="px-3 py-4 md:px-6 md:py-6">
-      {/* Active filter chips */}
-      {(params.type ||
-        params.label ||
-        params.color ||
-        params.collaborator ||
-        operatorTerms.length > 0) && (
+      {/* Active filter chips, and the shortcut this whole screen can become */}
+      {hasAny && (
         <div className="mx-auto mb-6 flex max-w-[960px] flex-wrap items-center gap-2">
           {params.collaborator && (
             <FilterChip
@@ -211,6 +208,7 @@ function SearchView() {
               onClear={() => dropTerm(term)}
             />
           ))}
+          <SaveSearchButton params={params} />
         </div>
       )}
 

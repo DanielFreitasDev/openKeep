@@ -1,4 +1,5 @@
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import bookmarkSvg from '@material-symbols/svg-700/outlined/bookmark.svg?raw';
 import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
 import editSvg from '@material-symbols/svg-700/outlined/edit.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
@@ -10,6 +11,8 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { labelsQuery } from '../../lib/labels-api.js';
+import { settingsQuery } from '../../lib/queries.js';
+import { savedSearchTarget } from '../../lib/saved-searches.js';
 import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { LabelDot } from '../labels/LabelStyleMenu.js';
@@ -40,6 +43,8 @@ export function Sidebar() {
   const setDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
   const setActiveDialog = useUiStore((s) => s.setActiveDialog);
   const { data: labels } = useQuery(labelsQuery);
+  const { data: settings } = useQuery(settingsQuery);
+  const savedSearches = settings?.savedSearches ?? [];
   const [hovered, setHovered] = useState(false);
 
   const expanded = open || hovered || drawerOpen;
@@ -146,6 +151,32 @@ export function Sidebar() {
           <Icon svg={editSvg} size={24} />
           {expanded && <span className="truncate">{t('editLabels')}</span>}
         </button>
+
+        {savedSearches.length > 0 && (
+          <div className="mt-2 mb-1 border-(--outline-variant) border-t px-6 pt-3 font-medium text-on-surface-variant text-xs md:hidden">
+            {t('savedSearchesSection')}
+          </div>
+        )}
+
+        {savedSearches.map((search) => (
+          <Link
+            key={search.id}
+            to="/search"
+            search={savedSearchTarget(search)}
+            // The query is part of the identity here: two shortcuts differ only
+            // by their search, so path-only matching would light them all up.
+            activeOptions={{ includeSearch: true }}
+            className={itemClass(expanded)}
+            onClick={closeDrawer}
+            activeProps={{
+              className: 'bg-accent-container hover:bg-accent-container',
+              'aria-current': 'page',
+            }}
+          >
+            <Icon svg={bookmarkSvg} size={24} />
+            {expanded && <span className="truncate">{search.name}</span>}
+          </Link>
+        ))}
 
         {NAV_ITEMS.slice(2).map((item) => (
           <Link

@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   timezone: null,
   noteSort: 'manual',
   viewMode: 'grid',
+  savedSearches: [],
 };
 
 /**

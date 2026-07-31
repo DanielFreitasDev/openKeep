@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "saved_searches" jsonb DEFAULT '[]'::jsonb NOT NULL;

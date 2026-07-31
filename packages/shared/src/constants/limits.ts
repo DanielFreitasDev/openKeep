@@ -14,6 +14,11 @@ export const LIMITS = {
   labelsPerUserMax: 50,
   /** Personal access tokens (MCP/API) per account. */
   apiTokensPerUserMax: 10,
+  /** Saved searches per account — sidebar shortcuts, so a list that still reads. */
+  savedSearchesPerUserMax: 20,
+  savedSearchNameMax: 60,
+  /** A search query string (free text plus operators). */
+  searchQueryMax: 500,
   labelNameMax: 255,
   attachmentsPerNoteMax: 25,
   collaboratorsPerNoteMax: 20,
