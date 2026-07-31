@@ -1,3 +1,21 @@
+# [1.19.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.18.0...v1.19.0) (2026-07-31)
+
+
+### Features
+
+* search operators in the query box ([c15670a](https://github.com/DanielFreitasDev/openKeep/commit/c15670a0ff2136f417de4c1002d1d317c9952198))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.19.0
+```
+
+Or download `compose.yml` below (image pinned to `1.19.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.19.0/docs/DEPLOYMENT.md).
+
 # [1.18.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.17.0...v1.18.0) (2026-07-31)
 
 
