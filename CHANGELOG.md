@@ -1,3 +1,21 @@
+# [1.16.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.15.0...v1.16.0) (2026-07-31)
+
+
+### Features
+
+* print a note or save it as PDF ([4ad3333](https://github.com/DanielFreitasDev/openKeep/commit/4ad33334f0465b514b8676cb46e2fc8898a946d8))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.16.0
+```
+
+Or download `compose.yml` below (image pinned to `1.16.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.16.0/docs/DEPLOYMENT.md).
+
 # [1.15.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.14.0...v1.15.0) (2026-07-30)
 
 
