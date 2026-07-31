@@ -1,3 +1,22 @@
+# [1.20.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.19.0...v1.20.0) (2026-07-31)
+
+
+### Features
+
+* "delete all notes" also deletes the labels you created ([c51f058](https://github.com/DanielFreitasDev/openKeep/commit/c51f0589c3db34f6a9500a6e369f4c5d23cde49d))
+* saved searches as sidebar shortcuts ([b018b95](https://github.com/DanielFreitasDev/openKeep/commit/b018b9537cc57f464abb30275146d01cf98a359e))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.20.0
+```
+
+Or download `compose.yml` below (image pinned to `1.20.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.20.0/docs/DEPLOYMENT.md).
+
 # [1.19.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.18.0...v1.19.0) (2026-07-31)
 
 
