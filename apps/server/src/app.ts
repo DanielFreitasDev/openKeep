@@ -136,7 +136,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
   registerReminderRoutes(app, deps.db, config, realtime);
   registerCalendarRoutes(app, deps.db, config);
-  registerSharingRoutes(app, deps.db, realtime);
+  registerSharingRoutes(app, deps.db, realtime, config, deps.storage);
   registerImportExportRoutes(app, deps.db, deps.storage, deps.enqueueJob ?? (async () => {}));
   registerMcp(app, deps.db);
 

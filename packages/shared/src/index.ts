@@ -21,3 +21,4 @@ export * from './schemas/notes.js';
 export * from './schemas/realtime.js';
 export * from './schemas/reminders.js';
 export * from './schemas/settings.js';
+export * from './schemas/sharing.js';

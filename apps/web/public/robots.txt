@@ -1,0 +1,4 @@
+# Public share pages are secret URLs, not published documents.
+User-agent: *
+Disallow: /s/
+Disallow: /api/

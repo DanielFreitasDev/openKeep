@@ -102,7 +102,8 @@ Point `BACKUP_DIR` at a mounted volume — inside the container the rootfs is re
 - Same-origin only: no CORS, `SameSite=Lax` httpOnly cookies, `Origin`/`Sec-Fetch-Site` checks on mutations, session validated before the WS upgrade is accepted.
 - Uploads: magic-byte sniffing (no SVG), sharp re-encode strips EXIF, 10 MB / 25 MP caps, opaque UUID storage keys, `nosniff`.
 - Link previews: DNS pre-resolution with pinned-IP connections (rebinding-safe), private/reserved ranges rejected, ≤3 re-validated redirects, 10 s / 2 MB caps.
-- Rate limits: auth 10/min/IP, uploads 30/min, search 60/min, imports 3/day.
+- Rate limits: auth 10/min/IP, uploads 30/min, search 60/min, imports 3/day, public share pages 60/min (attachments 120/min).
+- Public share links (`/s/<token>`) are unauthenticated by design: a 24-byte random token is the whole credential. They answer `X-Robots-Tag: noindex` and are disallowed in `robots.txt`, but anyone the URL reaches can read the note — revoke from the note's Share dialog, or set an expiry when creating it.
 - Container: non-root user, read-only rootfs (writable `/data` volume + `/tmp` tmpfs).
 
 ## Troubleshooting

@@ -18,6 +18,7 @@ import { Route as ShellRemindersRouteImport } from './routes/_shell/reminders'
 import { Route as ShellSearchRouteImport } from './routes/_shell/search'
 import { Route as ShellShareRouteImport } from './routes/_shell/share'
 import { Route as ShellTrashRouteImport } from './routes/_shell/trash'
+import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as ShellLabelLabelNameRouteImport } from './routes/_shell/label.$labelName'
 
 const ShellRoute = ShellRouteImport.update({
@@ -64,6 +65,11 @@ const ShellTrashRoute = ShellTrashRouteImport.update({
   path: '/trash',
   getParentRoute: () => ShellRoute,
 } as any)
+const STokenRoute = STokenRouteImport.update({
+  id: '/s/$token',
+  path: '/s/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShellLabelLabelNameRoute = ShellLabelLabelNameRouteImport.update({
   id: '/label/$labelName',
   path: '/label/$labelName',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof ShellSearchRoute
   '/share': typeof ShellShareRoute
   '/trash': typeof ShellTrashRoute
+  '/s/$token': typeof STokenRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
 }
 export interface FileRoutesByTo {
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/search': typeof ShellSearchRoute
   '/share': typeof ShellShareRoute
   '/trash': typeof ShellTrashRoute
+  '/s/$token': typeof STokenRoute
   '/': typeof ShellIndexRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
 }
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/_shell/search': typeof ShellSearchRoute
   '/_shell/share': typeof ShellShareRoute
   '/_shell/trash': typeof ShellTrashRoute
+  '/s/$token': typeof STokenRoute
   '/_shell/': typeof ShellIndexRoute
   '/_shell/label/$labelName': typeof ShellLabelLabelNameRoute
 }
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/share'
     | '/trash'
+    | '/s/$token'
     | '/label/$labelName'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/share'
     | '/trash'
+    | '/s/$token'
     | '/'
     | '/label/$labelName'
   id:
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/_shell/search'
     | '/_shell/share'
     | '/_shell/trash'
+    | '/s/$token'
     | '/_shell/'
     | '/_shell/label/$labelName'
   fileRoutesById: FileRoutesById
@@ -146,6 +158,7 @@ export interface RootRouteChildren {
   ShellRoute: typeof ShellRouteWithChildren
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  STokenRoute: typeof STokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellTrashRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/s/$token': {
+      id: '/s/$token'
+      path: '/s/$token'
+      fullPath: '/s/$token'
+      preLoaderRoute: typeof STokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_shell/label/$labelName': {
       id: '/_shell/label/$labelName'
       path: '/label/$labelName'
@@ -249,6 +269,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShellRoute: ShellRouteWithChildren,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  STokenRoute: STokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

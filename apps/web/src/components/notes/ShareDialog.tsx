@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCollaboratorMutations } from '../../hooks/use-collaborator-mutations.js';
 import { sessionQuery } from '../../lib/queries.js';
+import { PublicLinkSection } from './PublicLinkSection.js';
 
 interface ShareDialogProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface ShareDialogProps {
   inviting?: boolean;
   /** Line under the title — the bulk path says how many notes it will share. */
   subtitle?: string;
+  /** Absent on the bulk path, where there is no single note to link to. */
+  noteId?: string;
   onInvite: (email: string, role: InviteRole) => void;
   onRemove: (userId: string) => void;
   /** Absent on the bulk path: permission is per membership, per note. */
@@ -34,6 +37,7 @@ export function ShareDialog({
   isOwner,
   inviting = false,
   subtitle,
+  noteId,
   onInvite,
   onRemove,
   onRole,
@@ -141,6 +145,8 @@ export function ShareDialog({
                 </button>
               </form>
             )}
+
+            {isOwner && noteId && <PublicLinkSection noteId={noteId} />}
           </div>
 
           <div className="flex justify-end px-4 pb-4">
@@ -171,6 +177,7 @@ export function NoteShareDialog({
       onOpenChange={onOpenChange}
       collaborators={note.collaborators}
       isOwner={note.role === 'owner'}
+      noteId={note.id}
       inviting={m.invite.isPending}
       onInvite={(email, role) => m.invite.mutate({ noteId: note.id, email, role })}
       onRole={(userId, role) => m.setRole.mutate({ noteId: note.id, userId, role })}

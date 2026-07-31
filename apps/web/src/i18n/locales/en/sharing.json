@@ -15,5 +15,20 @@
   "role_collaborator": "Can edit",
   "role_viewer": "Can view",
   "viewOnly": "View only",
-  "inviteFailed": "Couldn't share the note"
+  "inviteFailed": "Couldn't share the note",
+  "linkTitle": "Link sharing",
+  "linkHint": "Anyone with the link can view this note. No account needed.",
+  "linkCreate": "Create link",
+  "linkCopy": "Copy link",
+  "linkCopied": "Link copied",
+  "linkRevoke": "Revoke link",
+  "linkUrl": "Public link",
+  "linkExpiry": "Link expiry",
+  "linkExpiryNever": "No expiry",
+  "linkExpiryDays_one": "{{count}} day",
+  "linkExpiryDays_other": "{{count}} days",
+  "linkExpiresOn": "Expires {{date}}",
+  "linkFailed": "Couldn't update the link",
+  "linkUnavailable": "This link isn't available",
+  "linkUnavailableHint": "It may have been revoked or expired, or the note was deleted."
 }

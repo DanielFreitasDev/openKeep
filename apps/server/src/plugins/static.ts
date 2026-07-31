@@ -60,7 +60,11 @@ export async function registerSpa(app: FastifyInstance, distDir: string): Promis
  * per prefix, and the error-handler plugin owns it — this is plugged in there
  * (via buildApp) instead of calling setNotFoundHandler a second time.
  */
-export function spaFallback(_req: FastifyRequest, reply: FastifyReply): unknown {
+export function spaFallback(req: FastifyRequest, reply: FastifyReply): unknown {
+  // A public share page is one HTML shell like every other route, so the only
+  // place to say "don't index this" is the response that serves it — the same
+  // thing robots.txt says, for the crawlers that read headers instead.
+  if (req.url.startsWith('/s/')) void reply.header('x-robots-tag', 'noindex, nofollow');
   return reply
     .header('content-security-policy', SPA_CSP)
     .header('cache-control', 'no-cache')

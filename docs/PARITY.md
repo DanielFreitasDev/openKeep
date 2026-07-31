@@ -55,6 +55,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Web push + in-app notifications | classic Keep UX | ✅ 🔀 VAPID push (opt-in on first reminder) + in-app toasts | M6 |
 | Sharing: invite by email, single permission level | ✓ | ✅ registered users; both-side sharing setting; 20 cap | M7 |
 | Sharing permission levels | Keep has only "can edit" | ✅ 🔀 "Can edit" / "Can view" per member, changeable after the fact; view-only freezes the shared content (title, body, items, attachments, type, version restore) but not the viewer's own pin, colour, labels, reminder or board order | post-1.0 |
+| Public read-only link | Keep has none (sharing needs a Google account) | ✅ 🔀 the owner mints one address per note in the Share dialog (optional 7/30-day expiry); `/s/<token>` renders the note — title, body or checklist, images, drawings, audio — with no session anywhere on the path, `noindex` in the response and in robots.txt. Only shared content travels: no labels, reminder, pin or anyone's name. Re-issuing replaces the address, revoking deletes it, and trashing the note takes it dark until the note is restored (DECISIONS #30) | post-1.0 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |

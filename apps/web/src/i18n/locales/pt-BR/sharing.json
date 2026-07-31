@@ -15,5 +15,20 @@
   "role_collaborator": "Pode editar",
   "role_viewer": "Pode ver",
   "viewOnly": "Somente leitura",
-  "inviteFailed": "Não foi possível compartilhar a nota"
+  "inviteFailed": "Não foi possível compartilhar a nota",
+  "linkTitle": "Compartilhar por link",
+  "linkHint": "Qualquer pessoa com o link pode ver esta nota. Não é preciso ter conta.",
+  "linkCreate": "Criar link",
+  "linkCopy": "Copiar link",
+  "linkCopied": "Link copiado",
+  "linkRevoke": "Revogar link",
+  "linkUrl": "Link público",
+  "linkExpiry": "Validade do link",
+  "linkExpiryNever": "Sem validade",
+  "linkExpiryDays_one": "{{count}} dia",
+  "linkExpiryDays_other": "{{count}} dias",
+  "linkExpiresOn": "Expira em {{date}}",
+  "linkFailed": "Não foi possível atualizar o link",
+  "linkUnavailable": "Este link não está disponível",
+  "linkUnavailableHint": "Ele pode ter sido revogado ou expirado, ou a nota foi excluída."
 }

@@ -1,7 +1,17 @@
-import { zCollaborator, zId, zInviteRole } from '@openkeep/shared';
+import {
+  zCollaborator,
+  zCreateShareLink,
+  zId,
+  zInviteRole,
+  zPublicNote,
+  zShareLink,
+} from '@openkeep/shared';
 import { z } from 'zod';
 import type { App } from '../../app.js';
+import type { Config } from '../../config.js';
 import type { Db } from '../../db/client.js';
+import { errors } from '../../lib/errors.js';
+import type { Storage } from '../../lib/storage.js';
 import type { Realtime } from '../../realtime/registry.js';
 import { memberIds } from '../../realtime/registry.js';
 import * as svc from './service.js';
@@ -9,7 +19,16 @@ import * as svc from './service.js';
 const zNoteParams = z.object({ id: zId });
 const zMemberParams = z.object({ id: zId, userId: z.string() });
 
-export function registerSharingRoutes(app: App, db: Db, realtime: Realtime): void {
+/** Base64url of 24 bytes — the only shape a public route will look up. */
+const zShareToken = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
+
+export function registerSharingRoutes(
+  app: App,
+  db: Db,
+  realtime: Realtime,
+  config: Config,
+  storage: Storage,
+): void {
   const auth = { preHandler: [app.requireAuth] };
 
   app.get(
@@ -128,6 +147,112 @@ export function registerSharingRoutes(app: App, db: Db, realtime: Realtime): voi
         payload: { id: req.params.id, reason: outcome === 'left' ? 'left' : 'unshared' },
       });
       return reply.status(204).send(null);
+    },
+  );
+
+  /* --------------------------------------------------------------- *
+   * Public read-only link
+   * --------------------------------------------------------------- */
+
+  const toDto = (row: svc.ShareLinkRow | null) => ({
+    // `/s/<token>` is a page, not an API path: what the owner copies is what a
+    // person opens, and the SPA route is the only thing that renders it.
+    url: row === null ? null : new URL(`/s/${row.token}`, config.APP_URL).toString(),
+    expiresAt: row?.expiresAt?.toISOString() ?? null,
+  });
+
+  app.get(
+    '/api/notes/:id/share-link',
+    {
+      ...auth,
+      schema: { tags: ['sharing'], params: zNoteParams, response: { 200: zShareLink } },
+    },
+    async (req) => toDto(await svc.getShareLink(db, req.user.id, req.params.id)),
+  );
+
+  app.post(
+    '/api/notes/:id/share-link',
+    {
+      ...auth,
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['sharing'],
+        description: 'Create (or replace) the note’s public read-only link.',
+        params: zNoteParams,
+        body: zCreateShareLink,
+        response: { 201: zShareLink },
+      },
+    },
+    async (req, reply) => {
+      const row = await svc.createShareLink(db, req.user.id, req.params.id, req.body.expiresInDays);
+      return reply.status(201).send(toDto(row));
+    },
+  );
+
+  app.delete(
+    '/api/notes/:id/share-link',
+    { ...auth, schema: { tags: ['sharing'], params: zNoteParams, response: { 204: z.null() } } },
+    async (req, reply) => {
+      await svc.revokeShareLink(db, req.user.id, req.params.id);
+      return reply.status(204).send(null);
+    },
+  );
+
+  /**
+   * What a link holder reads. No session — the whole point is that there is no
+   * account on the other end — so the token in the path is the credential, the
+   * surface is rate limited like any anonymous one, and search engines are
+   * told to stay away in the response itself as well as in robots.txt.
+   */
+  app.get(
+    '/api/public/notes/:token',
+    {
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['sharing'],
+        description: 'The note behind a public link, as a reader sees it.',
+        params: z.object({ token: zShareToken }),
+        response: { 200: zPublicNote },
+      },
+    },
+    async (req, reply) => {
+      const note = await svc.publicNoteByToken(db, req.params.token);
+      if (!note) throw errors.notFound();
+      return reply
+        .header('x-robots-tag', 'noindex, nofollow')
+        .header('cache-control', 'private, no-store')
+        .send(note);
+    },
+  );
+
+  app.get(
+    '/api/public/notes/:token/attachments/:attachmentId/:variant',
+    {
+      config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['sharing'],
+        description: 'Image, drawing or audio bytes of a publicly linked note.',
+        params: z.object({
+          token: zShareToken,
+          attachmentId: zId,
+          variant: z.enum(['file', 'thumb']),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const { stream, mime } = await svc.openPublicAttachment(
+        db,
+        storage,
+        req.params.token,
+        req.params.attachmentId,
+        req.params.variant,
+      );
+      return reply
+        .header('content-type', mime)
+        .header('cache-control', 'private, max-age=31536000, immutable')
+        .header('x-content-type-options', 'nosniff')
+        .header('x-robots-tag', 'noindex, nofollow')
+        .send(stream);
     },
   );
 }

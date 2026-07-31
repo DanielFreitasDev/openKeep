@@ -439,14 +439,16 @@ async function findForUser(db: Db, userId: string, attachmentId: string): Promis
   return row.att;
 }
 
-export async function openAttachment(
-  db: Db,
+/**
+ * The bytes of a row that the caller has already been cleared to read —
+ * membership here, a public share token there. Authorization is the caller's
+ * job precisely because there is more than one way to earn it.
+ */
+export async function streamAttachment(
   storage: Storage,
-  userId: string,
-  attachmentId: string,
+  att: AttachmentRow,
   variant: 'file' | 'thumb',
 ): Promise<AttachmentFile> {
-  const att = await findForUser(db, userId, attachmentId);
   const key = variant === 'thumb' ? att.thumbKey : att.storageKey;
   if (!key || !(await storage.exists(variant === 'thumb' ? 'thumbs' : 'attachments', key))) {
     throw errors.notFound();
@@ -455,6 +457,16 @@ export async function openAttachment(
     stream: storage.createReadStream(variant === 'thumb' ? 'thumbs' : 'attachments', key),
     mime: variant === 'thumb' ? 'image/webp' : att.mime,
   };
+}
+
+export async function openAttachment(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  attachmentId: string,
+  variant: 'file' | 'thumb',
+): Promise<AttachmentFile> {
+  return streamAttachment(storage, await findForUser(db, userId, attachmentId), variant);
 }
 
 export async function noteIdOfAttachment(

@@ -59,6 +59,7 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 - Invite by email (registered instance users only; Keep-style "person not found" otherwise).
 - Two permission levels 🔀 (Keep has only the first): **Can edit** and **Can view**. View-only freezes the shared content — title, body, checklist items, attachments, note type, version restore — while the viewer keeps their own pin, colour, labels, reminder and board order. The owner changes the level of an existing member at any time and it takes effect live.
 - Collaborators can manage the collaborator list; owner delete removes the note for all; a collaborator can leave.
+- **Public read-only link** 🔀 (Keep has none): the owner mints one address per note — optionally expiring in 7 or 30 days — and anyone holding it opens `/s/<token>` with no account at all. The page carries only shared content (title, body or checklist, images, drawings, audio); labels, reminders, pin and every member's identity stay behind. Re-issuing replaces the address, revoking deletes it, and a trashed note goes dark until it is restored.
 - **Per-user state on shared notes**: pin, archive, color/background, labels, reminders, manual order. Content (title/body/items/images) is shared.
 - Near-real-time propagation (~1s) via WebSocket.
 - "Enable sharing" setting: off = blocks inbound shares to you.

@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (vincular notas com `[[` e backlinks;
+> Última atualização: **2026-07-31** (compartilhar por link público somente leitura;
+> vincular notas com `[[` e backlinks;
 > gravação de áudio no navegador;
 > permissão somente-leitura no compartilhamento;
 > backup automático agendado; indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
@@ -590,12 +591,32 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   chokepoint — e o 403 tem código próprio (`note_read_only`) para o cliente dizer *por quê* em vez de
   "proibido".
 
-- [ ] **Compartilhar por link público (somente leitura)** *(impacto alto · esforço M)*
+- [x] **Compartilhar por link público (somente leitura)** *(impacto alto · esforço M)* — feito em 2026-07-31
   **O quê:** "sem opção de compartilhar por link" é uma das 6 faltas da
   [Android Police](https://www.androidpolice.com/google-keep-missing-features-annoy-me/).
   **Como:** token aleatório por nota (`share_links`: id, note_id, token, expiração, revogável) →
   rota pública `/s/<token>` (SSR leve ou SPA sem auth) com rate limit; imagens servidas por URL
   assinada derivada do token. Excluir de robots; revogar = deletar linha.
+  **Entregue:** `note_share_links` é **uma linha por nota** — o `note_id` é a chave primária —, então
+  compartilhar por link é um interruptor e não uma lista: emitir de novo sobrescreve a linha e mata o
+  endereço anterior no mesmo gesto ("regerar" e "revogar" são a mesma garantia, e nunca existem dois
+  endereços vivos para acompanhar). O token (24 bytes, base64url) fica em claro pelo mesmo motivo do
+  feed iCalendar: a URL *é* a credencial e precisa continuar copiável de outro dispositivo.
+  **O que o leitor recebe é uma projeção, não a nota inteira** (`zPublicNote`): só conteúdo
+  compartilhado — tipo, título, corpo, itens, anexos, a cor do dono e as datas. Tudo que a linha de
+  `note_members` guarda por usuário (marcadores, lembrete, fixada, arquivada, posição) fica para trás,
+  e nenhum nome ou e-mail de ninguém viaja: a página é a nota, não a conta atrás dela.
+  **Anexos andam no mesmo token** (`/api/public/notes/:token/attachments/:id/:variant`) em vez de uma
+  URL assinada à parte — o token já limita a busca à própria nota, então id emprestado de outra nota é
+  404 por construção; um segundo segredo compraria exatamente isso mais um problema de rotação.
+  **Detalhes que decidem o comportamento:** (a) nota na lixeira faz o link parar de responder sem
+  apagar a linha, e restaurar a nota o traz de volta — jogar fora é reversível, e o link devia ser
+  também; (b) token inválido, expirado e revogado
+  dão o mesmo 404, sem oráculo; (c) toda a superfície anônima tem rate limit, responde
+  `X-Robots-Tag: noindex` e é repetida num `robots.txt` que barra `/s/` — o *fallback* da SPA carimba
+  o mesmo cabeçalho na página, já que um único HTML serve todas as rotas; (d) a página fica **fora do
+  `_shell`**: não há sessão a guardar, barra lateral a desenhar nem para onde navegar; (e) a validade
+  opcional (7/30 dias) é um seletor, não um campo de data.
 
 - [x] **Compartilhar várias notas de uma vez** *(impacto baixo · esforço P)* — feito em 2026-07-30
   Na barra de seleção, "Colaborador" aplica o convite às N notas (a Android Police também cita).
@@ -832,11 +853,9 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
 1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-2. **Link público somente leitura** (3.3) — o nível `viewer` já é a resposta de "quem pode só ler",
-   e o link público é a versão sem conta dele.
-3. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
+2. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
    já saíram).
-4. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
+3. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
@@ -846,6 +865,12 @@ do grid já estava no código sem estar marcada. Sobram lá só undo/redo de ses
 
 O antigo item 1 da fila — **somente-leitura no compartilhamento** — saiu em 2026-07-31 e caiu no
 chokepoint como previsto: nenhuma rota ganhou uma segunda checagem, só um nível a mais.
+
+**Link público** saiu logo atrás (2026-07-31), e era o nº 2 desta fila. A previsão de que ele seria
+"a versão sem conta do `viewer`" não se confirmou no código: o `viewer` é um nível *dentro* do
+chokepoint, e o link é o contrário disso — uma rota sem sessão alguma, servindo uma projeção da nota
+(`zPublicNote`) em vez do `FullNote`, justamente porque não há usuário de quem ler estado por
+usuário. As duas features se encontram só na UI, no mesmo diálogo de compartilhamento.
 
 **Gravação de áudio** saiu em 2026-07-31: era o único item de impacto alto cuja infraestrutura
 inteira já estava no repo (`kind='audio'`, player, sniffer) — restavam o gravador e uma rota. A
