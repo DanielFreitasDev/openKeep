@@ -4962,7 +4962,8 @@
             },
             "in": "query",
             "name": "q",
-            "required": false
+            "required": false,
+            "description": "Search terms (prefix matching). Supports operators: label:name, color:blue, has:image, is:pinned|unpinned|archived|unarchived, before:/after:YYYY-MM-DD, and - to exclude (-word, -label:work). Quote values with spaces: label:\"to do\"."
           },
           {
             "schema": {

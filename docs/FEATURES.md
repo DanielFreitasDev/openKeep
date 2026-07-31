@@ -67,6 +67,7 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 
 - Full-text over title + body + list items; English + Portuguese stemming-free word-prefix matching, accent-insensitive.
 - Focusing the search box shows filter tiles: **Types** (Lists, Images, URLs, Audio, Drawings, Reminders), **Labels**, **People** *(deferred in v1.0)*, **Colors** — combinable with text.
+- Search operators typed in the box *(divergence — Keep has none)*: `label:`, `color:`, `has:`, `is:pinned|archived`, `before:`/`after:` and `-` to exclude; each one becomes a chip that removes itself from the query.
 - Archived notes included, grouped under an "ARCHIVE" section header; trashed excluded.
 - Live filtering as you type; "No matching results." empty state; `/` focuses search.
 

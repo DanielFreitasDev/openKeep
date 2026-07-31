@@ -1,5 +1,5 @@
-import type { Collaborator, FullNote, NoteSort } from '@openkeep/shared';
-import { comparePositions } from '@openkeep/shared';
+import type { Collaborator, FullNote, NoteSort, SearchType } from '@openkeep/shared';
+import { comparePositions, parseSearchQuery } from '@openkeep/shared';
 
 export interface MainSections {
   pinned: FullNote[];
@@ -111,11 +111,20 @@ export function selectBulkLabels(notes: FullNote[]): { checked: string[]; mixed:
 // ---------------------------------------------------------------- search
 
 export interface SearchFilters {
+  /** The box as typed: free text and operators together (see parseSearchQuery). */
   q: string;
-  type?: 'list' | 'url' | 'image' | 'audio' | 'drawing' | 'reminder' | undefined;
+  type?: SearchType | undefined;
   labelId?: string | undefined;
   color?: string | undefined;
   collaboratorId?: string | undefined;
+  /**
+   * `label:`/`-label:` names already resolved to ids. The corpus carries label
+   * ids and nothing else, so the name→id lookup belongs to the caller, which
+   * holds the label list; a name nobody has resolves to itself and matches no
+   * note, which is the honest answer for `label:typo`.
+   */
+  labelIds?: string[] | undefined;
+  notLabelIds?: string[] | undefined;
 }
 
 /**
@@ -187,26 +196,58 @@ export interface SearchResults {
   archived: FullNote[];
 }
 
+/** Does the note carry this kind of content? (the `type=` chip and `has:`). */
+function hasType(n: FullNote, type: SearchType): boolean {
+  switch (type) {
+    case 'list':
+      return n.type === 'list';
+    case 'url':
+      return n.hasLinks;
+    case 'reminder':
+      return n.reminder !== null;
+    default:
+      return n.attachments.some((a) => a.kind === type);
+  }
+}
+
+/**
+ * The edited date as a UTC day, which is what `before:`/`after:` compare —
+ * ISO-8601 sorts lexicographically, so the comparison is a string one. UTC
+ * rather than the local day so client and server agree on the boundary
+ * without either of them doing timezone math.
+ */
+const editedDay = (n: FullNote) => n.updatedAt.slice(0, 10);
+
 /** Instant client-side search over the corpus (Keep behavior). */
 export function selectSearch(notes: FullNote[], f: SearchFilters, sort?: NoteSort): SearchResults {
-  const hasAny = f.q.trim() !== '' || f.type || f.labelId || f.color || f.collaboratorId;
+  const query = parseSearchQuery(f.q);
+  const hasAny = !query.isEmpty || f.type || f.labelId || f.color || f.collaboratorId;
   if (!hasAny) return { active: [], archived: [] };
 
-  const words = queryWords(f.q);
+  const words = queryWords(query.text.join(' '));
+  const excluded = queryWords(query.exclude.join(' '));
   const matched = notes.filter((n) => {
     if (n.trashedAt !== null) return false;
-    if (f.type === 'list' && n.type !== 'list') return false;
-    if (f.type === 'url' && !n.hasLinks) return false;
-    if (
-      (f.type === 'image' || f.type === 'audio' || f.type === 'drawing') &&
-      !n.attachments.some((a) => a.kind === f.type)
-    )
-      return false;
-    if (f.type === 'reminder' && n.reminder === null) return false;
+    if (f.type && !hasType(n, f.type)) return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;
     if (f.collaboratorId && !n.collaborators.some((c) => c.userId === f.collaboratorId))
       return false;
+
+    if (!query.has.every((type) => hasType(n, type))) return false;
+    if (query.notHas.some((type) => hasType(n, type))) return false;
+    if (!(f.labelIds ?? []).every((id) => n.labelIds.includes(id))) return false;
+    if ((f.notLabelIds ?? []).some((id) => n.labelIds.includes(id))) return false;
+    if (query.colors.length > 0 && !query.colors.includes(n.color)) return false;
+    if (query.notColors.includes(n.color)) return false;
+    if (query.pinned !== undefined && n.pinned !== query.pinned) return false;
+    if (query.archived !== undefined && n.archived !== query.archived) return false;
+    if (query.before !== undefined && !(editedDay(n) < query.before)) return false;
+    if (query.after !== undefined && !(editedDay(n) >= query.after)) return false;
+
+    // An excluded word must not prefix any word of the note — the mirror of
+    // the positive match, so `café -moído` behaves like `café` minus those.
+    if (excluded.some((w) => matchesWords(n, [w]))) return false;
     return matchesWords(n, words);
   });
 

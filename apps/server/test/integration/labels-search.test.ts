@@ -359,6 +359,56 @@ describe('search (FTS)', () => {
     expect(await search('collaborator=nobody')).toEqual([]);
   });
 
+  it('reads operators out of q, the same language the client parses', async () => {
+    const labelRes = await t.app.inject({
+      method: 'POST',
+      url: '/api/labels',
+      headers: { cookie },
+      payload: { name: 'Ops' },
+    });
+    const label = labelRes.json() as Label;
+    const make = async (payload: Record<string, unknown>) => {
+      const res = await t.app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        headers: { cookie },
+        payload,
+      });
+      return (res.json() as FullNote).id;
+    };
+    const one = await make({ title: 'Alpha one', bodyHtml: '<p>alpha beta</p>' });
+    await make({ title: 'Alpha two', bodyHtml: '<p>alpha gamma</p>' });
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/notes/${one}/labels/${label.id}`,
+      headers: { cookie },
+    });
+    await t.app.inject({
+      method: 'PATCH',
+      url: `/api/notes/${one}/state`,
+      headers: { cookie },
+      payload: { color: 'sand', pinned: true },
+    });
+
+    const find = async (q: string) => (await search(`q=${encodeURIComponent(q)}`)).sort();
+
+    expect(await find('alpha')).toEqual(['Alpha one', 'Alpha two']);
+    expect(await find('alpha label:ops')).toEqual(['Alpha one']);
+    expect(await find('alpha -label:ops')).toEqual(['Alpha two']);
+    // `sand` is the palette name, `yellow` the everyday word for it.
+    expect(await find('alpha color:yellow')).toEqual(['Alpha one']);
+    expect(await find('alpha is:pinned')).toEqual(['Alpha one']);
+    expect(await find('alpha -is:pinned')).toEqual(['Alpha two']);
+    expect(await find('alpha -gamma')).toEqual(['Alpha one']);
+    expect(await find('is:archived')).toEqual(['Archived treasure']);
+    expect(await find('has:list')).toEqual(['Compras']);
+    // Dates are the edited day in UTC; the far future has nothing after it.
+    expect(await find('alpha after:2999-01-01')).toEqual([]);
+    expect(await find('alpha before:2999-01-01')).toEqual(['Alpha one', 'Alpha two']);
+    // An operator we don't understand stays a word, and finds nothing here.
+    expect(await find('alpha has:pdf')).toEqual([]);
+  });
+
   it('neutralizes tsquery operator injection', async () => {
     // Operators are stripped; remaining terms AND-join: gold + coin both
     // appear in "Archived treasure" (and nothing 500s).

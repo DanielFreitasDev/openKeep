@@ -91,7 +91,7 @@ The process probes the connection at startup and fails fast on stderr with an ac
 | Checklists | `add_checklist_items` (batch), `update_checklist_item`, `delete_checklist_item`, `uncheck_all_items`, `delete_checked_items` |
 | Labels | `list_labels`, `create_label`, `rename_label`, `delete_label`, `add_label_to_note` (by name, creates when missing), `remove_label_from_note` |
 | Reminders | `set_reminder` (RFC 5545 RRULE + IANA timezone, defaulting to the account setting), `remove_reminder`, `snooze_reminder`, `dismiss_reminder` |
-| Search | `search_notes` (FTS with `headline` match highlighting) |
+| Search | `search_notes` (FTS with `headline` match highlighting; `q` accepts the same operators as the app's search box — `label:`, `color:`, `has:`, `is:`, `before:`/`after:`, `-` to exclude) |
 | Versions | `list_note_versions`, `get_note_version`, `restore_note_version` |
 | Collaborators | `list_collaborators`, `add_collaborator`, `remove_collaborator` |
 | Attachments | `upload_image` (base64; local `path` on stdio), `get_attachment` (returns MCP image content; thumbnail by default), `delete_attachment` |

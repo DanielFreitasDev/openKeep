@@ -103,6 +103,57 @@ test('search: live text, color filter, archive grouping, no-results', async ({ p
   await expect(page).toHaveURL(/\/$/);
 });
 
+test('search operators filter the corpus and become removable chips', async ({ page }) => {
+  await page.getByRole('button', { name: 'Edit labels' }).click();
+  await page.getByRole('textbox', { name: 'Create new label' }).fill('Work');
+  await page.getByRole('textbox', { name: 'Create new label' }).press('Enter');
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await composeNote(page, { title: 'Alpha pinned', body: 'shared word' });
+  await composeNote(page, { title: 'Alpha plain', body: 'shared word' });
+
+  // Pin the first and label it.
+  await cardRootByTitle(page, 'Alpha pinned').hover();
+  await cardRootByTitle(page, 'Alpha pinned').getByRole('button', { name: 'Pin note' }).click();
+  await cardRootByTitle(page, 'Alpha pinned').hover();
+  await cardRootByTitle(page, 'Alpha pinned')
+    .getByRole('button', { name: 'More', exact: true })
+    .click();
+  await page.getByRole('menuitem', { name: 'Add label' }).click();
+  await page.getByRole('checkbox', { name: 'Work' }).check();
+  await page.keyboard.press('Escape');
+
+  const box = page.getByRole('textbox', { name: 'Search' });
+
+  // The operator help is on the idle search screen.
+  await box.click();
+  await expect(page.getByText('Search operators')).toBeVisible();
+
+  await box.fill('shared is:pinned');
+  await expect(cardByTitle(page, 'Alpha pinned')).toBeVisible();
+  await expect(cardByTitle(page, 'Alpha plain')).toHaveCount(0);
+
+  // The negative form of the same flag, and a label operator.
+  await box.fill('shared is:unpinned');
+  await expect(cardByTitle(page, 'Alpha plain')).toBeVisible();
+  await expect(cardByTitle(page, 'Alpha pinned')).toHaveCount(0);
+  await box.fill('shared label:work');
+  await expect(cardByTitle(page, 'Alpha pinned')).toBeVisible();
+  await expect(cardByTitle(page, 'Alpha plain')).toHaveCount(0);
+
+  // Excluding a word the other note carries.
+  await box.fill('shared -pinned');
+  await expect(cardByTitle(page, 'Alpha plain')).toBeVisible();
+  await expect(cardByTitle(page, 'Alpha pinned')).toHaveCount(0);
+
+  // The chip's × rewrites the query itself — box and chips are one state.
+  await box.fill('shared label:work');
+  await expect(page.getByText('Label: work')).toBeVisible();
+  await page.getByRole('button', { name: '× Label: work' }).click();
+  await expect(box).toHaveValue('shared');
+  await expect(cardByTitle(page, 'Alpha plain')).toBeVisible();
+});
+
 test('# in the note body opens the label picker and assigns', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit labels' }).click();
   await page.getByRole('textbox', { name: 'Create new label' }).fill('Hash');

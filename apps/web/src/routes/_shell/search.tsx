@@ -5,8 +5,8 @@ import linkSvg from '@material-symbols/svg-700/outlined/link.svg?raw';
 import audioSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
-import type { FullNote } from '@openkeep/shared';
-import { NOTE_COLORS } from '@openkeep/shared';
+import type { FullNote, SearchTerm } from '@openkeep/shared';
+import { formatSearchTerms, NOTE_COLORS, parseSearchQuery, SEARCH_TYPES } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
@@ -16,6 +16,7 @@ import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Icon } from '../../components/Icon.js';
 import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
+import { formatSearchDay } from '../../lib/dates.js';
 import { labelsQuery } from '../../lib/labels-api.js';
 import type { SearchFilters } from '../../lib/note-selectors.js';
 import { selectPeople, selectSearch } from '../../lib/note-selectors.js';
@@ -23,8 +24,9 @@ import { notesQuery } from '../../lib/notes-api.js';
 import { sessionQuery, settingsQuery } from '../../lib/queries.js';
 
 const searchParams = z.object({
+  /** Free text and operators, exactly as typed (see parseSearchQuery). */
   q: z.string().default(''),
-  type: z.enum(['list', 'url', 'image', 'audio', 'drawing', 'reminder']).optional(),
+  type: z.enum(SEARCH_TYPES).optional(),
   label: z.string().optional(),
   color: z.string().optional(),
   // A user id rather than an email: stable, and the chip resolves the name
@@ -37,8 +39,26 @@ export const Route = createFileRoute('/_shell/search')({
   component: SearchView,
 });
 
+/** `-is:pinned` reads as `is:unpinned`, so the chip says the opposite word. */
+const IS_OPPOSITE: Record<string, string> = {
+  pinned: 'unpinned',
+  unpinned: 'pinned',
+  archived: 'unarchived',
+  unarchived: 'archived',
+};
+
+/** The query language, shown where the search screen is otherwise idle. */
+const OPERATOR_HELP = [
+  { syntax: 'label:name', key: 'op_label' },
+  { syntax: 'color:blue', key: 'op_color' },
+  { syntax: 'has:image', key: 'op_has' },
+  { syntax: 'is:pinned', key: 'op_is' },
+  { syntax: 'after:2026-01-01', key: 'op_date' },
+  { syntax: '-word', key: 'op_minus' },
+] as const;
+
 function SearchView() {
-  const { t } = useTranslation('search');
+  const { t, i18n } = useTranslation('search');
   const params = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { data: labels } = useQuery(labelsQuery);
@@ -50,8 +70,25 @@ function SearchView() {
     ? labels?.find((l) => l.name.toLowerCase() === params.label?.toLowerCase())?.id
     : undefined;
 
+  const query = useMemo(() => parseSearchQuery(params.q), [params.q]);
+
+  // The corpus holds label ids, so `label:` names are resolved here, where the
+  // label list is. A name nobody carries stays as itself and matches nothing.
+  const resolveLabels = useCallback(
+    (names: string[]) =>
+      names.map(
+        (name) => labels?.find((l) => l.name.toLowerCase() === name.toLowerCase())?.id ?? name,
+      ),
+    [labels],
+  );
+  const labelIds = useMemo(() => resolveLabels(query.labels), [resolveLabels, query.labels]);
+  const notLabelIds = useMemo(
+    () => resolveLabels(query.notLabels),
+    [resolveLabels, query.notLabels],
+  );
+
   const hasAny =
-    params.q.trim() !== '' || params.type || params.label || params.color || params.collaborator;
+    !query.isEmpty || params.type || params.label || params.color || params.collaborator;
 
   const noteSort = settings?.noteSort ?? 'manual';
 
@@ -65,10 +102,21 @@ function SearchView() {
         labelId,
         color: params.color,
         collaboratorId: params.collaborator,
+        labelIds,
+        notLabelIds,
       };
       return selectSearch(notes, filters, noteSort);
     },
-    [params.q, params.type, labelId, params.color, params.collaborator, noteSort],
+    [
+      params.q,
+      params.type,
+      labelId,
+      params.color,
+      params.collaborator,
+      labelIds,
+      notLabelIds,
+      noteSort,
+    ],
   );
 
   const { data: results } = useQuery({ ...notesQuery, select });
@@ -85,6 +133,35 @@ function SearchView() {
       replace: true,
     });
 
+  // Operators live inside `q`, so their chips are removed by rewriting the
+  // query without that token — the box and the chips are one state, never two.
+  const operatorTerms = query.terms.filter((term) => term.kind !== 'text');
+  const dropTerm = (term: SearchTerm) =>
+    setParam({
+      q: formatSearchTerms(query.terms.filter((t) => t.index !== term.index)) || undefined,
+    });
+
+  const operatorChipLabel = (term: SearchTerm): string => {
+    const not = (label: string) => (term.negated ? t('chip_not', { term: label }) : label);
+    switch (term.kind) {
+      case 'label':
+        return not(t('chip_label', { value: term.value }));
+      case 'color':
+        return not(t('chip_color', { value: t(`notes:color_${term.value}`) }));
+      case 'has':
+        return not(t('chip_has', { value: t(`type_${term.value}`) }));
+      // A negated flag is the flag's own opposite word, not "not pinned".
+      case 'is':
+        return t(`chip_is_${term.negated ? IS_OPPOSITE[term.value] : term.value}`);
+      case 'before':
+        return t('chip_before', { value: formatSearchDay(term.value, i18n.language) });
+      case 'after':
+        return t('chip_after', { value: formatSearchDay(term.value, i18n.language) });
+      default:
+        return term.raw;
+    }
+  };
+
   const viewMode = settings?.viewMode ?? 'grid';
   const active = results?.active ?? [];
   const archived = results?.archived ?? [];
@@ -94,7 +171,11 @@ function SearchView() {
   return (
     <div className="px-3 py-4 md:px-6 md:py-6">
       {/* Active filter chips */}
-      {(params.type || params.label || params.color || params.collaborator) && (
+      {(params.type ||
+        params.label ||
+        params.color ||
+        params.collaborator ||
+        operatorTerms.length > 0) && (
         <div className="mx-auto mb-6 flex max-w-[960px] flex-wrap items-center gap-2">
           {params.collaborator && (
             <FilterChip
@@ -121,6 +202,15 @@ function SearchView() {
               onClear={() => setParam({ color: undefined })}
             />
           )}
+          {operatorTerms.map((term) => (
+            <FilterChip
+              // Two identical tokens are two chips, so position is the identity.
+              key={term.index}
+              label={operatorChipLabel(term)}
+              swatch={term.kind === 'color' && !term.negated ? term.value : undefined}
+              onClear={() => dropTerm(term)}
+            />
+          ))}
         </div>
       )}
 
@@ -184,6 +274,18 @@ function SearchView() {
               ))}
             </TileSection>
           )}
+          <TileSection title={t('operatorsSection')}>
+            <dl className="w-full text-sm">
+              {OPERATOR_HELP.map(({ syntax, key }) => (
+                <div key={key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1">
+                  <dt className="rounded bg-surface-container px-1.5 py-0.5 font-mono text-on-surface text-xs">
+                    {syntax}
+                  </dt>
+                  <dd className="text-on-surface-variant">{t(key)}</dd>
+                </div>
+              ))}
+            </dl>
+          </TileSection>
           <TileSection title={t('colorsSection')}>
             {NOTE_COLORS.map((c) => (
               <button

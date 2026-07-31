@@ -118,6 +118,56 @@ describe('selectSearch', () => {
     expect(selectSearch(corpus, { q: 'ana', collaboratorId: 'u-bo' }).active).toHaveLength(0);
     expect(selectSearch(corpus, { q: '', collaboratorId: 'nobody' }).active).toHaveLength(0);
   });
+
+  describe('operators', () => {
+    const opCorpus = [
+      note({ title: 'Pinned note', bodyHtml: '<p>hello</p>', pinned: true }),
+      note({ title: 'Coral list', type: 'list', color: 'coral' }),
+      note({ title: 'Old edit', bodyHtml: '<p>hello</p>', updatedAt: '2026-01-05T23:00:00.000Z' }),
+      note({ title: 'Tagged', bodyHtml: '<p>hello</p>', labelIds: ['lbl-1'] }),
+      note({ title: 'Archived one', bodyHtml: '<p>hello</p>', archived: true }),
+    ];
+    const titles = (q: string, extra = {}) =>
+      selectSearch(opCorpus, { q, ...extra }).active.map((n) => n.title);
+
+    it('filters by is:, has: and color:', () => {
+      expect(titles('is:pinned')).toEqual(['Pinned note']);
+      expect(titles('-is:pinned')).toEqual(['Coral list', 'Old edit', 'Tagged']);
+      expect(titles('has:list')).toEqual(['Coral list']);
+      expect(titles('color:coral')).toEqual(['Coral list']);
+      expect(titles('color:red')).toEqual(['Coral list']); // everyday color word
+      expect(titles('-color:coral')).toEqual(['Pinned note', 'Old edit', 'Tagged']);
+    });
+
+    it('sends is:archived to the archived section, not the active one', () => {
+      const r = selectSearch(opCorpus, { q: 'is:archived' });
+      expect(r.active).toEqual([]);
+      expect(r.archived.map((n) => n.title)).toEqual(['Archived one']);
+    });
+
+    it('filters by the edited day, UTC and inclusive on after:', () => {
+      expect(titles('before:2026-02-01')).toEqual(['Old edit']);
+      expect(titles('after:2026-01-05')).toContain('Old edit');
+      expect(titles('after:2026-01-06')).not.toContain('Old edit');
+    });
+
+    it('takes label names already resolved to ids by the caller', () => {
+      expect(titles('label:whatever', { labelIds: ['lbl-1'] })).toEqual(['Tagged']);
+      // An unknown name resolves to itself, which no note carries.
+      expect(titles('label:typo', { labelIds: ['typo'] })).toEqual([]);
+      expect(titles('hello', { notLabelIds: ['lbl-1'] })).toEqual(['Pinned note', 'Old edit']);
+    });
+
+    it('excludes words with -, combined with text and operators', () => {
+      expect(titles('hello -tagged')).toEqual(['Pinned note', 'Old edit']);
+      expect(titles('hello -pinned is:unpinned')).toEqual(['Old edit', 'Tagged']);
+    });
+
+    it('treats an unparseable operator as text', () => {
+      expect(titles('color:banana')).toEqual([]);
+      expect(titles('is:pinned has:image')).toEqual([]);
+    });
+  });
 });
 
 describe('selectPeople', () => {

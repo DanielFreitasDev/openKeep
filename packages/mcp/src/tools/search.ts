@@ -7,7 +7,16 @@ export const searchNotes = defineTool({
   description:
     'Full-text search across notes (title, body, checklist items) with optional filters. Returns compact cards; `headline` highlights the match. Archived notes are included, trashed are not.',
   inputSchema: z.object({
-    q: z.string().max(500).optional().describe('Search terms (prefix matching)'),
+    q: z
+      .string()
+      .max(500)
+      .optional()
+      .describe(
+        'Search terms (prefix matching). Operators may be mixed in: label:name, color:blue, ' +
+          'has:image|audio|drawing|link|list|reminder, is:pinned|unpinned|archived|unarchived, ' +
+          'before:/after:YYYY-MM-DD (edited date, UTC), and - to exclude (-word, -label:work). ' +
+          'Quote values containing spaces: label:"to do".',
+      ),
     type: z
       .enum(['list', 'url', 'image', 'audio', 'drawing', 'reminder'])
       .optional()

@@ -31,6 +31,14 @@ export function formatVersionStamp(iso: string, lang: string): string {
   return format(date, 'PPpp', { locale: localeFor(lang) });
 }
 
+/**
+ * The day of a `before:`/`after:` chip. Parsed as local midnight (not UTC) so
+ * the chip shows exactly the day that was typed, whatever the offset.
+ */
+export function formatSearchDay(day: string, lang: string): string {
+  return format(new Date(`${day}T00:00:00`), 'PP', { locale: localeFor(lang) });
+}
+
 export function formatCreatedTooltip(iso: string, lang: string): string {
   const date = new Date(iso);
   const locale = localeFor(lang);

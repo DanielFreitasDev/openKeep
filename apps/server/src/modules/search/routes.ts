@@ -1,5 +1,11 @@
-import { LIMITS, zFullNote } from '@openkeep/shared';
-import { and, eq, exists, isNull, sql } from 'drizzle-orm';
+import {
+  LIMITS,
+  parseSearchQuery,
+  SEARCH_TYPES,
+  type SearchType,
+  zFullNote,
+} from '@openkeep/shared';
+import { and, eq, exists, inArray, isNull, not, notInArray, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import type { App } from '../../app.js';
@@ -12,8 +18,16 @@ import { buildPrefixTsquery } from '../../lib/tsquery.js';
 import { assembleFullNotes } from '../notes/service.js';
 
 const zSearchQuery = z.object({
-  q: z.string().max(500).default(''),
-  type: z.enum(['list', 'url', 'image', 'audio', 'drawing', 'reminder']).optional(),
+  q: z
+    .string()
+    .max(500)
+    .default('')
+    .describe(
+      'Search terms (prefix matching). Supports operators: label:name, color:blue, has:image, ' +
+        'is:pinned|unpinned|archived|unarchived, before:/after:YYYY-MM-DD, and - to exclude ' +
+        '(-word, -label:work). Quote values with spaces: label:"to do".',
+    ),
+  type: z.enum(SEARCH_TYPES).optional(),
   label: z.string().max(LIMITS.labelNameMax).optional(),
   color: z.string().max(30).optional(),
   /** User id of a collaborator the note is shared with (the "People" filter). */
@@ -40,42 +54,87 @@ export function registerSearchRoutes(app: App, db: Db): void {
       const { q, type, label, color, collaborator } = req.query;
       const userId = req.user.id;
 
+      // The operators travel inside `q` rather than as extra query params:
+      // one query language, parsed by the same code the browser runs, so an
+      // agent and a person typing the same string get the same notes.
+      const query = parseSearchQuery(q);
+
       const conditions = [eq(noteMembers.userId, userId), isNull(notes.trashedAt)];
 
-      const tsq = buildPrefixTsquery(q);
-      if (tsq) {
-        conditions.push(
-          sql`(${notes.searchTsv} @@ to_tsquery('openkeep', ${tsq}) OR EXISTS (
+      /** Note-or-item text match, which is what "the note contains it" means. */
+      const textMatches = (tsquery: string) =>
+        sql`(${notes.searchTsv} @@ to_tsquery('openkeep', ${tsquery}) OR EXISTS (
             SELECT 1 FROM ${noteItems}
             WHERE ${noteItems.noteId} = ${notes.id}
-              AND ${noteItems.searchTsv} @@ to_tsquery('openkeep', ${tsq})
-          ))`,
-        );
-      }
+              AND ${noteItems.searchTsv} @@ to_tsquery('openkeep', ${tsquery})
+          ))`;
 
-      if (type === 'list') conditions.push(eq(notes.type, 'list'));
-      else if (type === 'url') conditions.push(eq(notes.hasLinks, true));
-      else if (type === 'image' || type === 'audio' || type === 'drawing') {
-        conditions.push(
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(attachments)
-              .where(and(eq(attachments.noteId, notes.id), eq(attachments.kind, type))),
-          ),
-        );
-      } else if (type === 'reminder') {
-        conditions.push(
-          exists(
+      const tsq = buildPrefixTsquery(query.text.join(' '));
+      if (tsq) conditions.push(textMatches(tsq));
+
+      const excludedTsq = buildPrefixTsquery(query.exclude.join(' '), '|');
+      if (excludedTsq) conditions.push(sql`NOT ${textMatches(excludedTsq)}`);
+
+      const hasKind = (kind: SearchType): SQL => {
+        if (kind === 'list') return eq(notes.type, 'list');
+        if (kind === 'url') return eq(notes.hasLinks, true);
+        if (kind === 'reminder') {
+          return exists(
             db
               .select({ one: sql`1` })
               .from(reminders)
               .where(and(eq(reminders.noteId, notes.id), eq(reminders.userId, userId))),
-          ),
+          );
+        }
+        return exists(
+          db
+            .select({ one: sql`1` })
+            .from(attachments)
+            .where(and(eq(attachments.noteId, notes.id), eq(attachments.kind, kind))),
         );
+      };
+
+      const hasLabel = (name: string): SQL =>
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(noteLabels)
+            .innerJoin(labels, eq(labels.id, noteLabels.labelId))
+            .where(
+              and(
+                eq(noteLabels.noteId, notes.id),
+                eq(noteLabels.userId, userId),
+                sql`lower(${labels.name}) = lower(${name})`,
+              ),
+            ),
+        );
+
+      // The `type=`/`label=`/`color=` params are the tile chips; they AND with
+      // whatever the query string itself asked for.
+      for (const kind of [...(type ? [type] : []), ...query.has]) conditions.push(hasKind(kind));
+      for (const kind of query.notHas) conditions.push(not(hasKind(kind)));
+
+      for (const name of [...(label ? [label] : []), ...query.labels]) {
+        conditions.push(hasLabel(name));
       }
+      for (const name of query.notLabels) conditions.push(not(hasLabel(name)));
 
       if (color) conditions.push(eq(noteMembers.color, color));
+      if (query.colors.length > 0) conditions.push(inArray(noteMembers.color, query.colors));
+      if (query.notColors.length > 0)
+        conditions.push(notInArray(noteMembers.color, query.notColors));
+
+      if (query.pinned !== undefined) conditions.push(eq(noteMembers.pinned, query.pinned));
+      if (query.archived !== undefined) conditions.push(eq(noteMembers.archived, query.archived));
+
+      // UTC day boundaries, spelled out with the Z: the client compares the
+      // same ISO prefix, and the server's own timezone never enters into it.
+      if (query.before) {
+        conditions.push(sql`${notes.updatedAt} < ${`${query.before}T00:00:00Z`}::timestamptz`);
+      }
+      if (query.after) {
+        conditions.push(sql`${notes.updatedAt} >= ${`${query.after}T00:00:00Z`}::timestamptz`);
+      }
 
       if (collaborator) {
         // Self-join on note_members: the outer row is my membership, this one
@@ -87,24 +146,6 @@ export function registerSearchRoutes(app: App, db: Db): void {
               .select({ one: sql`1` })
               .from(shared)
               .where(and(eq(shared.noteId, notes.id), eq(shared.userId, collaborator))),
-          ),
-        );
-      }
-
-      if (label) {
-        conditions.push(
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(noteLabels)
-              .innerJoin(labels, eq(labels.id, noteLabels.labelId))
-              .where(
-                and(
-                  eq(noteLabels.noteId, notes.id),
-                  eq(noteLabels.userId, userId),
-                  sql`lower(${labels.name}) = lower(${label})`,
-                ),
-              ),
           ),
         );
       }

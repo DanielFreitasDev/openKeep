@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -417,14 +417,36 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   comparam lexicograficamente (mesmo truque da lixeira); (d) o `select` do React Query passou a ser
   memoizado por `noteSort` nas quatro rotas, senão o corpus era reordenado a cada render.
 
-- [ ] **Operadores de busca** *(impacto médio · esforço M)*
+- [x] **Operadores de busca** *(impacto médio · esforço M)* — feito em 2026-07-31
   `label:mercado`, `color:blue`, `has:image|list|reminder`, `is:pinned|archived`,
   `before:/after:2026-01-01`, `-termo`. Parser client-side sobre o corpus (a busca já é
   instantânea) + tradução para parâmetros do `/api/search` para contas grandes/MCP.
+  **Entregue:** um parser só, em `@openkeep/shared` (`parseSearchQuery`), rodando nos dois lados:
+  no navegador ele vira o filtro do corpus e no `/api/search` vira condição SQL. Os operadores
+  viajam **dentro do `q`**, não como parâmetros novos da rota — assim a mesma string que a pessoa
+  digita é a que um agente manda pelo `search_notes`, e a API não ganhou superfície. O vocabulário
+  é inglês nos dois idiomas (um `marcador:` teria de atravessar o i18n para chegar ao servidor, que
+  não tem locale), mas `color:` aceita a palavra do dia a dia além do nome da paleta —
+  `color:blue` e `color:fog` são o mesmo filtro, pelo mapa que o Takeout já usava.
+  **A regra que evita surpresa:** o que não é entendido vira texto. Chave desconhecida, valor
+  inválido, `https://example.com` e o `label:` ainda sendo digitado são palavras de busca, nunca um
+  filtro invisível — e todo operador reconhecido aparece como chip, cujo × **reescreve a query**
+  (caixa e chips são um estado só, não dois). Negação: `-` vale para palavra e para filtro
+  (`-label:trabalho`), e as flags têm o negativo por extenso (`is:unpinned`), porque `-is:pinned` e
+  `is:unpinned` precisam dizer a mesma coisa. Data não tem negativo — `-before:` é palavra.
+  **Detalhes que decidem o comportamento:** (a) repetir `label:`/`has:` é E, repetir `color:` é OU
+  (a nota tem uma cor só; E nunca devolveria nada); (b) `before:`/`after:` comparam o **dia UTC** da
+  edição nos dois lados — o cliente compara o prefixo ISO e o servidor recebe o `Z` explícito, então
+  nenhum dos dois faz conta de fuso; (c) no FTS, exclusão não é a negação do E: a nota não pode
+  conter **nenhuma** das palavras, então `buildPrefixTsquery` ganhou modo `|` e a condição é
+  `NOT (a:* | b:*)` sobre corpo **e** itens; (d) `label:` é o único operador resolvido fora do
+  filtro puro — o corpus só tem ids, então a rota traduz nome→id (nome que ninguém tem resolve para
+  ele mesmo e casa com nada, que é a resposta honesta para `label:typo`).
 
 - [ ] **Buscas salvas** *(impacto baixo · esforço P/M)*
   Salvar uma combinação busca+filtros como atalho no sidebar (vira "label inteligente").
-  Depende dos operadores acima; persistir em settings.
+  Destravado: os operadores acima já são a linguagem a salvar — a busca inteira cabe numa string
+  (`q`), então o atalho é um nome + essa string em settings, sem esquema novo.
 
 - [x] **Mesclar notas** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   Na seleção múltipla, "Mesclar" concatena corpos/itens/imagens numa nota (Apple Notes tem, o
@@ -490,7 +512,9 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   `note_members`, a nota continua com o dono. Marcadores sobrevivem: não são notas. O evento
   `notes.purged` avisa as minhas outras abas (mandar um `note.removed` por nota seriam milhares), e
   os colaboradores recebem o evento certo para cada metade: `note.removed` nas minhas, que
-  acabaram, e `collaborator.removed` nas deles, que só perderam um colaborador. *(impacto médio · esforço M)*
+  acabaram, e `collaborator.removed` nas deles, que só perderam um colaborador.
+
+- [ ] **Proteger nota com PIN/senha (ocultar)** *(impacto médio · esforço M)*
   **O quê:** nota "trancada": conteúdo borrado/oculto (inclusive na busca) até confirmar senha
   da conta ou PIN. Top-6 da Android Police.
   **Como:** flag por membership + re-auth pontual (Better Auth já expõe verificação de senha);
@@ -689,6 +713,9 @@ O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada 
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
 do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
+
+Com os operadores de busca no ar, **buscas salvas** virou item barato (a busca inteira já cabe numa
+string) — bom candidato a entrar antes dos grandes acima quando a fila permitir.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).
