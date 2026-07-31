@@ -21,8 +21,11 @@ import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { usePrintNote } from '../../hooks/use-print-note.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { setEditorOrigin } from '../../lib/editor-origin.js';
+import { focusNoteCard, noteCardRects } from '../../lib/note-focus.js';
 import { useSelectionStore } from '../../stores/selection.js';
 import { useUiStore } from '../../stores/ui.js';
+import type { Direction } from '../grid/focus.js';
+import { nextInDirection } from '../grid/focus.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
 import { NoteLabelChips } from '../labels/LabelChips.js';
@@ -41,6 +44,14 @@ import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
 
+/** Arrow keys steer the roving tab stop; j/k (global) stay reading order. */
+const ARROWS: Record<string, Direction | undefined> = {
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+};
+
 /** The reminder picker inside an uncontrolled popover: closes via a hidden Close. */
 function ReminderPickerPop({ note }: { note: FullNote }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -58,7 +69,14 @@ function ReminderPickerPop({ note }: { note: FullNote }) {
  * booleans for the same reason — subscribing to the selection Set itself would
  * re-render every card whenever any one of them is ticked.
  */
-export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
+export const NoteCard = memo(function NoteCard({
+  note,
+  roving = true,
+}: {
+  note: FullNote;
+  /** False on every card but the grid's single tab stop (see NotesGrid). */
+  roving?: boolean;
+}) {
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useNoteMutations();
@@ -69,6 +87,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
   const isSelected = useSelectionStore((s) => s.selected.has(note.id));
   const selectionActive = useSelectionStore((s) => s.selected.size > 0);
   const isFocused = useUiStore((s) => s.focusedNoteId === note.id);
+  const setFocusedNoteId = useUiStore((s) => s.setFocusedNoteId);
   const isOpenInEditor = useUiStore((s) => s.openEditorNoteId === note.id);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -178,13 +197,30 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
       {/* biome-ignore lint/a11y/useSemanticElements: a native button cannot contain the toolbar's buttons */}
       <div
         role="button"
-        tabIndex={0}
+        tabIndex={roving ? 0 : -1}
         aria-label={note.title || t('openNote')}
         onClick={openEditor}
+        // Tab into the grid adopts the tab stop; a mouse click must not, or
+        // every closed editor would leave its card wearing the focus ring.
+        onFocus={(e) => {
+          if (e.target === e.currentTarget && e.target.matches(':focus-visible'))
+            setFocusedNoteId(note.id);
+        }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && e.target === e.currentTarget) {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter') {
             e.preventDefault();
             openEditor();
+            return;
+          }
+          const dir = ARROWS[e.key];
+          if (dir) {
+            e.preventDefault();
+            const next = nextInDirection(noteCardRects(), note.id, dir);
+            if (next) {
+              setFocusedNoteId(next);
+              focusNoteCard(next);
+            }
           }
         }}
         onPointerDown={armLongPress}

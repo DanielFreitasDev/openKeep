@@ -6,6 +6,7 @@
   "group_editor": "Editor",
   "navNextNote": "Navigate to next note",
   "navPrevNote": "Navigate to previous note",
+  "navArrows": "Move between notes in the grid",
   "moveNoteDown": "Move note to next position",
   "moveNoteUp": "Move note to previous position",
   "composeNote": "Compose a new note",

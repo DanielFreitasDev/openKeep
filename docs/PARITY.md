@@ -50,6 +50,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
+| Grid keyboard focus | j/k + Tab through cards | ✅ 🔀 roving tabindex — one tab stop per grid, arrows move it geometrically (masonry columns), j/k keep reading order | post-1.0 |
 | Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ 🔀 hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy/remind/labels (tri-state) — plus bulk collaborator, which Keep has no bulk form of | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
 | Sort the grid | Keep has manual order only | ✅ 🔀 "Sort notes" in the top bar: manual (default) · date edited · date created · title, roaming via `settings.noteSort`. Client-side over the corpus in Notes/Archive/label/search — Trash and Reminders keep their own order — and no sort writes a position, so drag is disabled off manual and switching back restores the arrangement | post-1.0 |
@@ -77,18 +78,14 @@ the table above stays honest. Roughly in order of user impact:
 - **Checklist indent by dragging right** — Keep also indents when an item is
   dragged rightward; we ship `Ctrl+]`/`[` and Tab/Shift+Tab only (item drag
   changes order, not indent).
-- **Grid virtualization >400 cards/section** — every card renders; the ~5k-note
-  ceiling documented in ARCHITECTURE.md still applies.
 - **Offline media** — composer image files live only in memory: an
   offline-composed note restores its text/labels/reminder after a reload, but
   not unsaved images. Attachment uploads pause while offline and resume within
   the session only (FormData is not persisted to the outbox).
-- **Roving tabindex in the grid** — all cards are tab stops (`tabIndex=0`);
-  j/k navigation and focus restore work, but Tab order is not virtualized.
 - **Session undo/redo for title/list items** — TipTap history covers the body;
   the title/items snapshot ring buffer was not built.
 - **Takeout `sharees`** — imported notes are never re-shared; the import report
   now says how many were shared in Keep. `annotations` (WEBLINK) are typed but
   unused (links are re-detected from text).
-- **`/metrics` endpoint** — `METRICS_ENABLED` is validated in config but no
-  Prometheus route exists; Sentry is likewise absent.
+- **Sentry (or any error-reporting SaaS)** — not wired; `/metrics` now ships
+  (opt-in Prometheus), but crash reporting is still logs-only.

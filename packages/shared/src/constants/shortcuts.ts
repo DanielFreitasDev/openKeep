@@ -37,6 +37,16 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: 'navigation',
   },
   {
+    // Owned by the card itself (roving tabindex), not by the engine: arrows
+    // must keep scrolling the page whenever no card holds focus.
+    id: 'nav-arrows',
+    keys: ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'],
+    display: '↑ ↓ ← →',
+    scope: 'grid',
+    labelKey: 'navArrows',
+    group: 'navigation',
+  },
+  {
     id: 'move-note-down',
     keys: ['shift+j'],
     display: 'Shift + j',

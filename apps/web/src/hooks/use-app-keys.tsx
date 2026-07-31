@@ -2,6 +2,7 @@ import { positionBetween } from '@openkeep/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo } from 'react';
+import { focusNoteCard } from '../lib/note-focus.js';
 import { notesQuery } from '../lib/notes-api.js';
 import { patchSettings, settingsQuery } from '../lib/queries.js';
 import { useSelectionStore } from '../stores/selection.js';
@@ -35,9 +36,7 @@ export function useAppKeys() {
       const id = viewNoteIds[clamped];
       if (!id) return;
       setFocusedNoteId(id);
-      const el = document.querySelector(`[data-note-id="${id}"]`);
-      el?.scrollIntoView({ block: 'nearest' });
-      (el?.querySelector('[role="button"]') as HTMLElement | null)?.focus();
+      focusNoteCard(id);
     };
 
     const reorderFocused = (delta: number) => {

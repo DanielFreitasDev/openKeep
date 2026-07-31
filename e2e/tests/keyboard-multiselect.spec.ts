@@ -46,6 +46,37 @@ test('keyboard-only journey: ? help, j/k focus, Enter open, Ctrl+Enter close, e 
   await expect(page).toHaveURL(/\/search/);
 });
 
+test('roving tab stop: one stop per grid, arrows move it', async ({ page }) => {
+  await composeNote(page, { title: 'Rove one', body: '1' });
+  await composeNote(page, { title: 'Rove two', body: '2' });
+  await composeNote(page, { title: 'Rove three', body: '3' });
+  await page.getByRole('button', { name: 'Refresh' }).focus();
+
+  // The whole grid is a single tab stop — Tab must not walk N cards.
+  const stops = page.locator('[data-note-id] [role="button"][tabindex="0"]');
+  await expect(stops).toHaveCount(1);
+  await expect(stops).toHaveAttribute('aria-label', 'Rove three'); // newest first
+
+  // Arrows steer it across the columns (newest leftmost).
+  await page.keyboard.press('j');
+  await expect(cardByTitle(page, 'Rove three')).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(cardByTitle(page, 'Rove two')).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(cardByTitle(page, 'Rove one')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(cardByTitle(page, 'Rove two')).toBeFocused();
+
+  // The stop follows the focus, and stays alone.
+  await expect(stops).toHaveCount(1);
+  await expect(stops).toHaveAttribute('aria-label', 'Rove two');
+
+  // Pinning splits the board in two sections — one stop each, not one total.
+  await page.keyboard.press('f');
+  await expect(page.getByText('Pinned')).toBeVisible();
+  await expect(stops).toHaveCount(2);
+});
+
 test('multi-select: x + Ctrl+A + bulk archive via the selection bar', async ({ page }) => {
   await composeNote(page, { title: 'Bulk one', body: '1' });
   await composeNote(page, { title: 'Bulk two', body: '2' });

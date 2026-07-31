@@ -6,6 +6,7 @@
   "group_editor": "Editor",
   "navNextNote": "Ir para a próxima nota",
   "navPrevNote": "Ir para a nota anterior",
+  "navArrows": "Mover entre as notas da grade",
   "moveNoteDown": "Mover nota para a próxima posição",
   "moveNoteUp": "Mover nota para a posição anterior",
   "composeNote": "Criar uma nova nota",

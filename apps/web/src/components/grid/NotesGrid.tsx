@@ -7,6 +7,7 @@ import type { FullNote } from '@openkeep/shared';
 import { positionBetween } from '@openkeep/shared';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { useUiStore } from '../../stores/ui.js';
 import { NoteCard } from '../notes/NoteCard.js';
 import type { DragCard, DragSnapshot, DropTarget } from './drag.js';
 import {
@@ -66,6 +67,7 @@ interface NotesGridProps {
  */
 export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
   const m = useNoteMutations();
+  const focusedNoteId = useUiStore((s) => s.focusedNoteId);
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -432,6 +434,17 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
     [cardObserver, dndSection],
   );
 
+  /**
+   * The grid's single tab stop (roving tabindex): the focused card when it is
+   * one of ours, the first card otherwise. Tab therefore steps PAST the whole
+   * grid — hundreds of cards used to be hundreds of stops — and the arrows
+   * below take over from there.
+   */
+  const rovingId =
+    focusedNoteId !== null && notes.some((n) => n.id === focusedNoteId)
+      ? focusedNoteId
+      : notes[0]?.id;
+
   const innerW = cols === 1 ? cardW : gridWidth(cols, cardW, gutter);
   // A drag never shrinks the grid: the drop target is this box, and a box that
   // shrank out from under the pointer would drop the preview it just opened.
@@ -449,6 +462,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
         {visibleNotes.map((note) => {
           const rect = dragLayout?.rects.get(note.id) ?? layout.rects.get(note.id);
           const measured = heightsRef.current.has(note.id);
+          const roving = note.id === rovingId;
           return (
             <div
               key={note.id}
@@ -470,7 +484,7 @@ export function NotesGrid({ notes, viewMode, dndSection }: NotesGridProps) {
                 visibility: measured ? 'visible' : 'hidden',
               }}
             >
-              <NoteCard note={note} />
+              <NoteCard note={note} roving={roving} />
             </div>
           );
         })}
