@@ -28,11 +28,11 @@ import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
 import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
-import { type FullNote, htmlToPlainText, LIMITS } from '@openkeep/shared';
+import { type FullNote, htmlToPlainText, LIMITS, parseNoteLinkHref } from '@openkeep/shared';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { audioRecordingSupported, useAudioRecorder } from '../../hooks/use-audio-recorder.js';
@@ -67,7 +67,9 @@ import { FindBar } from './FindBar.js';
 import { FormatBar } from './FormatBar.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
+import { NoteBacklinks } from './NoteBacklinks.js';
 import { NoteImages } from './NoteImages.js';
+import { NotePicker, pickNoteLink } from './NotePicker.js';
 import { NoteReminderChip } from './ReminderChip.js';
 import { NoteReminderPicker } from './ReminderPicker.js';
 import { NoteShareDialog } from './ShareDialog.js';
@@ -286,6 +288,35 @@ function EditorBody({
       resetScroll: false,
     });
   };
+  /**
+   * Following a note link, in either direction: the body's `[[` links and the
+   * backlink chips. The editor is route-driven, so "open the other note" is
+   * the same URL change a deep link makes — the modal is keyed by the id and
+   * simply becomes that note, with the back button undoing the hop.
+   */
+  const openNote = (id: string) => {
+    autosave.flush();
+    void navigate({
+      to: '.',
+      search: (old: Record<string, unknown>) => ({ ...old, note: id, new: undefined }),
+      resetScroll: false,
+    });
+  };
+
+  /**
+   * A click on a link to another note stays inside the app. Capture phase, so
+   * it lands before both the browser's own navigation and TipTap's
+   * open-in-a-new-tab handler — a note link is not an outbound link.
+   */
+  const interceptNoteLink = (e: MouseEvent) => {
+    const href = (e.target as HTMLElement).closest?.('a[href]')?.getAttribute('href');
+    const id = href ? parseNoteLinkHref(href) : null;
+    if (!id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openNote(id);
+  };
+
   const { data: settings } = useQuery(settingsQuery);
   const queryClient = useQueryClient();
   const show = useSnackbarStore((s) => s.show);
@@ -296,6 +327,7 @@ function EditorBody({
     open: false,
     seed: '',
   });
+  const [notePicker, setNotePicker] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [sheet, setSheet] = useState<MobileSheet>(null);
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
@@ -439,8 +471,10 @@ function EditorBody({
   const editor = useEditor({
     // Keep's `#` quick-labeling lives in the shared extension, which also
     // knows when `#` is markdown heading syntax instead.
-    extensions: noteExtensions(t('notePlaceholder'), (seed) =>
-      setLabelPicker({ open: true, seed }),
+    extensions: noteExtensions(
+      t('notePlaceholder'),
+      (seed) => setLabelPicker({ open: true, seed }),
+      () => setNotePicker(true),
     ),
     content: note.bodyHtml,
     editable: canEdit,
@@ -844,6 +878,7 @@ function EditorBody({
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: pointer affordance only — keyboard users are already inside the editor */}
           <div
             className="min-h-[46px] flex-1 overflow-y-auto px-4 pb-3"
+            onClickCapture={interceptNoteLink}
             onClick={(e) => {
               if (!isList && canEdit && e.target === e.currentTarget) editor?.commands.focus('end');
             }}
@@ -863,6 +898,7 @@ function EditorBody({
           </div>
 
           <LinkPreviewChips note={note} />
+          <NoteBacklinks note={note} onOpen={openNote} />
           <NoteReminderChip note={note} />
           <NoteLabelChips note={note} removable />
 
@@ -1421,6 +1457,28 @@ function EditorBody({
           )}
           {showShare && (
             <NoteShareDialog note={note} open={showShare} onOpenChange={setShowShare} />
+          )}
+          {notePicker && (
+            <Popover.Root open onOpenChange={(o) => !o && setNotePicker(false)}>
+              <Popover.Trigger
+                className="absolute bottom-12 left-4 h-px w-px opacity-0"
+                aria-hidden
+                tabIndex={-1}
+              />
+              <Popover.Portal>
+                <Popover.Positioner className="z-50" sideOffset={2}>
+                  <Popover.Popup className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
+                    <NotePicker
+                      excludeId={note.id}
+                      onPick={(target) => {
+                        setNotePicker(false);
+                        pickNoteLink(editor, target, t('untitled'));
+                      }}
+                    />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
           )}
           {labelPicker.open && (
             <Popover.Root

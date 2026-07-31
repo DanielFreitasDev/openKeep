@@ -4,7 +4,9 @@ import {
   mergeNote,
   removeNote,
   selectArchived,
+  selectBacklinks,
   selectBulkLabels,
+  selectLinkTargets,
   selectMain,
   selectTrashed,
   upsertNote,
@@ -169,5 +171,39 @@ describe('note selectors', () => {
     expect(checked).toEqual([]);
     expect(mixed).toEqual(['work']);
     expect(selectBulkLabels([])).toEqual({ checked: [], mixed: [] });
+  });
+});
+
+describe('note links', () => {
+  const target = note({ title: 'Reforma' });
+  const linkHtml = `<p>ver <a href="?note=${target.id}">Reforma</a></p>`;
+
+  it('offers link targets by recency, never the note being written in', () => {
+    const older = note({ title: 'Antiga', updatedAt: '2026-07-01T00:00:00.000Z' });
+    const newer = note({ title: 'Recente', updatedAt: '2026-07-30T00:00:00.000Z' });
+    const trashed = note({ title: 'Lixo', trashedAt: '2026-07-02T00:00:00.000Z' });
+    const notes = [older, newer, trashed, target];
+
+    const ids = selectLinkTargets(notes, target.id, '').map((n) => n.id);
+    expect(ids).toEqual([newer.id, older.id]);
+    expect(selectLinkTargets(notes, target.id, 'rec').map((n) => n.title)).toEqual(['Recente']);
+  });
+
+  it('finds the notes whose body links here, and only those', () => {
+    const source = note({ bodyHtml: linkHtml });
+    // Same id in the text, but not as a link: a note that merely mentions the
+    // deep link is not a backlink.
+    const mentions = note({ bodyHtml: `<p>?note=${target.id}</p>` });
+    const otherLink = note({
+      bodyHtml: '<p><a href="?note=01890000-0000-7000-8000-999999999999">x</a></p>',
+    });
+    const trashedSource = note({ bodyHtml: linkHtml, trashedAt: '2026-07-02T00:00:00.000Z' });
+    const selfLink = { ...target, bodyHtml: linkHtml };
+
+    const found = selectBacklinks(
+      [source, mentions, otherLink, trashedSource, selfLink],
+      target.id,
+    );
+    expect(found.map((n) => n.id)).toEqual([source.id]);
   });
 });

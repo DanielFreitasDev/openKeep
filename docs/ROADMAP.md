@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (gravação de áudio no navegador;
+> Última atualização: **2026-07-31** (vincular notas com `[[` e backlinks;
+> gravação de áudio no navegador;
 > permissão somente-leitura no compartilhamento;
 > backup automático agendado; indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
@@ -376,13 +377,39 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   na mesma nota (corpo rico **e** seção de checklist), que o Keep não tem. Decidir antes de
   codar; B preserva a arquitetura e resolve 80% do pedido.
 
-- [ ] **Vincular notas (`[[` + backlinks)** *(impacto alto · esforço M)*
+- [x] **Vincular notas (`[[` + backlinks)** *(impacto alto · esforço M)* — feito em 2026-07-31
   **O quê:** digitar `[[` abre um picker de notas (como o `#` de labels) e insere um chip-link;
   painel "mencionada em" (backlinks) no editor. Pedido recorrente (Keep trata cada nota como
   post-it isolado — [XDA](https://www.xda-developers.com/i-used-notion-obsidian-and-evernote-only-to-go-back-to-google-keep/)).
   **Como:** reaproveitar o popover do quick-label; link = marca TipTap com o uuid da nota
   (`?note=` já é deep link estável, DECISIONS #13); backlinks = índice client-side sobre o
   corpus + coluna/consulta no servidor para contas grandes. Sanitizador: permitir o atributo.
+  **Entregue:** o link **não é um nó novo** — é um `<a>` comum carregando o deep link do próprio
+  app (`?note=<uuid>`), e nenhum atributo foi criado. Essa é a decisão que paga o resto: o
+  vocabulário, o sanitizador, o serializer markdown, o `.md` de ida e volta, as versões, a
+  impressão e o MCP já sabem o que é uma âncora, então o link atravessa tudo isso sem que nenhum
+  deles aprenda uma forma nova. O preço fica no sanitizador, que até aqui recusava **todo** href
+  relativo: `?note=<uuid>` entra como forma exata (`parseNoteLinkHref`), não como afrouxamento, e
+  é o único link que não ganha `target=_blank` — nota não é destino externo, e abrir aba seria uma
+  segunda cópia do app. O clique é interceptado na fase de captura, à frente tanto da navegação do
+  browser quanto do handler do TipTap.
+  **O gesto é input rule, não keydown** (ao contrário do `#`): quem faz o gesto é o *segundo*
+  colchete, então não há nada a decidir no primeiro — `[` sozinho continua começando um link
+  markdown. Input rules já não disparam dentro de código, que é exatamente o certo aqui. Os dois
+  colchetes são comidos e o que sobra na nota é o link, nunca a sintaxe.
+  **O rótulo é cópia do título, não referência:** renomear o alvo depois deixa em paz a frase que
+  foi escrita em volta dele — é o que `[label](href)` significa no arquivo, e é o comportamento
+  mais gentil. O picker também não cria nota: linkar para o que ainda não existe é outra feature.
+  **Os backlinks são o mesmo link lido do outro lado**, varrendo o corpus que o cliente já tem —
+  a mesma aposta da busca instantânea — atrás do href exato entre aspas, e não do id solto (uma
+  nota que só *menciona* `?note=…` no texto não é backlink). Só corpo carrega link; item de
+  checklist é texto puro, então nota de lista nunca aparece como origem.
+  **O detalhe que decidiu o desenho da UI:** o popover rouba o foco, e devolvê-lo é o que separa o
+  gesto de ser utilizável — inserir na mesma volta do loop poria o cursor no corpo só para o
+  fechamento tirá-lo um quadro depois, deixando quem escreve encalhado ao lado de um link. A
+  inserção espera uma volta, e o e2e afirma isso continuando a frase depois de escolher a nota.
+  `[[` e `#` entraram juntos no diálogo `?`: nenhum dos dois é combinação de teclas, então não há
+  como descobri-los tentando modificadores.
 
 - [ ] **Modelos de nota (templates)** *(impacto médio · esforço M)*
   **O quê:** salvar nota como modelo e criar a partir dele (composer → "Novo a partir de
@@ -805,13 +832,11 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
 1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-2. **Vincular notas + backlinks** (3.1) — o `[[` reaproveita o popover do `#`, e o link já é
-   marca TipTap suportada de ponta a ponta desde a fase C.
-3. **Link público somente leitura** (3.3) — destravado pelo item acima: o nível `viewer` já é a
-   resposta de "quem pode só ler", e o link público é a versão sem conta dele.
-4. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
+2. **Link público somente leitura** (3.3) — o nível `viewer` já é a resposta de "quem pode só ler",
+   e o link público é a versão sem conta dele.
+3. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
    já saíram).
-5. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
+4. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
@@ -825,6 +850,12 @@ chokepoint como previsto: nenhuma rota ganhou uma segunda checagem, só um níve
 **Gravação de áudio** saiu em 2026-07-31: era o único item de impacto alto cuja infraestrutura
 inteira já estava no repo (`kind='audio'`, player, sniffer) — restavam o gravador e uma rota. A
 seção 2 agora só tem OCR, "Things", masonry nativo e o offline completo.
+
+**Vincular notas** saiu junto (2026-07-31), e era o antigo nº 2 desta fila. Confirmou a aposta que
+o justificava: o link cabe numa âncora com o deep link que já existia, então nenhuma tabela,
+coluna, atributo ou rota nasceu — o servidor só aprendeu a deixar passar uma forma de href
+relativo. Isso muda o custo do item 3.1 **texto e checklist na mesma nota**? Não: continua sendo
+o modelo de uma checklist por nota, não a falta de vocabulário no corpo.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

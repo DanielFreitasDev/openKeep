@@ -95,6 +95,15 @@ describe('links', () => {
     expect(renderMarkdown('[x](/relative/path)')).toBe('<p>[x](/relative/path)</p>');
   });
 
+  it('keeps a note link, the one relative href there is', () => {
+    const id = '0191e8b6-0e4a-7c3f-9c2b-8f2a1d4e5b60';
+    expect(renderMarkdown(`[Groceries](?note=${id})`)).toBe(
+      `<p><a href="?note=${id}">Groceries</a></p>`,
+    );
+    // Same shape, not a note id: still text, so a stray `?note=` cannot forge a link.
+    expect(renderMarkdown('[x](?note=nope)')).toBe('<p>[x](?note=nope)</p>');
+  });
+
   it('degrades images to their link', () => {
     expect(renderMarkdown('![alt](https://e.com/i.png)')).toBe(
       '<p><a href="https://e.com/i.png">alt</a></p>',

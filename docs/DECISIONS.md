@@ -57,6 +57,12 @@ Key product and technical decisions, with rationale. Dated 2026-07.
 
     A take counts as content the moment it exists, not when its upload acks. That matters because of #23: the FAB's Recording entry pre-creates an empty note marked `new`, exactly the state the editor discards on close — so the editor treats "recording running or take produced" as touched, and closing the note mid-recording keeps the take (the recorder stops on unmount, and the upload mutation is declared on `useMutation` so it outlives the editor that started it). The mirror case is the reason the note is created empty in the first place: a refused microphone leaves nothing behind.
 
+29. **A note link is an anchor carrying the app's own deep link** (2026-07-31). `[[` inserts an ordinary `<a href="?note=<uuid>">Title</a>` — no custom node, no custom attribute, no new column. Everything the note already passes through knows what an anchor is, so the link survives the sanitizer, the markdown serializer (`[Title](?note=…)`), `.md` export and import, version snapshots, print and the MCP body surface without any of them learning a new shape. The href is relative because the modal opens over whatever route is showing (#13) and nothing inside a note should hard-code the instance's origin.
+
+    The one place this costs something is the sanitizer, which until now refused every relative href: `?note=<uuid>` is admitted as an exact shape (`parseNoteLinkHref`), not as a general relaxation, and it is the only link that keeps neither `target=_blank` nor `rel` — a note link is not outbound, and a new tab for it would be a second copy of the app. The client completes that contract by intercepting the click in the capture phase, ahead of both the browser's navigation and TipTap's open-in-a-new-tab handler.
+
+    The label is a copy of the title, not a live reference: renaming the target leaves the sentence that was written around it alone, which is both what `[label](href)` means in the file and the kinder behavior. Backlinks are the mirror and are computed client-side — a substring scan for the exact quoted href over the corpus the client already holds, the same bet instant search makes. Only bodies can carry them (checklist items are plain text), and if an account ever outgrows the scan the query moves to the server without the panel changing.
+
 ## Stack (verified against registries 2026-07-27)
 
 | Choice | Rationale |

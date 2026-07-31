@@ -22,6 +22,18 @@ describe('sanitizeNoteHtml', () => {
     expect(sanitizeNoteHtml('<p><a href="mailto:a@b.com">m</a></p>')).toContain('mailto:a@b.com');
   });
 
+  it('keeps a note link in this tab, and only in the exact deep-link shape', () => {
+    const id = '0191e8b6-0e4a-7c3f-9c2b-8f2a1d4e5b60';
+    expect(sanitizeNoteHtml(`<p><a href="?note=${id}">Groceries</a></p>`)).toBe(
+      `<p><a href="?note=${id}">Groceries</a></p>`,
+    );
+    // A relative href that is not a note link is still not a link at all —
+    // the exception is one shape, not a hole for relative URLs in general.
+    const out = sanitizeNoteHtml('<p><a href="?note=../../etc">x</a></p>');
+    expect(out).toContain('x');
+    expect(out).not.toContain('href');
+  });
+
   it('drops link schemes outside http/https/mailto, keeping the text', () => {
     for (const href of ['javascript:alert(1)', 'data:text/html,<script>x</script>', 'vbscript:x']) {
       const out = sanitizeNoteHtml(`<p><a href="${href}">click</a></p>`);

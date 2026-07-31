@@ -1,5 +1,5 @@
 import type { Collaborator, FullNote, NoteSort, SearchType } from '@openkeep/shared';
-import { comparePositions, parseSearchQuery } from '@openkeep/shared';
+import { comparePositions, noteLinkHref, parseSearchQuery } from '@openkeep/shared';
 
 export interface MainSections {
   pinned: FullNote[];
@@ -189,6 +189,40 @@ function matchesWords(n: FullNote, words: string[]): boolean {
 /** Word-prefix match: every query word must prefix some text word. */
 export function matchesQuery(n: FullNote, q: string): boolean {
   return matchesWords(n, queryWords(q));
+}
+
+// ------------------------------------------------------------- note links
+
+/** How many notes the `[[` picker offers at once (Keep's label picker scrolls; this one ranks). */
+const LINK_TARGET_LIMIT = 8;
+
+/**
+ * Candidates for a `[[` link: the corpus minus the trash and minus the note
+ * being written in, most recently edited first. Recency rather than the user's
+ * sort preference — the note you mean to link is nearly always one you were
+ * just in, and the picker shows too few rows for an alphabet to help.
+ */
+export function selectLinkTargets(notes: FullNote[], excludeId: string | null, q: string) {
+  return notes
+    .filter((n) => n.trashedAt === null && n.id !== excludeId && matchesQuery(n, q))
+    .sort(byNewest('updatedAt'))
+    .slice(0, LINK_TARGET_LIMIT);
+}
+
+/**
+ * The notes whose body links here — the "mentioned in" panel.
+ *
+ * The scan is a substring test over the corpus the client already holds, which
+ * is the same bet the search makes: a body is html, and the href the sanitizer
+ * writes is an exact, quoted shape, so no parsing is needed to tell a link from
+ * a note that merely says `?note=…` in its text. Only bodies can carry links —
+ * checklist items are plain text — so a list note never appears here as a source.
+ */
+export function selectBacklinks(notes: FullNote[], noteId: string): FullNote[] {
+  const needle = `href="${noteLinkHref(noteId)}"`;
+  return notes
+    .filter((n) => n.trashedAt === null && n.id !== noteId && n.bodyHtml.includes(needle))
+    .sort(byNewest('updatedAt'));
 }
 
 export interface SearchResults {

@@ -1,4 +1,4 @@
-import { markdownToHtml } from '@openkeep/shared';
+import { markdownToHtml, noteLinkHref } from '@openkeep/shared';
 import { Placeholder } from '@tiptap/extensions';
 import { Plugin } from '@tiptap/pm/state';
 import {
@@ -64,6 +64,37 @@ const QuickLabel = Extension.create<{ onQuickLabel?: (seed: string) => void }>({
             onQuickLabel?.('');
             return true;
           },
+        },
+      }),
+    ];
+  },
+});
+
+/**
+ * `[[` — linking one note to another (Obsidian's gesture, not Keep's: Keep
+ * treats every note as an isolated post-it).
+ *
+ * An input rule rather than a keydown handler, unlike `#`: the second bracket
+ * is what makes the gesture, so there is nothing to decide on the first one —
+ * a lone `[` is still the start of an ordinary markdown link. Input rules do
+ * not run inside code, which is exactly right here too: `[[` in a code block
+ * is code. The two characters are eaten and the picker takes over, so what
+ * lands in the note is the link, never the brackets.
+ */
+const NoteLinkGesture = Extension.create<{ onNoteLink?: () => void }>({
+  name: 'noteLinkGesture',
+
+  addOptions() {
+    return { onNoteLink: undefined };
+  },
+
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /\[\[$/,
+        handler: ({ range, chain }) => {
+          chain().deleteRange(range).run();
+          this.options.onNoteLink?.();
         },
       }),
     ];
@@ -149,6 +180,7 @@ export const NOTE_INPUT_RULES = [
   'orderedList',
   'horizontalRule',
   'quickLabel',
+  'noteLinkGesture',
   'markdownGestures',
 ];
 
@@ -189,9 +221,13 @@ const MarkdownPaste = Extension.create({
  * the composer and the editor modal stay identical.
  *
  * `onQuickLabel` receives the seed the user already typed, so the label picker
- * opens filtered.
+ * opens filtered; `onNoteLink` opens the note picker for the `[[` gesture.
  */
-export function noteExtensions(placeholder: string, onQuickLabel?: (seed: string) => void) {
+export function noteExtensions(
+  placeholder: string,
+  onQuickLabel?: (seed: string) => void,
+  onNoteLink?: () => void,
+) {
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5, 6] },
@@ -206,12 +242,40 @@ export function noteExtensions(placeholder: string, onQuickLabel?: (seed: string
     }),
     Placeholder.configure({ placeholder }),
     QuickLabel.configure({ onQuickLabel }),
+    NoteLinkGesture.configure({ onNoteLink }),
     MarkdownGestures,
     MarkdownPaste,
     // Idle until the editor's find bar hands it a query (the composer never
     // does), and decoration-only either way.
     FindInNote,
   ];
+}
+
+/**
+ * Inserts a link to another note at the cursor, labelled with its title.
+ *
+ * The label is a copy, not a reference: renaming the target later leaves this
+ * text alone. That is the markdown the note serializes to — `[label](href)` —
+ * and it is also the kinder behavior, since the sentence the link sits in was
+ * written around the words that were there.
+ *
+ * The trailing space is what ends the link: the mark is non-inclusive, so
+ * typing on carries plain text, and without the space the caret would sit
+ * flush against the link with nowhere to stand.
+ */
+export function insertNoteLink(editor: Editor, noteId: string, label: string): void {
+  editor
+    .chain()
+    .focus()
+    .insertContent([
+      {
+        type: 'text',
+        text: label,
+        marks: [{ type: 'link', attrs: { href: noteLinkHref(noteId) } }],
+      },
+      { type: 'text', text: ' ' },
+    ])
+    .run();
 }
 
 /** Applies a link to the selection, or clears it when the url is empty. */

@@ -61,5 +61,11 @@
   "showCheckboxes": "Show checkboxes",
   "hideCheckboxes": "Hide checkboxes",
   "uncheckAllItems": "Uncheck all items",
-  "deleteCheckedItems": "Delete checked items"
+  "deleteCheckedItems": "Delete checked items",
+  "linkNote": "Link a note",
+  "linkNoteFilter": "Search notes",
+  "linkNoteEmpty": "No matching notes",
+  "untitled": "Untitled note",
+  "mentionedIn_one": "Mentioned in {{count}} note",
+  "mentionedIn_other": "Mentioned in {{count}} notes"
 }

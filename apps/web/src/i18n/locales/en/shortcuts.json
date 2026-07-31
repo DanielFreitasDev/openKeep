@@ -34,5 +34,7 @@
   "inlineCode": "Inline code",
   "codeBlock": "Code block",
   "quote": "Quote",
-  "numberedList": "Numbered list"
+  "numberedList": "Numbered list",
+  "quickLabel": "Label the note while typing",
+  "linkNote": "Link another note"
 }

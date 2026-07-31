@@ -34,5 +34,7 @@
   "inlineCode": "Código em linha",
   "codeBlock": "Bloco de código",
   "quote": "Citação",
-  "numberedList": "Lista numerada"
+  "numberedList": "Lista numerada",
+  "quickLabel": "Marcar a nota enquanto digita",
+  "linkNote": "Vincular outra nota"
 }

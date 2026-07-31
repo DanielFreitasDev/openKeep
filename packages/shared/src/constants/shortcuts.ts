@@ -271,4 +271,23 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'numberedList',
     group: 'editor',
   },
+  // The two typing gestures. Neither is a key combination, so neither can be
+  // found by trying modifiers — this dialog is the only place they are written
+  // down, which is why the older of the two is listed here as well.
+  {
+    id: 'quick-label',
+    keys: ['#'],
+    display: '#',
+    scope: 'editor',
+    labelKey: 'quickLabel',
+    group: 'editor',
+  },
+  {
+    id: 'link-note',
+    keys: ['[['],
+    display: '[ [',
+    scope: 'editor',
+    labelKey: 'linkNote',
+    group: 'editor',
+  },
 ];

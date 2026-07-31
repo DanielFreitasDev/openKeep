@@ -61,5 +61,11 @@
   "showCheckboxes": "Mostrar caixas de seleção",
   "hideCheckboxes": "Ocultar caixas de seleção",
   "uncheckAllItems": "Desmarcar todos os itens",
-  "deleteCheckedItems": "Excluir itens marcados"
+  "deleteCheckedItems": "Excluir itens marcados",
+  "linkNote": "Vincular uma nota",
+  "linkNoteFilter": "Pesquisar notas",
+  "linkNoteEmpty": "Nenhuma nota encontrada",
+  "untitled": "Nota sem título",
+  "mentionedIn_one": "Mencionada em {{count}} nota",
+  "mentionedIn_other": "Mencionada em {{count}} notas"
 }

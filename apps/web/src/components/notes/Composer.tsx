@@ -37,6 +37,7 @@ import { LabelChips } from '../labels/LabelChips.js';
 import { LabelPicker } from '../labels/LabelPicker.js';
 import { ColorPicker } from './ColorPicker.js';
 import { FormatBar } from './FormatBar.js';
+import { NotePicker, pickNoteLink } from './NotePicker.js';
 import { ReminderChip } from './ReminderChip.js';
 import { ReminderPicker } from './ReminderPicker.js';
 import { ShareDialog } from './ShareDialog.js';
@@ -88,6 +89,7 @@ export function Composer() {
     open: false,
     seed: '',
   });
+  const [notePicker, setNotePicker] = useState(false);
 
   // While composing, block grid/base shortcuts entirely (same as the editor
   // modal) — an open composer is an editing surface, not the board.
@@ -107,7 +109,13 @@ export function Composer() {
   const editor = useEditor({
     // Keep's `#` quick-labeling lives in the shared extension, which also
     // knows when `#` is markdown heading syntax instead.
-    extensions: noteExtensions(t('takeANote'), (seed) => setLabelPicker({ open: true, seed })),
+    // `[[` links out of a note that does not exist yet, which is fine: the
+    // link points at its target, and nothing points back until this one lands.
+    extensions: noteExtensions(
+      t('takeANote'),
+      (seed) => setLabelPicker({ open: true, seed }),
+      () => setNotePicker(true),
+    ),
     // The markdown extension owns pasted plain text end to end; StarterKit's
     // own paste rules are looser (they italicize `2 * 3 * 4`) and would fire
     // on the text this one deliberately leaves alone.
@@ -718,6 +726,31 @@ export function Composer() {
                 setInvites((prev) => prev.filter((i) => `pending:${i.email}` !== userId))
               }
             />
+            {notePicker && (
+              <Popover.Root open onOpenChange={(o) => !o && setNotePicker(false)}>
+                <Popover.Trigger
+                  className="absolute bottom-12 left-4 h-px w-px opacity-0"
+                  aria-hidden
+                  tabIndex={-1}
+                />
+                <Popover.Portal>
+                  <Popover.Positioner className="z-50" sideOffset={2}>
+                    <Popover.Popup
+                      data-composer-popover
+                      className="rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)"
+                    >
+                      <NotePicker
+                        excludeId={draftIdRef.current}
+                        onPick={(target) => {
+                          setNotePicker(false);
+                          pickNoteLink(editor, target, t('editor:untitled'));
+                        }}
+                      />
+                    </Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </Popover.Root>
+            )}
             {labelPicker.open && (
               <Popover.Root
                 open

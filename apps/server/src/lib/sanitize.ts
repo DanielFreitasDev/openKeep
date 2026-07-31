@@ -1,4 +1,9 @@
-import { NOTE_HTML_TAGS, NOTE_LINK_SCHEMES } from '@openkeep/shared';
+import {
+  NOTE_HTML_TAGS,
+  NOTE_LINK_SCHEMES,
+  noteLinkHref,
+  parseNoteLinkHref,
+} from '@openkeep/shared';
 import sanitizeHtml from 'sanitize-html';
 
 // Pure text↔html conversions live in @openkeep/shared (the MCP package needs
@@ -13,7 +18,8 @@ export { htmlToMarkdown, htmlToPlainText, plainTextToHtml, renderMarkdown } from
  * The three attributes that survive are the ones that carry meaning rather
  * than presentation: a link's target, an ordered list's first number, and the
  * code language. Links are additionally scheme-limited (no `javascript:`,
- * no `data:`) and always open in a new tab with the opener severed.
+ * no `data:`) and open in a new tab with the opener severed — except a link to
+ * another note, which is this app's own deep link and stays in this tab.
  */
 const SAFE_HREF_RE = new RegExp(`^(${NOTE_LINK_SCHEMES.join('|')}):`, 'i');
 
@@ -39,6 +45,10 @@ const OPTIONS: sanitizeHtml.IOptions = {
     // stays (an anchor with no href is inert, but also invisible to the user).
     a: (tagName, attribs): sanitizeHtml.Tag => {
       const href = attribs.href ?? '';
+      // A link to another note stays in this tab: it is the app's own deep
+      // link, and a new window for it would be a second copy of the app.
+      const noteId = parseNoteLinkHref(href);
+      if (noteId) return { tagName, attribs: { href: noteLinkHref(noteId) } };
       if (!SAFE_HREF_RE.test(href)) return { tagName: 'span', attribs: {} };
       return {
         tagName,

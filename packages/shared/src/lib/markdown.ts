@@ -19,7 +19,7 @@
  * quietly losing pasted content is worse than pasting it verbatim.
  */
 
-import { NOTE_LINK_SCHEMES } from '../constants/note-html.js';
+import { NOTE_LINK_SCHEMES, parseNoteLinkHref } from '../constants/note-html.js';
 import { escapeAttr, escapeHtml } from './html-tokens.js';
 
 /** Guards pathological nesting (deep quotes/lists, adversarial emphasis). */
@@ -78,12 +78,16 @@ function codeSpan(src: string, start: number): { html: string; next: number } | 
   return { html: `<code>${escapeHtml(content)}</code>`, next: close + run };
 }
 
-/** http/https/mailto only — anything else renders as the text the user typed. */
+/**
+ * http/https/mailto only — anything else renders as the text the user typed.
+ * The one relative form allowed is a note link (`?note=<uuid>`), which is how
+ * a `[[` link comes back from an exported `.md` as a link rather than as text.
+ */
 function safeUrl(raw: string): string | null {
   const url = raw.trim().replace(/^<(.*)>$/s, '$1');
   if (url === '' || /[\s<>]/.test(url)) return null;
   const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(url)?.[1]?.toLowerCase();
-  if (scheme === undefined) return null;
+  if (scheme === undefined) return parseNoteLinkHref(url) === null ? null : url;
   return (NOTE_LINK_SCHEMES as readonly string[]).includes(scheme) ? url : null;
 }
 
