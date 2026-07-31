@@ -3,6 +3,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { cardByTitle, composeNote, signUpFreshUser } from './helpers.js';
 
 async function expectNoSeriousViolations(page: Page, context: string) {
+  // Axe reads computed colors, so a surface caught mid-fade reports a blended
+  // foreground and trips the contrast rule. Wait for the entrance animations to
+  // settle — looping ones (the sync spinner) never do, so they are excluded.
+  await page.waitForFunction(`(() => document.getAnimations().every(
+    (a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity,
+  ))()`);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa'])
     .exclude('.tiptap') // contenteditable internals are ProseMirror-managed

@@ -213,7 +213,7 @@ function SearchView() {
       )}
 
       {!hasAny ? (
-        <div className="mx-auto flex max-w-[760px] flex-col gap-8">
+        <div className="search-panel mx-auto flex max-w-[760px] flex-col gap-8">
           <TileSection title={t('typesSection')}>
             <TypeTile
               svg={checkboxSvg}

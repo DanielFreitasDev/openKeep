@@ -45,6 +45,14 @@
   --topbar-h: 64px;
   --sidebar-w: 280px;
   --rail-w: 72px;
+
+  /* Material 3 motion easings — the curves the Keep Android app moves on.
+     Surfaces enter on "decelerate" (fast start, soft landing) and leave on
+     "accelerate" (soft start, quick exit), which is what makes a drawer feel
+     smooth opening and snappy closing. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
 }
 
 .dark {
@@ -365,6 +373,131 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .note-enter > :first-child {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile motion (Keep Android). These surfaces mount in their closed state and
+   flip to `data-entered` on the next frame (hooks/use-mount-transition.ts), so
+   the browser has something to transition from. Exits are shorter than entries
+   and ride the accelerate curve: the Keep app eases things in and gets them
+   out of the way quickly.
+   --------------------------------------------------------------------------- */
+
+/* Scrim shared by the drawer, the FAB menu and the bottom sheets. */
+.motion-scrim {
+  opacity: 0;
+  transition: opacity 190ms var(--ease-standard);
+}
+.motion-scrim[data-entered] {
+  opacity: 1;
+  transition-duration: 240ms;
+}
+
+/* Navigation drawer: slides in from the left edge. Scoped to the mobile
+   breakpoint so a resize while it is open can never translate the desktop
+   sidebar off-screen. */
+@media (max-width: 767px) {
+  .drawer-panel {
+    transform: translateX(-100%);
+    transition: transform 190ms var(--ease-accelerate);
+  }
+  .drawer-panel[data-entered] {
+    transform: translateX(0);
+    transition: transform 240ms var(--ease-decelerate);
+  }
+}
+
+/* Create-FAB speed dial: each action grows out of the FAB and fades in. The
+   per-item stagger is an inline transition-delay (MobileFab.tsx) — nearest the
+   FAB leads on the way in, and is last to leave on the way out. */
+.fab-action {
+  opacity: 0;
+  transform: translateY(14px) scale(0.85);
+  transform-origin: 92% 50%;
+  transition:
+    opacity 110ms var(--ease-standard),
+    transform 110ms var(--ease-accelerate);
+}
+.fab-action[data-entered] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 160ms var(--ease-standard),
+    transform 220ms var(--ease-decelerate);
+}
+
+/* Bottom sheet: slides up from the bottom edge. Base UI stamps the
+   starting/ending styles and holds the popup mounted until the exit ends. */
+.sheet-panel {
+  transition: transform 240ms var(--ease-decelerate);
+}
+.sheet-panel[data-starting-style],
+.sheet-panel[data-ending-style] {
+  transform: translateY(100%);
+}
+.sheet-panel[data-ending-style] {
+  transition: transform 190ms var(--ease-accelerate);
+}
+
+/* Full-screen editor (mobile): the note card grows into the screen, so its
+   contents fade in over the tail of the morph instead of stretching with it,
+   and fade back out ahead of the shrink. */
+.editor-morph-in > * {
+  animation: fade-in 140ms var(--ease-standard) 60ms backwards;
+}
+.editor-morph-out > * {
+  animation: fade-out 110ms var(--ease-standard) forwards;
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Search landing (Keep web): focusing the search box reveals the filter panel,
+   and its sections rise in one after another instead of snapping onto the page.
+   The tiles ride along with their section — Keep animates the blocks, not every
+   individual chip. */
+@keyframes panel-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.search-panel > * {
+  animation: panel-section-in 260ms var(--ease-decelerate) backwards;
+}
+.search-panel > *:nth-child(2) {
+  animation-delay: 45ms;
+}
+.search-panel > *:nth-child(3) {
+  animation-delay: 90ms;
+}
+.search-panel > *:nth-child(4) {
+  animation-delay: 135ms;
+}
+.search-panel > *:nth-child(n + 5) {
+  animation-delay: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-scrim,
+  .drawer-panel,
+  .fab-action,
+  .sheet-panel {
+    transition: none;
+  }
+  .search-panel > * {
+    animation: none;
+  }
+  .editor-morph-in > *,
+  .editor-morph-out > * {
     animation: none;
   }
 }

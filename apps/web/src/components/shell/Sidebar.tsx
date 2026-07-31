@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMountTransition } from '../../hooks/use-mount-transition.js';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { settingsQuery } from '../../lib/queries.js';
 import { savedSearchTarget } from '../../lib/saved-searches.js';
@@ -47,7 +48,11 @@ export function Sidebar() {
   const savedSearches = settings?.savedSearches ?? [];
   const [hovered, setHovered] = useState(false);
 
-  const expanded = open || hovered || drawerOpen;
+  // The drawer outlives `drawerOpen` by one slide-out (Keep-app motion), so
+  // rendering and the expanded layout follow `drawerMounted` — otherwise the
+  // labels and section headers would vanish mid-slide.
+  const { mounted: drawerMounted, entered: drawerEntered } = useMountTransition(drawerOpen, 210);
+  const expanded = open || hovered || drawerMounted;
   const overlay = !open && hovered;
   const closeDrawer = () => setDrawerOpen(false);
 
@@ -70,17 +75,24 @@ export function Sidebar() {
 
   return (
     <>
-      {drawerOpen && (
+      {drawerMounted && (
         // biome-ignore lint/a11y/noStaticElementInteractions: scrim dismiss is a pointer affordance; Esc handled by the drawer
         // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users dismiss the drawer with Esc, not the scrim
-        <div className="fixed inset-0 z-40 bg-(--scrim) md:hidden" onClick={closeDrawer} />
+        <div
+          className="motion-scrim fixed inset-0 z-40 bg-(--scrim) md:hidden"
+          data-entered={drawerEntered || undefined}
+          onClick={closeDrawer}
+        />
       )}
       <nav
         aria-label={t('mainMenu')}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        data-entered={drawerEntered || undefined}
         className={`fixed top-0 bottom-0 left-0 z-40 overflow-y-auto overflow-x-hidden bg-surface pt-2 transition-[width] duration-150 max-md:rounded-r-2xl md:top-(--topbar-h) md:z-20 ${
-          drawerOpen ? 'block w-(--sidebar-w) shadow-(--elevation-3)' : 'hidden md:block'
+          drawerMounted
+            ? 'drawer-panel block w-(--sidebar-w) shadow-(--elevation-3)'
+            : 'hidden md:block'
         } ${expanded ? 'md:w-(--sidebar-w)' : 'md:w-(--rail-w)'} ${overlay ? 'md:shadow-(--elevation-2)' : ''}`}
       >
         <div className="mb-1 flex h-12 items-center gap-2 px-5 md:hidden">

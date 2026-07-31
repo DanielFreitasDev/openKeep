@@ -1,4 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog';
+import { useMountTransition } from '../hooks/use-mount-transition.js';
 import { Icon } from './Icon.js';
 
 /**
@@ -16,6 +17,11 @@ export function BottomSheet({
   label: string;
   children: React.ReactNode;
 }) {
+  // The popup's slide is driven by Base UI's starting/ending styles, which
+  // also keep the portal (and therefore this scrim) mounted through the exit —
+  // the scrim only needs the open/closed flag to fade against.
+  const { entered } = useMountTransition(open, 210);
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -25,10 +31,14 @@ export function BottomSheet({
             scrim keeps tap-outside-to-close working (Keep-app behavior). */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: scrim dismiss is a pointer affordance; Esc closes too */}
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users close the sheet with Esc, not the scrim */}
-        <div className="fixed inset-0 z-50 bg-(--scrim)" onClick={() => onOpenChange(false)} />
+        <div
+          className="motion-scrim fixed inset-0 z-50 bg-(--scrim)"
+          data-entered={entered || undefined}
+          onClick={() => onOpenChange(false)}
+        />
         <Dialog.Popup
           aria-label={label}
-          className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-surface pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-(--elevation-3) outline-none"
+          className="sheet-panel fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-surface pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-(--elevation-3) outline-none"
         >
           {children}
         </Dialog.Popup>

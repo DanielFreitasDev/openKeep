@@ -74,12 +74,14 @@ const menuItemClass =
 
 type MobileSheet = 'add' | 'palette' | 'more' | 'reminder' | 'labels' | null;
 
-/** Morph only for the desktop modal (mobile is full-screen) with motion allowed. */
-function isDesktopMorph(): boolean {
-  return (
-    window.matchMedia('(min-width: 768px)').matches &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
+/**
+ * Which container transform the modal opens with, or null when motion is off.
+ * Desktop morphs the card into the floating dialog; mobile morphs it into the
+ * whole screen, the way the Keep app expands a note.
+ */
+function morphKind(): 'desktop' | 'mobile' | null {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+  return window.matchMedia('(min-width: 768px)').matches ? 'desktop' : 'mobile';
 }
 
 function htmlIsBlank(html: string): boolean {
@@ -289,9 +291,13 @@ function EditorBody({
     if (!node || morphedInRef.current) return;
     morphedInRef.current = true;
     const from = takeEditorOrigin(note.id);
-    if (!from || !isDesktopMorph()) return;
+    const kind = morphKind();
+    if (!from || !kind) return;
     const to = node.getBoundingClientRect();
     if (to.width === 0 || to.height === 0) return;
+    // Growing a card to full screen stretches its text on the way, so on
+    // mobile the content fades in over the tail of the morph instead.
+    if (kind === 'mobile') node.classList.add('editor-morph-in');
     node.animate(
       [
         {
@@ -302,7 +308,9 @@ function EditorBody({
         },
         { transformOrigin: '0 0', transform: 'none' },
       ],
-      { duration: 195, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+      kind === 'mobile'
+        ? { duration: 220, easing: 'cubic-bezier(0.05, 0.7, 0.1, 1)' }
+        : { duration: 195, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
     );
   };
 
@@ -310,7 +318,8 @@ function EditorBody({
   const animateClose = (after: () => void) => {
     const popup = popupRef.current;
     const from = document.querySelector(`[data-note-id="${note.id}"]`)?.getBoundingClientRect();
-    if (!popup || !from || !isDesktopMorph()) {
+    const kind = morphKind();
+    if (!popup || !from || !kind) {
       after();
       return;
     }
@@ -320,6 +329,9 @@ function EditorBody({
       duration: 160,
       fill: 'forwards',
     });
+    // Mirror of the open morph: the content fades first, so the full-screen
+    // surface shrinks back onto the card without squashing its text.
+    if (kind === 'mobile') popup.classList.add('editor-morph-out');
     const anim = popup.animate(
       [
         { transformOrigin: '0 0', transform: 'none' },
@@ -330,7 +342,9 @@ function EditorBody({
           }, ${from.height / to.height})`,
         },
       ],
-      { duration: 160, easing: 'cubic-bezier(0.3, 0, 1, 1)', fill: 'forwards' },
+      kind === 'mobile'
+        ? { duration: 180, easing: 'cubic-bezier(0.3, 0, 0.8, 0.15)', fill: 'forwards' }
+        : { duration: 160, easing: 'cubic-bezier(0.3, 0, 1, 1)', fill: 'forwards' },
     );
     anim.finished.catch(() => undefined).finally(after);
   };
