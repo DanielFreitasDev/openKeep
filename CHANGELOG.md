@@ -1,3 +1,21 @@
+# [1.24.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.23.0...v1.24.0) (2026-07-31)
+
+
+### Features
+
+* record audio in the browser ([65d252f](https://github.com/DanielFreitasDev/openKeep/commit/65d252f5d7e072b67f4469ccf358214613da3d65))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.24.0
+```
+
+Or download `compose.yml` below (image pinned to `1.24.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.24.0/docs/DEPLOYMENT.md).
+
 # [1.23.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.22.0...v1.23.0) (2026-07-31)
 
 
