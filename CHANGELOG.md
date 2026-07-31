@@ -1,3 +1,22 @@
+# [1.22.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.21.0...v1.22.0) (2026-07-31)
+
+
+### Features
+
+* indent a checklist item by dragging it sideways ([f8a6a67](https://github.com/DanielFreitasDev/openKeep/commit/f8a6a67602622663893c43e69d181c58b55175f9))
+* scheduled backups to a directory, rotated per account ([34da7ce](https://github.com/DanielFreitasDev/openKeep/commit/34da7cedd5037a74c731188d4b50a4ce6c7c2a4c))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.22.0
+```
+
+Or download `compose.yml` below (image pinned to `1.22.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.22.0/docs/DEPLOYMENT.md).
+
 # [1.21.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.20.0...v1.21.0) (2026-07-31)
 
 
