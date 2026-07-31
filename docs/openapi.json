@@ -3364,11 +3364,15 @@
                     },
                     "left": {
                       "type": "number"
+                    },
+                    "labels": {
+                      "type": "number"
                     }
                   },
                   "required": [
                     "deleted",
-                    "left"
+                    "left",
+                    "labels"
                   ],
                   "additionalProperties": false
                 }

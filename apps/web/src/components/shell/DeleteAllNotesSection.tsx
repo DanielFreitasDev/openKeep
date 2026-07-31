@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api.js';
+import { labelsQuery } from '../../lib/labels-api.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 
 interface DeleteAllResult {
   deleted: number;
   left: number;
+  labels: number;
 }
 
 /**
@@ -21,12 +23,14 @@ export function DeleteAllNotesSection() {
   const queryClient = useQueryClient();
   const show = useSnackbarStore((s) => s.show);
   const { data: notes } = useQuery(notesQuery);
+  const { data: labels } = useQuery(labelsQuery);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
 
   const word = t('deleteAllWord');
   const owned = (notes ?? []).filter((n) => n.role === 'owner').length;
   const shared = (notes ?? []).length - owned;
+  const labelCount = (labels ?? []).length;
 
   const deleteAll = useMutation({
     mutationFn: () =>
@@ -36,6 +40,7 @@ export function DeleteAllNotesSection() {
       }),
     onSuccess: (result) => {
       queryClient.setQueryData(notesQuery.queryKey, []);
+      queryClient.setQueryData(labelsQuery.queryKey, []);
       setOpen(false);
       setTyped('');
       show({ message: t('deleteAllDone', { count: result.deleted }) });
@@ -72,6 +77,11 @@ export function DeleteAllNotesSection() {
             <Dialog.Description className="mt-2 text-on-surface-variant text-sm">
               {t('deleteAllBody', { count: owned })}
             </Dialog.Description>
+            {labelCount > 0 && (
+              <p className="mt-2 text-on-surface-variant text-sm">
+                {t('deleteAllLabels', { count: labelCount })}
+              </p>
+            )}
             {shared > 0 && (
               <p className="mt-2 text-on-surface-variant text-sm">
                 {t('deleteAllShared', { count: shared })}

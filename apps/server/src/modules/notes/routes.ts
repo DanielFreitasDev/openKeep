@@ -226,7 +226,9 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
       schema: {
         tags: ['notes'],
         body: zDeleteAllNotes,
-        response: { 200: z.object({ deleted: z.number(), left: z.number() }) },
+        response: {
+          200: z.object({ deleted: z.number(), left: z.number(), labels: z.number() }),
+        },
       },
     },
     async (req) => {
@@ -241,7 +243,7 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
 
       realtime.publishToUsers(
         [req.user.id],
-        { type: 'notes.purged', payload: { deleted: result.deleted } },
+        { type: 'notes.purged', payload: { deleted: result.deleted, labels: result.labels } },
         originOf(req),
       );
       const others = (id: string) => (audience.get(id) ?? []).filter((m) => m !== req.user.id);

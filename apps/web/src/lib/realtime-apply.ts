@@ -42,9 +42,11 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
     qc.setQueryData(notesQuery.queryKey, (old) => removeNote(old, p.id));
     return true;
   },
-  // "Delete all notes" from another tab: the corpus is empty, not patched.
+  // "Delete all notes" from another tab: the corpus is empty, not patched —
+  // and the labels went with it, so the sidebar empties in the same beat.
   'notes.purged': (qc) => {
     qc.setQueryData(notesQuery.queryKey, []);
+    qc.setQueryData(labelsQuery.queryKey, []);
     return true;
   },
   'note.state_changed': (qc, p) =>

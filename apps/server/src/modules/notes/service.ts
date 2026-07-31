@@ -625,6 +625,8 @@ export interface DeleteAllResult {
   deleted: number;
   /** Notes owned by someone else that I simply left. */
   left: number;
+  /** My labels, which have nothing left to organize. */
+  labels: number;
 }
 
 /**
@@ -657,8 +659,17 @@ export async function deleteAllNotes(
     .where(and(eq(noteMembers.userId, userId), eq(noteMembers.role, 'collaborator')))
     .returning({ noteId: noteMembers.noteId });
 
+  // The labels go with the notes: they are mine alone, and an account emptied
+  // on purpose should not keep a sidebar full of names that organize nothing.
+  // `note_labels` rows are already gone with the notes, and cascade takes any
+  // that hung on notes I merely left.
+  const droppedLabels = await db
+    .delete(labelsTable)
+    .where(eq(labelsTable.userId, userId))
+    .returning({ id: labelsTable.id });
+
   if (storage && keys.length > 0) await unlinkAttachmentFiles(storage, keys);
-  return { deleted: deleted.length, left: left.length };
+  return { deleted: deleted.length, left: left.length, labels: droppedLabels.length };
 }
 
 export async function copyNote(

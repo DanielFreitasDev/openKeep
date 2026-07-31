@@ -299,12 +299,19 @@ test('delete all notes: the typed word is the confirmation', async ({ page }) =>
   await composeNote(page, { title: 'Doomed one', body: 'goes away' });
   await composeNote(page, { title: 'Doomed two', body: 'also goes away' });
 
+  await page.getByRole('button', { name: 'Edit labels' }).click();
+  await page.getByRole('textbox', { name: 'Create new label' }).fill('Doomed label');
+  await page.getByRole('textbox', { name: 'Create new label' }).press('Enter');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByRole('link', { name: 'Doomed label' })).toBeVisible();
+
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Delete all notes' }).click();
 
   const confirm = page.getByRole('button', { name: 'Delete forever' });
   await expect(page.getByText('2 notes you own will be deleted forever.')).toBeVisible();
+  await expect(page.getByText('1 label you created will be deleted too.')).toBeVisible();
   // Armed only by the exact word — the button is not the confirmation.
   await expect(confirm).toBeDisabled();
   await page.getByLabel('Type DELETE to confirm.').fill('delet');
@@ -316,6 +323,8 @@ test('delete all notes: the typed word is the confirmation', async ({ page }) =>
   await expect(page.getByText('2 notes deleted')).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('[data-note-id]')).toHaveCount(0);
+  // The labels went with the notes: nothing left for them to organize.
+  await expect(page.getByRole('link', { name: 'Doomed label' })).toHaveCount(0);
 
   // Past the trash, not into it.
   await page.getByRole('link', { name: 'Trash' }).click();

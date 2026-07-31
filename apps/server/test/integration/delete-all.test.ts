@@ -65,14 +65,23 @@ describe('delete all notes', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('deletes owned notes forever, leaves shared ones, and keeps labels', async () => {
+  it('deletes owned notes forever, leaves shared ones, and takes my labels with them', async () => {
     const label = await t.app.inject({
       method: 'POST',
       url: '/api/labels',
       headers: { cookie: mine },
-      payload: { name: 'keepme' },
+      payload: { name: 'gone-too' },
     });
     expect(label.statusCode).toBe(201);
+
+    // The friend's own label must survive: labels are per-user.
+    const friendLabel = await t.app.inject({
+      method: 'POST',
+      url: '/api/labels',
+      headers: { cookie: theirs },
+      payload: { name: 'friend-label' },
+    });
+    expect(friendLabel.statusCode).toBe(201);
 
     const archived = await create('Archived one');
     await t.app.inject({
@@ -101,10 +110,11 @@ describe('delete all notes', () => {
 
     const res = await deleteAll();
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { deleted: number; left: number };
+    const body = res.json() as { deleted: number; left: number; labels: number };
     // Everything I own, whatever view it was in: active, archived and trashed.
     expect(body.deleted).toBeGreaterThanOrEqual(3);
     expect(body.left).toBe(1);
+    expect(body.labels).toBe(1);
 
     expect(await list()).toHaveLength(0);
     expect(await list(mine, 'archived')).toHaveLength(0);
@@ -115,13 +125,21 @@ describe('delete all notes', () => {
     expect(friendSide.map((n) => n.id)).toContain(friendNote.id);
     expect(friendSide.find((n) => n.id === friendNote.id)?.collaborators).toHaveLength(1);
 
-    // Labels are not notes.
+    // My labels went with my notes; the friend's own list is untouched.
     const labels = await t.app.inject({
       method: 'GET',
       url: '/api/labels',
       headers: { cookie: mine },
     });
-    expect((labels.json() as { name: string }[]).map((l) => l.name)).toContain('keepme');
+    expect(labels.json()).toEqual([]);
+    const friendLabels = await t.app.inject({
+      method: 'GET',
+      url: '/api/labels',
+      headers: { cookie: theirs },
+    });
+    expect((friendLabels.json() as { name: string }[]).map((l) => l.name)).toContain(
+      'friend-label',
+    );
   });
 
   // Its own app: the calls above already spend the 5/min budget, which is the
@@ -137,7 +155,7 @@ describe('delete all notes', () => {
         payload: { confirm: 'delete-all-notes' },
       });
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ deleted: 0, left: 0 });
+      expect(res.json()).toEqual({ deleted: 0, left: 0, labels: 0 });
     } finally {
       await fresh.close();
     }

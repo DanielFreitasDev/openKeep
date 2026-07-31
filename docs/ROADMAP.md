@@ -524,7 +524,10 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   não existe lixeira.
   **O que ela não faz:** não toca em dado de terceiro. Notas minhas são destruídas (com os arquivos
   dos anexos); notas apenas **compartilhadas comigo** eu apenas *deixo* — some a minha linha de
-  `note_members`, a nota continua com o dono. Marcadores sobrevivem: não são notas. O evento
+  `note_members`, a nota continua com o dono. Os **marcadores vão junto** (revisto em 2026-07-31: a
+  primeira versão os preservava): são meus e só meus, e zerar a conta de propósito não devia deixar
+  um sidebar cheio de nomes que não organizam mais nada — o diálogo diz quantos, e o marcador de
+  quem compartilha comigo continua sendo dele. O evento
   `notes.purged` avisa as minhas outras abas (mandar um `note.removed` por nota seriam milhares), e
   os colaboradores recebem o evento certo para cada metade: `note.removed` nas minhas, que
   acabaram, e `collaborator.removed` nas deles, que só perderam um colaborador.
