@@ -1,3 +1,26 @@
+# [1.18.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.17.0...v1.18.0) (2026-07-31)
+
+
+### Features
+
+* colour, emoji and manual order for labels ([8d29dd4](https://github.com/DanielFreitasDev/openKeep/commit/8d29dd4edac2b48d6d0e85e8e908b0d1e0a8e885))
+* delete all notes from Settings ([e68c57a](https://github.com/DanielFreitasDev/openKeep/commit/e68c57a418e2cbef959c16dbe24bc0992516e711))
+* iCalendar feed of the reminders ([b5b65b8](https://github.com/DanielFreitasDev/openKeep/commit/b5b65b8a3d464480e7cac27e9232492682a443c5))
+* merge selected notes into one ([afb43bc](https://github.com/DanielFreitasDev/openKeep/commit/afb43bc80d1fe57b72cc57dc9b10b40fa1f8a847))
+* opt-in Prometheus metrics at /metrics ([05db5e4](https://github.com/DanielFreitasDev/openKeep/commit/05db5e4d504d15ee60a427f5d4fa1287081e6fef))
+* roving tab stop in the notes grid ([d2d4f73](https://github.com/DanielFreitasDev/openKeep/commit/d2d4f73874e164eac25546cd14d7f29a15849313))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.18.0
+```
+
+Or download `compose.yml` below (image pinned to `1.18.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.18.0/docs/DEPLOYMENT.md).
+
 # [1.17.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.16.0...v1.17.0) (2026-07-31)
 
 
