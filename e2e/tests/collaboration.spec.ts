@@ -83,3 +83,92 @@ test('sharing: live content sync between two users; per-user color isolation', a
   await ownerCtx.close();
   await collabCtx.close();
 });
+
+/**
+ * View-only sharing: the level Keep never had. The viewer's own board state
+ * (colour) has to keep working while the shared content is frozen — that split
+ * is the whole design, so both halves are asserted on the same note.
+ */
+test('view-only: shared content is frozen, own board state is not, promotion unfreezes', async ({
+  browser,
+}) => {
+  const ownerCtx: BrowserContext = await browser.newContext({ locale: 'en-US' });
+  const viewerCtx: BrowserContext = await browser.newContext({ locale: 'en-US' });
+  const owner: Page = await ownerCtx.newPage();
+  const viewer: Page = await viewerCtx.newPage();
+
+  await signUpFreshUser(ownerCtx, 'Owner');
+  const viewerEmail = `e2e-viewer-${randomUUID().slice(0, 10)}@example.com`;
+  await viewerCtx.request.post('/api/auth/sign-up/email', {
+    data: { email: viewerEmail, password: 'password-123', name: 'Viewer' },
+    headers: {
+      'x-forwarded-for': `10.8.${(Math.random() * 255) | 0}.${(Math.random() * 254 + 1) | 0}`,
+    },
+  });
+
+  await owner.goto('/');
+  await viewer.goto('/');
+  await expect(owner.getByLabel('Take a note…')).toBeVisible();
+  await expect(viewer.getByLabel('Take a note…')).toBeVisible();
+
+  await composeNote(owner, { title: 'Read only plan', body: 'do not touch' });
+  await cardRootByTitle(owner, 'Read only plan').hover();
+  await cardRootByTitle(owner, 'Read only plan')
+    .getByRole('button', { name: 'Collaborator' })
+    .click();
+  await owner.getByLabel('Person or email to share with').fill(viewerEmail);
+  await owner.getByLabel('Permission', { exact: true }).selectOption('viewer');
+  await owner.getByRole('button', { name: 'Share', exact: true }).click();
+  await expect(owner.getByText(viewerEmail)).toBeVisible();
+  await owner.getByRole('button', { name: 'Done' }).click();
+
+  await expect(cardByTitle(viewer, 'Read only plan')).toBeVisible({ timeout: 5000 });
+
+  // The editor opens read-only: the title cannot be typed into and the
+  // formatting affordances are gone, replaced by the "View only" line.
+  await cardByTitle(viewer, 'Read only plan').click();
+  const viewerEditor = viewer.getByRole('dialog');
+  // The badge exists twice — the mobile top bar and the desktop bottom bar,
+  // each hidden by a breakpoint — so this asserts the one this viewport shows.
+  await expect(viewerEditor.getByText('View only').filter({ visible: true })).toBeVisible();
+  await expect(viewerEditor.getByLabel('Title')).toHaveAttribute('readonly', '');
+  await expect(viewerEditor.getByRole('button', { name: 'Formatting options' })).toHaveCount(0);
+  await expect(viewerEditor.locator('.tiptap[contenteditable="false"]')).toBeVisible();
+
+  await viewer.keyboard.press('Escape');
+  await expect(viewerEditor).toHaveCount(0);
+
+  // Their own board state is untouched by the permission: colour still theirs.
+  await cardRootByTitle(viewer, 'Read only plan').hover();
+  await cardRootByTitle(viewer, 'Read only plan')
+    .getByRole('button', { name: 'Background options' })
+    .click();
+  await viewer.getByRole('radio', { name: 'Coral' }).click();
+  await viewer.keyboard.press('Escape');
+  await expect(cardRootByTitle(viewer, 'Read only plan').locator('> div').first()).toHaveCSS(
+    'background-color',
+    'rgb(250, 175, 168)',
+  );
+
+  // Owner promotes them to editor; the change reaches the other browser over
+  // the socket, and the same editor now takes typing.
+  await cardRootByTitle(owner, 'Read only plan').hover();
+  await cardRootByTitle(owner, 'Read only plan')
+    .getByRole('button', { name: 'Collaborator' })
+    .click();
+  await owner.getByLabel('Permission for Viewer').selectOption('collaborator');
+  await owner.getByRole('button', { name: 'Done' }).click();
+
+  await cardByTitle(viewer, 'Read only plan').click();
+  await expect(viewerEditor.getByLabel('Title')).not.toHaveAttribute('readonly', '', {
+    timeout: 5000,
+  });
+  await viewerEditor.getByLabel('Title').fill('Read only plan edited');
+  await viewer.waitForTimeout(800); // autosave debounce
+  await viewer.keyboard.press('Escape');
+
+  await expect(cardByTitle(owner, 'Read only plan edited')).toBeVisible({ timeout: 5000 });
+
+  await ownerCtx.close();
+  await viewerCtx.close();
+});

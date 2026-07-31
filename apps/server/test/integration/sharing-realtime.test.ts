@@ -360,4 +360,27 @@ describe('sharing & realtime', () => {
     });
     expect(foreign.statusCode).toBe(403);
   });
+
+  it('permission change reaches the demoted member on the same event as the list', async () => {
+    const collabSession = await t.app.inject({
+      method: 'GET',
+      url: '/api/auth/get-session',
+      headers: { cookie: collabCookie },
+    });
+    const collabId = collabSession.json().user.id as string;
+    const collabWs = await connectWs(baseUrl, collabCookie);
+
+    const res = await t.app.inject({
+      method: 'PATCH',
+      url: `/api/notes/${noteId}/collaborators/${collabId}`,
+      headers: { cookie: ownerCookie },
+      payload: { role: 'viewer' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().role).toBe('viewer');
+
+    const event = await collabWs.waitFor('collaborator.role_changed', 1000);
+    expect(event.payload).toMatchObject({ noteId, userId: collabId, role: 'viewer' });
+    collabWs.close();
+  });
 });

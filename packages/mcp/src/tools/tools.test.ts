@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveLabels } from '../render.js';
 import { getAttachment, uploadImage } from './attachments.js';
 import { addChecklistItems } from './checklist.js';
+import { addCollaborator, listCollaborators, setCollaboratorRole } from './collaborators.js';
 import { FakeOpenKeepClient } from './fake-client.js';
 import { addLabelToNote, removeLabelFromNote, renameLabel } from './labels.js';
 import { createNote, getNote, updateNote } from './notes.js';
@@ -179,6 +180,35 @@ describe('reminders', () => {
     )) as { timezone: string; rrule: string | null };
     expect(reminder.timezone).toBe('Europe/Lisbon');
     expect(reminder.rrule).toBe('FREQ=DAILY');
+  });
+});
+
+describe('collaborators', () => {
+  it('shares at view-only and flips the level by email afterwards', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+
+    const added = (await addCollaborator.handler(
+      client,
+      { note_id: note.id, email: 'reader@example.com', role: 'viewer' },
+      caps,
+    )) as { added: { role: string } };
+    expect(added.added.role).toBe('viewer');
+
+    // The email is resolved through the member list, like remove_collaborator.
+    const changed = (await setCollaboratorRole.handler(
+      client,
+      { note_id: note.id, email: 'READER@example.com', role: 'collaborator' },
+      caps,
+    )) as { role: string };
+    expect(changed.role).toBe('collaborator');
+
+    const listed = (await listCollaborators.handler(client, { note_id: note.id }, caps)) as {
+      collaborators: { email: string; role: string }[];
+    };
+    expect(listed.collaborators.find((c) => c.email === 'reader@example.com')?.role).toBe(
+      'collaborator',
+    );
   });
 });
 

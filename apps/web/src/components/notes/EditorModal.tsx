@@ -43,6 +43,7 @@ import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
 import { applyFind, findInText, findMatchCount } from '../../lib/find-in-note.js';
 import { noteMutationKeys } from '../../lib/note-mutation-defaults.js';
+import { canEditContent, isViewer } from '../../lib/note-permissions.js';
 import { removeNote } from '../../lib/note-selectors.js';
 import { deleteNoteForever, notesQuery, trashNote } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
@@ -233,6 +234,11 @@ function EditorBody({
   m: ReturnType<typeof useNoteMutations>;
 }) {
   const trashed = note.trashedAt !== null;
+  // Two different read-onlys: the trash freezes the whole note for everyone,
+  // view-only freezes just the shared content — this person keeps their own
+  // pin, color, labels and reminder, so the chrome around it stays live.
+  const viewOnly = isViewer(note);
+  const canEdit = canEditContent(note);
   const isList = note.type === 'list';
   const navigate = useNavigate();
   // Block grid/base single-char shortcuts while the editor is open; Ctrl+F is
@@ -366,7 +372,7 @@ function EditorBody({
       setLabelPicker({ open: true, seed }),
     ),
     content: note.bodyHtml,
-    editable: !trashed,
+    editable: canEdit,
     // The markdown extension owns pasted plain text end to end; StarterKit's
     // own paste rules are looser (they italicize `2 * 3 * 4`) and would fire
     // on the text this one deliberately leaves alone.
@@ -380,6 +386,12 @@ function EditorBody({
     // not to keep an edit the user has visibly walked away from in limbo.
     onBlur: () => autosave.flush(),
   });
+
+  // The permission can change under an open editor (the owner flips it from
+  // another device), and `editable` was read when the instance was created.
+  useEffect(() => {
+    editor?.setEditable(canEdit);
+  }, [editor, canEdit]);
 
   // Counted off the plain text the server derives, so the "/ 19,999" the user
   // sees is the same number the body limit is enforced against.
@@ -516,8 +528,8 @@ function EditorBody({
 
   // A brand-new text note (mobile FAB) starts writing in the body, like Keep.
   useEffect(() => {
-    if (isNew && !isList && !trashed) editor?.commands.focus('end');
-  }, [isNew, isList, trashed, editor]);
+    if (isNew && !isList && canEdit) editor?.commands.focus('end');
+  }, [isNew, isList, canEdit, editor]);
 
   /**
    * Untouched-note discard (mobile FAB creates the note before the editor
@@ -646,7 +658,7 @@ function EditorBody({
               e.preventDefault();
               e.stopPropagation();
               flushAndClose();
-            } else if (e.ctrlKey && e.shiftKey && e.key === '8' && !trashed) {
+            } else if (e.ctrlKey && e.shiftKey && e.key === '8' && canEdit) {
               e.preventDefault();
               m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' });
             }
@@ -664,6 +676,10 @@ function EditorBody({
               className="text-on-surface"
               onClick={flushAndClose}
             />
+            {/* The desktop badge lives in the bottom bar, which is hidden here. */}
+            {viewOnly && !trashed && (
+              <span className="pl-1 text-on-surface-variant text-sm">{t('sharing:viewOnly')}</span>
+            )}
             {!trashed && (
               <div className="ml-auto flex items-center gap-2 pr-1">
                 <MobileAction
@@ -700,7 +716,7 @@ function EditorBody({
           )}
 
           <div className="max-h-[38vh] flex-none overflow-y-auto">
-            <NoteImages note={note} editable={!trashed} />
+            <NoteImages note={note} editable={canEdit} />
           </div>
 
           <div className="flex flex-none items-start">
@@ -711,7 +727,7 @@ function EditorBody({
               aria-label={t('titlePlaceholder')}
               rows={1}
               maxLength={999}
-              readOnly={trashed}
+              readOnly={!canEdit}
               onChange={(e) => {
                 autosave.markDirty('title', e.target.value);
                 e.target.style.height = 'auto';
@@ -746,14 +762,13 @@ function EditorBody({
           <div
             className="min-h-[46px] flex-1 overflow-y-auto px-4 pb-3"
             onClick={(e) => {
-              if (!isList && !trashed && e.target === e.currentTarget)
-                editor?.commands.focus('end');
+              if (!isList && canEdit && e.target === e.currentTarget) editor?.commands.focus('end');
             }}
           >
             {isList ? (
               <ChecklistEditor
                 note={note}
-                readOnly={trashed}
+                readOnly={!canEdit}
                 moveCheckedToBottom={settings?.moveCheckedToBottom ?? true}
                 addItemsToBottom={settings?.addItemsToBottom ?? true}
                 handleRef={checklistRef}
@@ -778,7 +793,7 @@ function EditorBody({
             </span>
           </div>
 
-          {showFormatBar && !trashed && editor && <FormatBar editor={editor} />}
+          {showFormatBar && canEdit && editor && <FormatBar editor={editor} />}
 
           <div
             className={`flex flex-none items-center gap-0.5 px-2 py-1.5 ${trashed ? '' : 'max-md:hidden'}`}
@@ -807,6 +822,11 @@ function EditorBody({
               </>
             ) : (
               <>
+                {viewOnly && (
+                  <span className="pr-1 pl-2 text-on-surface-variant text-sm">
+                    {t('sharing:viewOnly')}
+                  </span>
+                )}
                 <IconButton
                   svg={personAddSvg}
                   label={t('sharing:collaborator')}
@@ -832,7 +852,7 @@ function EditorBody({
                     </Popover.Positioner>
                   </Popover.Portal>
                 </Popover.Root>
-                {!isList && (
+                {!isList && canEdit && (
                   <IconButton
                     svg={formatSvg}
                     label={t('formattingOptions')}
@@ -868,14 +888,16 @@ function EditorBody({
                     </Popover.Positioner>
                   </Popover.Portal>
                 </Popover.Root>
-                <IconButton
-                  svg={imageSvg}
-                  label={t('notes:addImage')}
-                  size={38}
-                  iconSize={19}
-                  className="text-on-surface-variant"
-                  onClick={() => fileInputRef.current?.click()}
-                />
+                {canEdit && (
+                  <IconButton
+                    svg={imageSvg}
+                    label={t('notes:addImage')}
+                    size={38}
+                    iconSize={19}
+                    className="text-on-surface-variant"
+                    onClick={() => fileInputRef.current?.click()}
+                  />
+                )}
                 <IconButton
                   svg={archiveSvg}
                   label={note.archived ? t('notes:unarchiveNote') : t('shell:navArchive')}
@@ -896,16 +918,18 @@ function EditorBody({
                   <Menu.Portal>
                     <Menu.Positioner className="z-50" sideOffset={2}>
                       <Menu.Popup className="z-50 min-w-44 rounded-lg border border-(--outline-variant) bg-surface py-1.5 shadow-(--elevation-3)">
-                        <Menu.Item
-                          className={menuItemClass}
-                          onClick={() => {
-                            autosave.flush();
-                            m.trashWithUndo(note);
-                            onClose();
-                          }}
-                        >
-                          {t('notes:deleteNote')}
-                        </Menu.Item>
+                        {canEdit && (
+                          <Menu.Item
+                            className={menuItemClass}
+                            onClick={() => {
+                              autosave.flush();
+                              m.trashWithUndo(note);
+                              onClose();
+                            }}
+                          >
+                            {t('notes:deleteNote')}
+                          </Menu.Item>
+                        )}
                         <Menu.Item
                           className={menuItemClass}
                           onClick={() => {
@@ -923,9 +947,11 @@ function EditorBody({
                             ? t('labels:changeLabels')
                             : t('labels:addLabel')}
                         </Menu.Item>
-                        <Menu.Item className={menuItemClass} onClick={() => openDrawing('new')}>
-                          {t('addDrawing')}
-                        </Menu.Item>
+                        {canEdit && (
+                          <Menu.Item className={menuItemClass} onClick={() => openDrawing('new')}>
+                            {t('addDrawing')}
+                          </Menu.Item>
+                        )}
                         <Menu.Item className={menuItemClass} onClick={openFind}>
                           {t('findInNote')}
                         </Menu.Item>
@@ -950,15 +976,17 @@ function EditorBody({
                         >
                           {t('print')}
                         </Menu.Item>
-                        <Menu.Item
-                          className={menuItemClass}
-                          onClick={() =>
-                            m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' })
-                          }
-                        >
-                          {isList ? t('hideCheckboxes') : t('showCheckboxes')}
-                        </Menu.Item>
-                        {isList && note.items.some((i) => i.checked) && (
+                        {canEdit && (
+                          <Menu.Item
+                            className={menuItemClass}
+                            onClick={() =>
+                              m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' })
+                            }
+                          >
+                            {isList ? t('hideCheckboxes') : t('showCheckboxes')}
+                          </Menu.Item>
+                        )}
+                        {canEdit && isList && note.items.some((i) => i.checked) && (
                           <>
                             <Menu.Item
                               className={menuItemClass}
@@ -978,24 +1006,28 @@ function EditorBody({
                     </Menu.Positioner>
                   </Menu.Portal>
                 </Menu.Root>
-                <IconButton
-                  svg={undoSvg}
-                  label={t('undo')}
-                  size={38}
-                  iconSize={19}
-                  className="text-on-surface-variant"
-                  disabled={!editor?.can().undo()}
-                  onClick={() => editor?.chain().focus().undo().run()}
-                />
-                <IconButton
-                  svg={redoSvg}
-                  label={t('redo')}
-                  size={38}
-                  iconSize={19}
-                  className="text-on-surface-variant"
-                  disabled={!editor?.can().redo()}
-                  onClick={() => editor?.chain().focus().redo().run()}
-                />
+                {canEdit && (
+                  <>
+                    <IconButton
+                      svg={undoSvg}
+                      label={t('undo')}
+                      size={38}
+                      iconSize={19}
+                      className="text-on-surface-variant"
+                      disabled={!editor?.can().undo()}
+                      onClick={() => editor?.chain().focus().undo().run()}
+                    />
+                    <IconButton
+                      svg={redoSvg}
+                      label={t('redo')}
+                      size={38}
+                      iconSize={19}
+                      className="text-on-surface-variant"
+                      disabled={!editor?.can().redo()}
+                      onClick={() => editor?.chain().focus().redo().run()}
+                    />
+                  </>
+                )}
               </>
             )}
             <button
@@ -1010,19 +1042,21 @@ function EditorBody({
           {/* Mobile bottom bar: add / palette / format on the left, ⋮ right. */}
           {!trashed && (
             <div className="flex flex-none items-center gap-2 px-3 pt-1 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:hidden">
-              <MobileAction
-                round
-                svg={addBoxSvg}
-                label={t('addToNote')}
-                onClick={() => setSheet('add')}
-              />
+              {canEdit && (
+                <MobileAction
+                  round
+                  svg={addBoxSvg}
+                  label={t('addToNote')}
+                  onClick={() => setSheet('add')}
+                />
+              )}
               <MobileAction
                 round
                 svg={paletteSvg}
                 label={t('notes:backgroundOptions')}
                 onClick={() => setSheet('palette')}
               />
-              {!isList && (
+              {!isList && canEdit && (
                 <MobileAction
                   round
                   svg={formatSvg}
@@ -1147,19 +1181,22 @@ function EditorBody({
             label={t('notes:more')}
           >
             <div className="border-(--outline-variant) border-b px-6 pt-1 pb-3 text-on-surface-variant text-sm">
+              {viewOnly && <div>{t('sharing:viewOnly')}</div>}
               <div>{t('edited', { time: formatEdited(note.updatedAt, lang) })}</div>
               <BodyCounts words={words} chars={counted.length} lang={lang} />
             </div>
-            <SheetItem
-              svg={deleteSvg}
-              label={t('notes:deleteNote')}
-              onClick={() => {
-                setSheet(null);
-                autosave.flush();
-                m.trashWithUndo(note);
-                onClose();
-              }}
-            />
+            {canEdit && (
+              <SheetItem
+                svg={deleteSvg}
+                label={t('notes:deleteNote')}
+                onClick={() => {
+                  setSheet(null);
+                  autosave.flush();
+                  m.trashWithUndo(note);
+                  onClose();
+                }}
+              />
+            )}
             <SheetItem
               svg={contentCopySvg}
               label={t('notes:makeACopy')}
@@ -1226,7 +1263,7 @@ function EditorBody({
                 printNote(currentNote());
               }}
             />
-            {isList && (
+            {isList && canEdit && (
               <SheetItem
                 svg={checkboxSvg}
                 label={t('hideCheckboxes')}
@@ -1236,7 +1273,7 @@ function EditorBody({
                 }}
               />
             )}
-            {isList && note.items.some((i) => i.checked) && (
+            {isList && canEdit && note.items.some((i) => i.checked) && (
               <>
                 <SheetItem
                   svg={checkboxBlankSvg}
@@ -1273,6 +1310,7 @@ function EditorBody({
               noteId={note.id}
               open={showVersions}
               onOpenChange={setShowVersions}
+              canRestore={canEdit}
             />
           )}
           {showShare && (

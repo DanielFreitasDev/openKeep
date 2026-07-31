@@ -92,6 +92,7 @@ export const noteMembers = pgTable(
     userId: text()
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    /** viewer < collaborator (= editor) < owner; see zNoteRole in shared. */
     role: text().notNull().default('owner'),
     pinned: boolean().notNull().default(false),
     archived: boolean().notNull().default(false),
@@ -108,7 +109,7 @@ export const noteMembers = pgTable(
     primaryKey({ columns: [t.noteId, t.userId] }),
     uniqueIndex('note_members_one_owner_uq').on(t.noteId).where(sql`role = 'owner'`),
     index('note_members_user_idx').on(t.userId),
-    check('note_members_role_check', sql`${t.role} in ('owner', 'collaborator')`),
+    check('note_members_role_check', sql`${t.role} in ('owner', 'collaborator', 'viewer')`),
     check('note_members_color_check', sql.raw(`color in ${NOTE_COLORS_SQL}`)),
     check('note_members_background_check', sql.raw(`background in ${NOTE_BACKGROUNDS_SQL}`)),
   ],

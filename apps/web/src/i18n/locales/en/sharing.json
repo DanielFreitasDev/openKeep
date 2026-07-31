@@ -10,5 +10,10 @@
   "invite": "Share",
   "remove": "Remove",
   "leave": "Leave",
+  "permission": "Permission",
+  "permissionFor": "Permission for {{name}}",
+  "role_collaborator": "Can edit",
+  "role_viewer": "Can view",
+  "viewOnly": "View only",
   "inviteFailed": "Couldn't share the note"
 }

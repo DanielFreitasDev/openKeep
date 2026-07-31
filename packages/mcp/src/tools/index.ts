@@ -52,6 +52,7 @@ export const allTools: ToolDef[] = [
   // collaborators
   collaborators.listCollaborators,
   collaborators.addCollaborator,
+  collaborators.setCollaboratorRole,
   collaborators.removeCollaborator,
   // attachments
   attachments.uploadImage,

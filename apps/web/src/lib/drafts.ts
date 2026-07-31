@@ -1,4 +1,4 @@
-import type { CreateNote, SetReminder } from '@openkeep/shared';
+import type { CreateNote, InviteRole, SetReminder } from '@openkeep/shared';
 
 /**
  * Best-effort localStorage mirror of unsaved edits. Delivery belongs to the
@@ -34,11 +34,17 @@ export interface NoteDraft {
   savedAt: number;
 }
 
+/** An invitation collected before the note exists. */
+export interface DraftInvite {
+  email: string;
+  role: InviteRole;
+}
+
 export interface ComposerDraft {
   note: CreateNote & { id: string };
   labelIds: string[];
   reminder: SetReminder | null;
-  invites: string[];
+  invites: DraftInvite[];
   savedAt: number;
 }
 
@@ -158,7 +164,12 @@ export function readComposerDraft(): ComposerDraft | null {
     clearComposerDraft();
     return null;
   }
-  return draft;
+  // Mirrors written before view-only sharing stored bare emails, which meant
+  // "can edit" — a reload must not drop the invitations already collected.
+  const invites = (draft.invites ?? []).map((i) =>
+    typeof i === 'string' ? { email: i, role: 'collaborator' as const } : i,
+  );
+  return { ...draft, invites };
 }
 
 export function saveComposerDraft(draft: Omit<ComposerDraft, 'savedAt'>) {

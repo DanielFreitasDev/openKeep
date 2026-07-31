@@ -2,6 +2,7 @@ import type {
   Attachment,
   Collaborator,
   FullNote,
+  InviteRole,
   ItemPatchResult,
   ItemsReplacedResult,
   Label,
@@ -115,7 +116,8 @@ export interface OpenKeepClient {
 
   // collaborators
   listCollaborators(noteId: string): Promise<Collaborator[]>;
-  addCollaborator(noteId: string, email: string): Promise<Collaborator>;
+  addCollaborator(noteId: string, email: string, role?: InviteRole): Promise<Collaborator>;
+  setCollaboratorRole(noteId: string, userId: string, role: InviteRole): Promise<Collaborator>;
   removeCollaborator(noteId: string, userId: string): Promise<void>;
 
   // attachments (binary payloads as Uint8Array)

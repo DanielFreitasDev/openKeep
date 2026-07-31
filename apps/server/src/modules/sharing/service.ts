@@ -1,6 +1,6 @@
-import type { Collaborator } from '@openkeep/shared';
+import type { Collaborator, InviteRole } from '@openkeep/shared';
 import { LIMITS, positionBefore } from '@openkeep/shared';
-import { and, count, eq, min } from 'drizzle-orm';
+import { and, count, eq, min, ne } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { user } from '../../db/schema/auth.js';
 import { noteMembers } from '../../db/schema/notes.js';
@@ -43,12 +43,13 @@ async function sharingEnabledFor(db: Db, userId: string): Promise<boolean> {
   return row?.enabled ?? true;
 }
 
-/** Owner invites a registered user by email. */
+/** Owner invites a registered user by email, as editor (default) or viewer. */
 export async function addCollaborator(
   db: Db,
   ownerId: string,
   noteId: string,
   email: string,
+  role: InviteRole = 'collaborator',
 ): Promise<Collaborator> {
   await assertNoteAccess(db, ownerId, noteId, 'owner');
 
@@ -106,12 +107,48 @@ export async function addCollaborator(
     await tx.insert(noteMembers).values({
       noteId,
       userId: target.id,
-      role: 'collaborator',
+      role,
       position: positionBefore(minRow?.min ?? null),
     });
 
-    return { userId: target.id, email: target.email, name: target.name, role: 'collaborator' };
+    return { userId: target.id, email: target.email, name: target.name, role };
   });
+}
+
+/**
+ * Owner flips an existing member between editor and viewer. The owner's own
+ * row is untouchable — a note without an owner has nobody who can delete it.
+ */
+export async function setCollaboratorRole(
+  db: Db,
+  ownerId: string,
+  noteId: string,
+  targetUserId: string,
+  role: InviteRole,
+): Promise<Collaborator> {
+  await assertNoteAccess(db, ownerId, noteId, 'owner');
+  if (targetUserId === ownerId) throw errors.badRequest('The owner keeps their own permission');
+
+  const [updated] = await db
+    .update(noteMembers)
+    .set({ role })
+    .where(
+      and(
+        eq(noteMembers.noteId, noteId),
+        eq(noteMembers.userId, targetUserId),
+        ne(noteMembers.role, 'owner'),
+      ),
+    )
+    .returning({ userId: noteMembers.userId, role: noteMembers.role });
+  if (!updated) throw errors.notFound();
+
+  const [target] = await db.select().from(user).where(eq(user.id, targetUserId)).limit(1);
+  return {
+    userId: updated.userId,
+    email: target?.email ?? '',
+    name: target?.name ?? '',
+    role: updated.role as Collaborator['role'],
+  };
 }
 
 /**
@@ -141,7 +178,8 @@ export async function removeCollaborator(
         and(
           eq(noteMembers.noteId, noteId),
           eq(noteMembers.userId, targetUserId),
-          eq(noteMembers.role, 'collaborator'),
+          // Any non-owner row: editor or viewer. The owner is removed with the note.
+          ne(noteMembers.role, 'owner'),
         ),
       )
       .returning({ userId: noteMembers.userId });

@@ -18,7 +18,7 @@ Where Google has *removed* features (native reminders moved to Google Tasks in l
 - 12 colors + 9 original background illustrations, light & dark themes
 - Labels (50 max), `#` quick-labeling, label routes
 - Native reminders: presets, custom date/time, recurrence, web push
-- Sharing with per-user pin/archive/color/labels/reminders and ~1s realtime sync
+- Sharing with per-user pin/archive/color/labels/reminders and ~1s realtime sync — "can edit" or "can view", the level Keep never had
 - Full-text search (English + Portuguese, accent-insensitive) with Keep's filter tiles
 - Images on notes, link preview chips, version history with `.md` download
 - Multi-select with bulk actions, complete keyboard shortcut map (`?` to view)

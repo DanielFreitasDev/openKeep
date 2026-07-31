@@ -45,18 +45,18 @@ const textOf = (result: { content?: unknown }): string => {
 };
 
 describe('createOpenKeepMcpServer', () => {
-  it('lists the full 43-tool catalog when localFs is available', async () => {
+  it('lists the full 44-tool catalog when localFs is available', async () => {
     const { client } = await connect({ capabilities: { localFs: true } });
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(allTools.map((t) => t.name).sort());
-    expect(tools).toHaveLength(43);
+    expect(tools).toHaveLength(44);
   });
 
   it('hides stdio-only tools without localFs (the mounted endpoint)', async () => {
     const { client } = await connect();
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    expect(names).toHaveLength(41);
+    expect(names).toHaveLength(42);
     expect(names).not.toContain('download_export');
     expect(names).not.toContain('import_takeout');
     expect(names).toContain('upload_image');

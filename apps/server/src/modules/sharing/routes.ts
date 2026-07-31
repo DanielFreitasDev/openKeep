@@ -1,4 +1,4 @@
-import { zCollaborator, zId } from '@openkeep/shared';
+import { zCollaborator, zId, zInviteRole } from '@openkeep/shared';
 import { z } from 'zod';
 import type { App } from '../../app.js';
 import type { Db } from '../../db/client.js';
@@ -7,7 +7,7 @@ import { memberIds } from '../../realtime/registry.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
-const zRemoveParams = z.object({ id: zId, userId: z.string() });
+const zMemberParams = z.object({ id: zId, userId: z.string() });
 
 export function registerSharingRoutes(app: App, db: Db, realtime: Realtime): void {
   const auth = { preHandler: [app.requireAuth] };
@@ -29,7 +29,11 @@ export function registerSharingRoutes(app: App, db: Db, realtime: Realtime): voi
       schema: {
         tags: ['sharing'],
         params: zNoteParams,
-        body: z.object({ email: z.email().max(320) }),
+        body: z.object({
+          email: z.email().max(320),
+          /** Omitted = the historical behaviour: full editing rights. */
+          role: zInviteRole.default('collaborator'),
+        }),
         response: { 201: zCollaborator },
       },
     },
@@ -39,6 +43,7 @@ export function registerSharingRoutes(app: App, db: Db, realtime: Realtime): voi
         req.user.id,
         req.params.id,
         req.body.email,
+        req.body.role,
       );
       const origin = req.headers['x-client-id'] as string | undefined;
       const members = await memberIds(db, req.params.id);
@@ -60,9 +65,47 @@ export function registerSharingRoutes(app: App, db: Db, realtime: Realtime): voi
     },
   );
 
+  app.patch(
+    '/api/notes/:id/collaborators/:userId',
+    {
+      ...auth,
+      schema: {
+        tags: ['sharing'],
+        params: zMemberParams,
+        body: z.object({ role: zInviteRole }),
+        response: { 200: zCollaborator },
+      },
+    },
+    async (req) => {
+      const collaborator = await svc.setCollaboratorRole(
+        db,
+        req.user.id,
+        req.params.id,
+        req.params.userId,
+        req.body.role,
+      );
+      const origin = req.headers['x-client-id'] as string | undefined;
+      // Everyone redraws the member list; the affected person's own tabs also
+      // flip the note between editable and read-only off this one event.
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        {
+          type: 'collaborator.role_changed',
+          payload: {
+            noteId: req.params.id,
+            userId: collaborator.userId,
+            role: collaborator.role,
+          },
+        },
+        origin,
+      );
+      return collaborator;
+    },
+  );
+
   app.delete(
     '/api/notes/:id/collaborators/:userId',
-    { ...auth, schema: { tags: ['sharing'], params: zRemoveParams, response: { 204: z.null() } } },
+    { ...auth, schema: { tags: ['sharing'], params: zMemberParams, response: { 204: z.null() } } },
     async (req, reply) => {
       const origin = req.headers['x-client-id'] as string | undefined;
       const remaining = (await memberIds(db, req.params.id)).filter((m) => m !== req.params.userId);

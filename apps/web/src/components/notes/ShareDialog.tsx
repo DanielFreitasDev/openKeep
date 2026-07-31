@@ -1,5 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog';
-import type { Collaborator, FullNote } from '@openkeep/shared';
+import type { Collaborator, FullNote, InviteRole } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,12 +14,17 @@ interface ShareDialogProps {
   inviting?: boolean;
   /** Line under the title — the bulk path says how many notes it will share. */
   subtitle?: string;
-  onInvite: (email: string) => void;
+  onInvite: (email: string, role: InviteRole) => void;
   onRemove: (userId: string) => void;
+  /** Absent on the bulk path: permission is per membership, per note. */
+  onRole?: (userId: string, role: InviteRole) => void;
 }
 
+/** The two levels the owner hands out; `collaborator` is the editor level. */
+const ROLES: InviteRole[] = ['collaborator', 'viewer'];
+
 /**
- * Keep's Collaborators dialog: single permission level, owner manages.
+ * Keep's Collaborators dialog, plus the permission Keep never had.
  * Controlled, so the composer can collect collaborators before the note exists.
  */
 export function ShareDialog({
@@ -31,11 +36,16 @@ export function ShareDialog({
   subtitle,
   onInvite,
   onRemove,
+  onRole,
 }: ShareDialogProps) {
   const { t } = useTranslation('sharing');
   const { data: session } = useQuery(sessionQuery);
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<InviteRole>('collaborator');
   const myId = session?.user.id;
+
+  const roleSelectClass =
+    'rounded border border-(--outline-variant) bg-transparent px-1.5 py-1 text-on-surface-variant text-xs outline-none focus-visible:border-(--primary)';
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -62,6 +72,23 @@ export function ShareDialog({
                     {c.role === 'owner' ? t('ownerBadge') : c.email}
                   </span>
                 </span>
+                {c.role !== 'owner' &&
+                  (isOwner && onRole ? (
+                    <select
+                      value={c.role}
+                      aria-label={t('permissionFor', { name: c.name || c.email })}
+                      className={roleSelectClass}
+                      onChange={(e) => onRole(c.userId, e.target.value as InviteRole)}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {t(`role_${r}`)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-on-surface-variant text-xs">{t(`role_${c.role}`)}</span>
+                  ))}
                 {c.role !== 'owner' && (isOwner || c.userId === myId) && (
                   <button
                     type="button"
@@ -80,7 +107,7 @@ export function ShareDialog({
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (email.trim()) {
-                    onInvite(email.trim());
+                    onInvite(email.trim(), role);
                     setEmail('');
                   }
                 }}
@@ -93,6 +120,18 @@ export function ShareDialog({
                   aria-label={t('emailPlaceholder')}
                   className="h-10 w-full border-(--outline-variant) border-b bg-transparent text-on-surface text-sm outline-none focus:border-(--primary)"
                 />
+                <select
+                  value={role}
+                  aria-label={t('permission')}
+                  className={roleSelectClass}
+                  onChange={(e) => setRole(e.target.value as InviteRole)}
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {t(`role_${r}`)}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="submit"
                   disabled={inviting || email.trim() === ''}
@@ -133,7 +172,8 @@ export function NoteShareDialog({
       collaborators={note.collaborators}
       isOwner={note.role === 'owner'}
       inviting={m.invite.isPending}
-      onInvite={(email) => m.invite.mutate({ noteId: note.id, email })}
+      onInvite={(email, role) => m.invite.mutate({ noteId: note.id, email, role })}
+      onRole={(userId, role) => m.setRole.mutate({ noteId: note.id, userId, role })}
       onRemove={(userId) =>
         m.remove.mutate({ noteId: note.id, userId, onLeft: () => onOpenChange(false) })
       }

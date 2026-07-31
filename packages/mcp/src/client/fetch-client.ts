@@ -3,6 +3,7 @@ import type {
   Attachment,
   Collaborator,
   FullNote,
+  InviteRole,
   ItemPatchResult,
   ItemsReplacedResult,
   Label,
@@ -305,8 +306,22 @@ export class FetchClient implements OpenKeepClient {
     return this.json(`/api/notes/${noteId}/collaborators`);
   }
 
-  addCollaborator(noteId: string, email: string): Promise<Collaborator> {
-    return this.json(`/api/notes/${noteId}/collaborators`, { method: 'POST', body: { email } });
+  addCollaborator(
+    noteId: string,
+    email: string,
+    role: InviteRole = 'collaborator',
+  ): Promise<Collaborator> {
+    return this.json(`/api/notes/${noteId}/collaborators`, {
+      method: 'POST',
+      body: { email, role },
+    });
+  }
+
+  setCollaboratorRole(noteId: string, userId: string, role: InviteRole): Promise<Collaborator> {
+    return this.json(`/api/notes/${noteId}/collaborators/${userId}`, {
+      method: 'PATCH',
+      body: { role },
+    });
   }
 
   removeCollaborator(noteId: string, userId: string): Promise<void> {

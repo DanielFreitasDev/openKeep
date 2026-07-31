@@ -3,6 +3,7 @@ import type {
   Attachment,
   Collaborator,
   FullNote,
+  InviteRole,
   ItemPatchResult,
   ItemsReplacedResult,
   Label,
@@ -463,15 +464,31 @@ export class FakeOpenKeepClient implements OpenKeepClient {
     return this.note(noteId).collaborators;
   }
 
-  async addCollaborator(noteId: string, email: string): Promise<Collaborator> {
+  async addCollaborator(
+    noteId: string,
+    email: string,
+    role: InviteRole = 'collaborator',
+  ): Promise<Collaborator> {
     const note = this.note(noteId);
     const collaborator: Collaborator = {
       userId: randomUUID(),
       email,
       name: email.split('@')[0] ?? email,
-      role: 'collaborator',
+      role,
     };
     note.collaborators.push(collaborator);
+    return collaborator;
+  }
+
+  async setCollaboratorRole(
+    noteId: string,
+    userId: string,
+    role: InviteRole,
+  ): Promise<Collaborator> {
+    const note = this.note(noteId);
+    const collaborator = note.collaborators.find((c) => c.userId === userId);
+    if (!collaborator) throw new Error('Collaborator not found');
+    collaborator.role = role;
     return collaborator;
   }
 

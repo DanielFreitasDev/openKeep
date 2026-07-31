@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Attachment } from './attachments.js';
+import { type NoteRole, zNoteRole } from './common.js';
 import type { Label } from './labels.js';
 import type { FullNote, NoteContentResult, NoteItem, NoteStateResult } from './notes.js';
 import type { Reminder } from './reminders.js';
@@ -9,7 +10,7 @@ export const zCollaborator = z.object({
   userId: z.string(),
   email: z.string(),
   name: z.string(),
-  role: z.enum(['owner', 'collaborator']),
+  role: zNoteRole,
 });
 export type Collaborator = z.infer<typeof zCollaborator>;
 
@@ -48,6 +49,15 @@ export type WsEvent =
   | { type: 'attachment.removed'; payload: { noteId: string; attachmentId: string } }
   | { type: 'collaborator.added'; payload: { noteId: string; collaborator: Collaborator } }
   | { type: 'collaborator.removed'; payload: { noteId: string; userId: string } }
+  /**
+   * Permission changed. The affected person's own `role` on the note travels
+   * with it, so the tab that must go read-only learns it from the same event
+   * everyone else uses to redraw the collaborator list.
+   */
+  | {
+      type: 'collaborator.role_changed';
+      payload: { noteId: string; userId: string; role: NoteRole };
+    }
   | { type: 'settings.updated'; payload: Partial<UserSettings> }
   | { type: 'job.progress'; payload: { jobId: string; progress: number; total: number } }
   | { type: 'job.completed'; payload: { jobId: string; kind: 'import' | 'export' } }

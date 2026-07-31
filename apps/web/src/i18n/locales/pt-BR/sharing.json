@@ -10,5 +10,10 @@
   "invite": "Compartilhar",
   "remove": "Remover",
   "leave": "Sair",
+  "permission": "Permissão",
+  "permissionFor": "Permissão de {{name}}",
+  "role_collaborator": "Pode editar",
+  "role_viewer": "Pode ver",
+  "viewOnly": "Somente leitura",
   "inviteFailed": "Não foi possível compartilhar a nota"
 }

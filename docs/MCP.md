@@ -83,7 +83,7 @@ Pass the endpoint straight to the Messages API (beta header `mcp-client-2025-11-
 
 The process probes the connection at startup and fails fast on stderr with an actionable message (bad URL, revoked token, server down).
 
-## Tool catalog (43 tools)
+## Tool catalog (44 tools)
 
 | Area | Tools |
 |---|---|
@@ -93,13 +93,13 @@ The process probes the connection at startup and fails fast on stderr with an ac
 | Reminders | `set_reminder` (RFC 5545 RRULE + IANA timezone, defaulting to the account setting), `remove_reminder`, `snooze_reminder`, `dismiss_reminder` |
 | Search | `search_notes` (FTS with `headline` match highlighting; `q` accepts the same operators as the app's search box — `label:`, `color:`, `has:`, `is:`, `before:`/`after:`, `-` to exclude) |
 | Versions | `list_note_versions`, `get_note_version`, `restore_note_version` |
-| Collaborators | `list_collaborators`, `add_collaborator`, `remove_collaborator` |
+| Collaborators | `list_collaborators`, `add_collaborator` (`role`: `collaborator` = can edit, `viewer` = read-only), `set_collaborator_role`, `remove_collaborator` |
 | Attachments | `upload_image` (base64; local `path` on stdio), `get_attachment` (returns MCP image content; thumbnail by default), `delete_attachment` |
 | Links | `get_link_preview` |
 | Settings | `get_settings`, `update_settings` |
 | Import/Export | `export_notes`, `get_job`, `download_export` ★, `import_takeout` ★ |
 
-★ = stdio-only (needs your local filesystem). The HTTP endpoint advertises 41 tools.
+★ = stdio-only (needs your local filesystem). The HTTP endpoint advertises 42 tools.
 
 Also exposed: resources `openkeep://notes` (active-note cards) and `openkeep://notes/{id}` (full note JSON), plus two prompts — `capture_note` and `daily_review`.
 

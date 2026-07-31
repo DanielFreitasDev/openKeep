@@ -1,8 +1,11 @@
-import { zId } from '@openkeep/shared';
+import { zId, zInviteRole } from '@openkeep/shared';
 import { z } from 'zod';
 import { defineTool } from './types.js';
 
 const zNoteId = zId.describe('Note id (uuid)');
+const zRole = zInviteRole.describe(
+  '"collaborator" can edit the note, "viewer" can only read it (both keep their own pin, colour, labels and reminder)',
+);
 
 export const listCollaborators = defineTool({
   name: 'list_collaborators',
@@ -25,15 +28,50 @@ export const listCollaborators = defineTool({
 export const addCollaborator = defineTool({
   name: 'add_collaborator',
   description:
-    'Share a note with another registered user by email (owner only; both accounts must have sharing enabled). Collaborators can edit content but not delete the note.',
+    'Share a note with another registered user by email (owner only; both accounts must have sharing enabled). Collaborators can edit content but not delete the note; viewers can only read it.',
   inputSchema: z.object({
     note_id: zNoteId,
     email: z.email().max(320).describe('Email of an existing OpenKeep account'),
+    role: zRole.default('collaborator'),
   }),
   handler: async (client, args) => {
-    const collaborator = await client.addCollaborator(args.note_id, args.email);
+    const collaborator = await client.addCollaborator(args.note_id, args.email, args.role);
     return {
-      added: { user_id: collaborator.userId, email: collaborator.email, name: collaborator.name },
+      added: {
+        user_id: collaborator.userId,
+        email: collaborator.email,
+        name: collaborator.name,
+        role: collaborator.role,
+      },
+    };
+  },
+});
+
+export const setCollaboratorRole = defineTool({
+  name: 'set_collaborator_role',
+  description:
+    'Change an existing collaborator between editing and view-only access (owner only, by email or user_id).',
+  inputSchema: z.object({
+    note_id: zNoteId,
+    email: z.email().optional().describe('Collaborator email (resolved via the member list)'),
+    user_id: z.string().optional().describe('Collaborator user id, when already known'),
+    role: zRole,
+  }),
+  handler: async (client, args) => {
+    let userId = args.user_id;
+    if (!userId) {
+      if (!args.email) throw new Error('Pass email or user_id.');
+      const collaborators = await client.listCollaborators(args.note_id);
+      const match = collaborators.find((c) => c.email.toLowerCase() === args.email?.toLowerCase());
+      if (!match) throw new Error(`No collaborator with email ${args.email} on this note.`);
+      userId = match.userId;
+    }
+    const collaborator = await client.setCollaboratorRole(args.note_id, userId, args.role);
+    return {
+      note_id: args.note_id,
+      user_id: collaborator.userId,
+      email: collaborator.email,
+      role: collaborator.role,
     };
   },
 });

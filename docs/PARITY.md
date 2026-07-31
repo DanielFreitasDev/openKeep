@@ -52,6 +52,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Reminders: presets, custom, recurrence, view, chips | classic Keep UX | ✅ 🔀 native (per-user; DST-correct wall-clock recurrence incl. custom "every N days/weeks/months/years") | M6 |
 | Web push + in-app notifications | classic Keep UX | ✅ 🔀 VAPID push (opt-in on first reminder) + in-app toasts | M6 |
 | Sharing: invite by email, single permission level | ✓ | ✅ registered users; both-side sharing setting; 20 cap | M7 |
+| Sharing permission levels | Keep has only "can edit" | ✅ 🔀 "Can edit" / "Can view" per member, changeable after the fact; view-only freezes the shared content (title, body, items, attachments, type, version restore) but not the viewer's own pin, colour, labels, reminder or board order | post-1.0 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |

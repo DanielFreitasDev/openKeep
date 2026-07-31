@@ -47,7 +47,7 @@ export async function createItem(
   input: CreateItemInput,
 ): Promise<NoteItem> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     if (note.type !== 'list') throw errors.badRequest('Not a list note');
     await maybeSnapshot(tx, note, userId);
@@ -105,7 +105,7 @@ export async function patchItem(
   patch: PatchItemInput,
 ): Promise<ItemPatchResult> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
 
     const [existing] = await tx
@@ -153,7 +153,7 @@ export async function deleteItem(
   itemId: string,
 ): Promise<void> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     await maybeSnapshot(tx, note, userId);
     const deleted = await tx
@@ -171,7 +171,7 @@ export async function uncheckAll(
   noteId: string,
 ): Promise<ItemsReplacedResult> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     await maybeSnapshot(tx, note, userId, { force: true });
     await tx.update(noteItems).set({ checked: false }).where(eq(noteItems.noteId, noteId));
@@ -186,7 +186,7 @@ export async function deleteChecked(
   noteId: string,
 ): Promise<ItemsReplacedResult> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     await maybeSnapshot(tx, note, userId, { force: true });
     await tx

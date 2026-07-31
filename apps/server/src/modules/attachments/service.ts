@@ -106,7 +106,7 @@ export async function uploadImage(
   data: Buffer,
   opts: { allowTrashed?: boolean; touchNote?: boolean } = {},
 ): Promise<Attachment> {
-  const { note } = await assertNoteAccess(db, userId, noteId);
+  const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
   if (!opts.allowTrashed) assertNotTrashed(note);
 
   if (data.length > LIMITS.imageMaxBytes) {
@@ -219,7 +219,7 @@ export async function uploadDrawing(
   data: Buffer,
   drawing: DrawingData,
 ): Promise<Attachment> {
-  const { note } = await assertNoteAccess(db, userId, noteId);
+  const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
   assertNotTrashed(note);
 
   const [row] = await db
@@ -265,7 +265,7 @@ export async function updateDrawing(
 ): Promise<{ attachment: Attachment; noteId: string }> {
   const att = await findForUser(db, userId, attachmentId);
   if (att.kind !== 'drawing') throw errors.notFound();
-  const { note } = await assertNoteAccess(db, userId, att.noteId);
+  const { note } = await assertNoteAccess(db, userId, att.noteId, 'editor');
   assertNotTrashed(note);
 
   const { stored, thumb, width, height } = await processDrawingPng(data);
@@ -372,7 +372,7 @@ export async function importMediaAttachment(
     });
   }
   if (sniffAudio(data)) {
-    await assertNoteAccess(db, userId, noteId);
+    await assertNoteAccess(db, userId, noteId, 'editor');
     return ingestAudio(db, storage, userId, noteId, data, { touchNote: false });
   }
   throw errors.unsupportedMediaType('Unrecognized media format');
@@ -432,7 +432,7 @@ export async function deleteAttachment(
   attachmentId: string,
 ): Promise<void> {
   const att = await findForUser(db, userId, attachmentId);
-  const { note } = await assertNoteAccess(db, userId, att.noteId);
+  const { note } = await assertNoteAccess(db, userId, att.noteId, 'editor');
   assertNotTrashed(note);
   await db.delete(attachments).where(eq(attachments.id, attachmentId));
   await storage.remove('attachments', att.storageKey);

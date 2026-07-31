@@ -7,6 +7,18 @@ export const zId = z.uuid();
 export const zNoteColor = z.enum(NOTE_COLORS);
 export const zNoteBackground = z.enum(NOTE_BACKGROUNDS);
 
+/**
+ * Membership level. `collaborator` IS the editor level — the name predates
+ * read-only sharing and stays, so no stored row and no client DTO has to be
+ * rewritten to gain a third level. Ordered least → most authority.
+ */
+export const zNoteRole = z.enum(['viewer', 'collaborator', 'owner']);
+export type NoteRole = z.infer<typeof zNoteRole>;
+
+/** The two levels the owner can hand out. */
+export const zInviteRole = z.enum(['collaborator', 'viewer']);
+export type InviteRole = z.infer<typeof zInviteRole>;
+
 /** RFC 9457 problem details, extended with our stable machine-readable `code`. */
 export const zProblemDetails = z.object({
   type: z.string(),
@@ -40,6 +52,7 @@ export const ERROR_CODES = [
   'sharing_disabled_for_target',
   'collaborator_not_registered',
   'already_collaborator',
+  'note_read_only',
   'payload_too_large',
   'unsupported_media_type',
   'rate_limited',

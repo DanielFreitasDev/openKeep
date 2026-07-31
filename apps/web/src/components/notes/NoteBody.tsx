@@ -4,6 +4,7 @@ import chevronSvg from '@material-symbols/svg-700/outlined/keyboard_arrow_down.s
 import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { canEditContent } from '../../lib/note-permissions.js';
 import { settingsQuery } from '../../lib/queries.js';
 import { Icon } from '../Icon.js';
 import type { ChecklistRow } from './checklist-logic.js';
@@ -40,7 +41,7 @@ export function NoteBody({ note, onToggleItem }: { note: FullNote; onToggleItem:
 function ChecklistPreview({ note, onToggleItem }: { note: FullNote; onToggleItem: ToggleItem }) {
   const { t } = useTranslation('editor');
   const { data: settings } = useQuery(settingsQuery);
-  const readOnly = note.trashedAt !== null;
+  const readOnly = !canEditContent(note);
 
   const rows: ChecklistRow[] = note.items.map((i) => ({ ...i, key: i.id }));
   const groups = displayGroups(rows, settings?.moveCheckedToBottom ?? true);

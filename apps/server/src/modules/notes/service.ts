@@ -15,7 +15,7 @@ import {
   positionBefore,
   positionsBetween,
 } from '@openkeep/shared';
-import { and, asc, desc, eq, exists, inArray, isNotNull, lt, min, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, inArray, isNotNull, lt, min, ne, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
 import { user as userTable } from '../../db/schema/auth.js';
@@ -504,7 +504,7 @@ export async function patchNoteContent(
   patch: PatchNoteContent,
 ): Promise<NoteContentResult> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     await maybeSnapshot(tx, note, userId);
 
@@ -656,7 +656,7 @@ export async function deleteAllNotes(
 
   const left = await db
     .delete(noteMembers)
-    .where(and(eq(noteMembers.userId, userId), eq(noteMembers.role, 'collaborator')))
+    .where(and(eq(noteMembers.userId, userId), ne(noteMembers.role, 'owner')))
     .returning({ noteId: noteMembers.noteId });
 
   // The labels go with the notes: they are mine alone, and an account emptied
@@ -930,7 +930,7 @@ export async function convertNote(
   to: 'text' | 'list',
 ): Promise<FullNote> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     if (note.type === to) return loadFullNote(tx, userId, noteId);
 
@@ -1036,7 +1036,7 @@ export async function restoreVersion(
   versionId: string,
 ): Promise<FullNote> {
   return db.transaction(async (tx) => {
-    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId);
+    const { note } = await assertNoteAccess(tx as unknown as Db, userId, noteId, 'editor');
     assertNotTrashed(note);
     const [v] = await tx
       .select()

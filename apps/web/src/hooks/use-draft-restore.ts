@@ -175,8 +175,12 @@ export function useDraftRestore() {
           labelM.setNoteLabel.mutate({ noteId: composer.note.id, labelId, on: true });
         if (composer.reminder)
           reminderM.set.mutate({ noteId: composer.note.id, body: composer.reminder });
-        for (const email of composer.invites)
-          collaboratorM.invite.mutate({ noteId: composer.note.id, email });
+        for (const inv of composer.invites)
+          collaboratorM.invite.mutate({
+            noteId: composer.note.id,
+            email: inv.email,
+            role: inv.role,
+          });
         clearComposerDraft();
       };
       if (list.some((n) => n.id === composer.note.id)) {

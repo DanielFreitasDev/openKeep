@@ -6,7 +6,7 @@ import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
-import type { FullNote, NoteColor } from '@openkeep/shared';
+import type { FullNote, InviteRole, NoteColor } from '@openkeep/shared';
 import { NOTE_COLORS } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -106,8 +106,8 @@ export function SelectionBar() {
       clear();
       m.mergeWithToast(ids);
     },
-    invite: (email: string) => {
-      for (const n of owned) collaboratorM.invite.mutate({ noteId: n.id, email });
+    invite: (email: string, role: InviteRole) => {
+      for (const n of owned) collaboratorM.invite.mutate({ noteId: n.id, email, role });
       setShowShare(false);
       clear();
     },

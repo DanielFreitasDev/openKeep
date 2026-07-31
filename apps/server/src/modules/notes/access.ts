@@ -15,15 +15,27 @@ export interface NoteAccess {
 type Queryable = Pick<Db, 'select'>;
 
 /**
+ * Access levels, least to most demanding:
+ *
+ * - `member` — anyone on the note. Reads, plus everything that is PER-USER
+ *   (pin, color, background, labels, reminder, board position): a viewer owns
+ *   their own copy of that state by the definition of the model.
+ * - `editor` — writes to the SHARED content: title, body, checklist items,
+ *   attachments, note type, version restore.
+ * - `owner` — the note's existence: trash, restore, delete, merge, sharing.
+ */
+export type AccessLevel = 'member' | 'editor' | 'owner';
+
+/**
  * THE authz chokepoint. Non-members receive the same 404 as a missing note —
- * no existence oracle. `owner` level yields 403 for collaborators (they can
+ * no existence oracle. A level they cannot meet yields 403 instead (they can
  * see the note, so hiding it would be pointless).
  */
 export async function assertNoteAccess(
   db: Queryable,
   userId: string,
   noteId: string,
-  level: 'member' | 'owner' = 'member',
+  level: AccessLevel = 'member',
 ): Promise<NoteAccess> {
   const rows = await db
     .select({ member: noteMembers, note: notes })
@@ -34,9 +46,11 @@ export async function assertNoteAccess(
 
   const row = rows[0];
   if (!row) throw errors.notFound();
-  if (level === 'owner' && row.member.role !== 'owner') {
+  const role = row.member.role;
+  if (level === 'owner' && role !== 'owner') {
     throw errors.forbidden('Only the owner can do this');
   }
+  if (level === 'editor' && role === 'viewer') throw errors.readOnlyNote();
   return row;
 }
 

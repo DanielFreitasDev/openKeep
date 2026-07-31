@@ -22,6 +22,7 @@ import { usePrintNote } from '../../hooks/use-print-note.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { setEditorOrigin } from '../../lib/editor-origin.js';
 import { focusNoteCard, noteCardRects } from '../../lib/note-focus.js';
+import { canEditContent } from '../../lib/note-permissions.js';
 import { useSelectionStore } from '../../stores/selection.js';
 import { useUiStore } from '../../stores/ui.js';
 import type { Direction } from '../grid/focus.js';
@@ -96,6 +97,8 @@ export const NoteCard = memo(function NoteCard({
   const [showVersions, setShowVersions] = useState(false);
 
   const trashed = note.trashedAt !== null;
+  /** Shared content only; pin, color, labels and reminder stay mine. */
+  const canEdit = canEditContent(note);
 
   /**
    * Long-press (touch) toggles selection — the Keep-app gesture; mobile cards
@@ -342,25 +345,29 @@ export const NoteCard = memo(function NoteCard({
               </Popover.Portal>
             </Popover.Root>
 
-            <IconButton
-              svg={imageSvg}
-              label={t('addImage')}
-              size={34}
-              iconSize={18}
-              className="text-on-surface-variant"
-              onClick={() => fileInputRef.current?.click()}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) attachmentM.upload.mutate({ noteId: note.id, file });
-                e.target.value = '';
-              }}
-            />
+            {canEdit && (
+              <>
+                <IconButton
+                  svg={imageSvg}
+                  label={t('addImage')}
+                  size={34}
+                  iconSize={18}
+                  className="text-on-surface-variant"
+                  onClick={() => fileInputRef.current?.click()}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) attachmentM.upload.mutate({ noteId: note.id, file });
+                    e.target.value = '';
+                  }}
+                />
+              </>
+            )}
 
             <IconButton
               svg={note.archived ? unarchiveSvg : archiveSvg}
@@ -383,9 +390,11 @@ export const NoteCard = memo(function NoteCard({
               <Menu.Portal>
                 <Menu.Positioner className="z-50" sideOffset={2}>
                   <Menu.Popup className="z-40 min-w-44 rounded-lg border border-(--outline-variant) bg-surface py-1.5 shadow-(--elevation-3)">
-                    <Menu.Item className={menuItemClass} onClick={() => m.trashWithUndo(note)}>
-                      {t('deleteNote')}
-                    </Menu.Item>
+                    {canEdit && (
+                      <Menu.Item className={menuItemClass} onClick={() => m.trashWithUndo(note)}>
+                        {t('deleteNote')}
+                      </Menu.Item>
+                    )}
                     <Menu.Item className={menuItemClass} onClick={() => setShowLabelPicker(true)}>
                       {note.labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
                     </Menu.Item>
@@ -401,19 +410,21 @@ export const NoteCard = memo(function NoteCard({
                     <Menu.Item className={menuItemClass} onClick={() => printNote(note)}>
                       {t('editor:print')}
                     </Menu.Item>
-                    <Menu.Item
-                      className={menuItemClass}
-                      onClick={() =>
-                        m.convert.mutate({
-                          id: note.id,
-                          to: note.type === 'list' ? 'text' : 'list',
-                        })
-                      }
-                    >
-                      {note.type === 'list'
-                        ? t('editor:hideCheckboxes')
-                        : t('editor:showCheckboxes')}
-                    </Menu.Item>
+                    {canEdit && (
+                      <Menu.Item
+                        className={menuItemClass}
+                        onClick={() =>
+                          m.convert.mutate({
+                            id: note.id,
+                            to: note.type === 'list' ? 'text' : 'list',
+                          })
+                        }
+                      >
+                        {note.type === 'list'
+                          ? t('editor:hideCheckboxes')
+                          : t('editor:showCheckboxes')}
+                      </Menu.Item>
+                    )}
                   </Menu.Popup>
                 </Menu.Positioner>
               </Menu.Portal>
@@ -433,7 +444,12 @@ export const NoteCard = memo(function NoteCard({
       {showShare && <NoteShareDialog note={note} open={showShare} onOpenChange={setShowShare} />}
 
       {showVersions && (
-        <VersionHistoryDialog noteId={note.id} open={showVersions} onOpenChange={setShowVersions} />
+        <VersionHistoryDialog
+          noteId={note.id}
+          open={showVersions}
+          onOpenChange={setShowVersions}
+          canRestore={canEdit}
+        />
       )}
 
       {showLabelPicker && (

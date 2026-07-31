@@ -17,9 +17,16 @@ interface VersionHistoryDialogProps {
   noteId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** A viewer reads the history and downloads it, but does not rewrite the note. */
+  canRestore?: boolean;
 }
 
-export function VersionHistoryDialog({ noteId, open, onOpenChange }: VersionHistoryDialogProps) {
+export function VersionHistoryDialog({
+  noteId,
+  open,
+  onOpenChange,
+  canRestore = true,
+}: VersionHistoryDialogProps) {
   const { t, i18n } = useTranslation('editor');
   const queryClient = useQueryClient();
   const { data: versions, isLoading } = useQuery({
@@ -66,13 +73,15 @@ export function VersionHistoryDialog({ noteId, open, onOpenChange }: VersionHist
                 >
                   <Icon svg={downloadSvg} size={18} />
                 </a>
-                <button
-                  type="button"
-                  className="rounded px-3 py-1.5 font-medium text-primary text-sm hover:bg-(--surface-hover)"
-                  onClick={() => void restore(v.id)}
-                >
-                  {t('restoreVersion')}
-                </button>
+                {canRestore && (
+                  <button
+                    type="button"
+                    className="rounded px-3 py-1.5 font-medium text-primary text-sm hover:bg-(--surface-hover)"
+                    onClick={() => void restore(v.id)}
+                  >
+                    {t('restoreVersion')}
+                  </button>
+                )}
               </div>
             ))}
           </div>

@@ -167,7 +167,7 @@ describe('mcp endpoint', () => {
     it('excludes stdio-only tools from the mounted endpoint', async () => {
       const { tools } = await client.listTools();
       const names = tools.map((tool) => tool.name);
-      expect(names).toHaveLength(41);
+      expect(names).toHaveLength(42);
       expect(names).not.toContain('download_export');
       expect(names).not.toContain('import_takeout');
       expect(names).toContain('upload_image');

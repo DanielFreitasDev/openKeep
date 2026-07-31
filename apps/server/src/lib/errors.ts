@@ -38,6 +38,14 @@ export const errors = {
     new AppError(409, code, title, detail),
   noteTrashed: () =>
     new AppError(409, 'note_trashed', 'Note is in the trash', 'Restore the note to edit it.'),
+  /** Shared with view-only permission — distinct from a plain 403 so clients can say so. */
+  readOnlyNote: () =>
+    new AppError(
+      403,
+      'note_read_only',
+      'View-only access',
+      'This note is shared with you for viewing only.',
+    ),
   labelLimitReached: () =>
     new AppError(
       400,

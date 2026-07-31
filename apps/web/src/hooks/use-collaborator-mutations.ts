@@ -1,4 +1,4 @@
-import type { Collaborator, FullNote } from '@openkeep/shared';
+import type { Collaborator, FullNote, InviteRole } from '@openkeep/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from '../lib/api.js';
@@ -21,8 +21,19 @@ export function useCollaboratorMutations() {
     });
 
   const invite = useMutation({
-    mutationFn: ({ noteId, email }: { noteId: string; email: string }) =>
-      api<Collaborator>(`/api/notes/${noteId}/collaborators`, { method: 'POST', body: { email } }),
+    mutationFn: ({
+      noteId,
+      email,
+      role = 'collaborator',
+    }: {
+      noteId: string;
+      email: string;
+      role?: InviteRole;
+    }) =>
+      api<Collaborator>(`/api/notes/${noteId}/collaborators`, {
+        method: 'POST',
+        body: { email, role },
+      }),
     onSuccess: (collaborator, { noteId }) =>
       patchNote(noteId, (n) => ({ collaborators: [...n.collaborators, collaborator] })),
     onError: (err) => {
@@ -49,5 +60,25 @@ export function useCollaboratorMutations() {
     },
   });
 
-  return { invite, remove };
+  const setRole = useMutation({
+    mutationFn: ({ noteId, userId, role }: { noteId: string; userId: string; role: InviteRole }) =>
+      api<Collaborator>(`/api/notes/${noteId}/collaborators/${userId}`, {
+        method: 'PATCH',
+        body: { role },
+      }),
+    onSuccess: (collaborator, { noteId }) =>
+      patchNote(noteId, (n) => ({
+        collaborators: n.collaborators.map((c) =>
+          c.userId === collaborator.userId ? collaborator : c,
+        ),
+      })),
+    onError: (err) => {
+      show({
+        message:
+          err instanceof ApiError ? (err.problem.detail ?? err.problem.title) : t('inviteFailed'),
+      });
+    },
+  });
+
+  return { invite, remove, setRole };
 }

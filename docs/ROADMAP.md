@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (backup automático agendado; indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (permissão somente-leitura no compartilhamento;
+> backup automático agendado; indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -506,11 +507,30 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.3 Compartilhamento, privacidade e exportação
 
-- [ ] **Permissão somente-leitura no compartilhamento** *(impacto alto · esforço M)*
+- [x] **Permissão somente-leitura no compartilhamento** *(impacto alto · esforço M)* — feito em 2026-07-31
   **O quê:** o Keep só tem "pode editar"; visualizar-sem-editar é pedido constante.
   **Como:** coluna `role` (`editor`/`viewer`) em `note_members` — cai exatamente no chokepoint
   `assertNoteAccess` (DECISIONS #9), que passa a receber o nível exigido por rota. UI: seletor no
   diálogo de colaboradores; viewer mantém estado próprio (pin/cor/labels) por definição do modelo.
+  **Entregue:** um terceiro valor (`viewer`) ao lado de `owner`/`collaborator` e um terceiro nível no
+  chokepoint — `member` < `editor` < `owner`. Cada rota continua com **uma** chamada a
+  `assertNoteAccess`; o trabalho foi classificar qual nível cada uma exige. `collaborator` continua
+  com esse nome sendo o nível de edição: rebatizá-lo de `editor` reescreveria linhas gravadas, o DTO
+  `Collaborator`, o vocabulário do WS, o MCP e os dois locales para dizer a mesma coisa.
+  **A classificação é o desenho:** conteúdo compartilhado (título, corpo, itens, anexos, tipo da nota,
+  restaurar versão) é `editor`; a existência da nota (lixeira, restaurar, excluir, mesclar,
+  compartilhar) é `owner`; e tudo que a linha de `note_members` guarda por usuário — fixar, arquivar,
+  cor, fundo, posição, marcadores, lembrete — fica em `member`. Quem só vê organiza o próprio quadro
+  como qualquer um, e isso sai do modelo em vez de ser exceção dentro dele. "Fazer uma cópia" também é
+  `member`: a cópia é uma nota nova de quem copiou, e quem pode ler já poderia redigitar.
+  **A troca de permissão precisa alcançar um editor aberto**, então ela viaja num evento próprio
+  (`collaborator.role_changed`) carregando o papel de quem foi afetado — o mesmo evento redesenha a
+  lista de colaboradores para todos e vira a nota daquela pessoa em somente-leitura ao vivo (o
+  `editable` do TipTap é lido na criação da instância, então há um `setEditable` explícito). No
+  cliente o mesmo corte vive em `lib/note-permissions.ts` (`canEditContent`), que é honestidade de UI
+  e não autorização: botão que só pode dar 403 não fica na tela, mas toda chamada continua batendo no
+  chokepoint — e o 403 tem código próprio (`note_read_only`) para o cliente dizer *por quê* em vez de
+  "proibido".
 
 - [ ] **Compartilhar por link público (somente leitura)** *(impacto alto · esforço M)*
   **O quê:** "sem opção de compartilhar por link" é uma das 6 faltas da
@@ -703,7 +723,7 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.6 IA (opcional, sempre opt-in, BYO key)
 
-A base já é forte: MCP com 43 tools + PATs significa que **agentes externos já fazem tudo** (o
+A base já é forte: MCP com 44 tools + PATs significa que **agentes externos já fazem tudo** (o
 Claude já pode resumir/organizar suas notas hoje). Os itens abaixo são conveniências embutidas —
 todas desligadas por padrão, com chave do usuário (`ANTHROPIC_API_KEY`/OpenAI-compat por env) e
 tráfego passando pela REST normal (mesmo caminho do MCP, DECISIONS #20).
@@ -753,20 +773,23 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
-1. **Somente-leitura no compartilhamento** (3.3) — cai redondo no `assertNoteAccess`.
-2. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-3. **Vincular notas + backlinks** (3.1) — o `[[` reaproveita o popover do `#`, e o link já é
+1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
+2. **Vincular notas + backlinks** (3.1) — o `[[` reaproveita o popover do `#`, e o link já é
    marca TipTap suportada de ponta a ponta desde a fase C.
-4. **Link público somente leitura** (3.3).
-5. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
+3. **Link público somente leitura** (3.3) — destravado pelo item acima: o nível `viewer` já é a
+   resposta de "quem pode só ler", e o link público é a versão sem conta dele.
+4. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
    já saíram).
-6. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
+5. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
 do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
 
 **Buscas salvas** saíram junto (2026-07-31): eram o item barato que os operadores destravaram.
+
+O antigo item 1 da fila — **somente-leitura no compartilhamento** — saiu em 2026-07-31 e caiu no
+chokepoint como previsto: nenhuma rota ganhou uma segunda checagem, só um nível a mais.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

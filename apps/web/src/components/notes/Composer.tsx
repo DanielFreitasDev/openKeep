@@ -26,6 +26,7 @@ import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
+import type { DraftInvite } from '../../lib/drafts.js';
 import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
 import { sessionQuery } from '../../lib/queries.js';
 import { NOTE_INPUT_RULES, noteExtensions } from '../../lib/tiptap.js';
@@ -80,7 +81,7 @@ export function Composer() {
   const [reminder, setReminder] = useState<SetReminder | null>(null);
   const [labelIds, setLabelIds] = useState<string[]>([]);
   const [images, setImages] = useState<PendingImage[]>([]);
-  const [invites, setInvites] = useState<string[]>([]);
+  const [invites, setInvites] = useState<DraftInvite[]>([]);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{ open: boolean; seed: string }>({
@@ -251,7 +252,8 @@ export function Composer() {
     for (const labelId of draft.labelIds)
       labelM.setNoteLabel.mutate({ noteId: id, labelId, on: true });
     for (const file of draft.files) attachmentM.upload.mutate({ noteId: id, file });
-    for (const email of draft.invites) collaboratorM.invite.mutate({ noteId: id, email });
+    for (const inv of draft.invites)
+      collaboratorM.invite.mutate({ noteId: id, email: inv.email, role: inv.role });
     if (archive) m.archiveWithUndo(note);
   };
 
@@ -354,11 +356,11 @@ export function Composer() {
           },
         ]
       : []),
-    ...invites.map((email) => ({
-      userId: `pending:${email}`,
-      email,
-      name: email,
-      role: 'collaborator' as const,
+    ...invites.map((inv) => ({
+      userId: `pending:${inv.email}`,
+      email: inv.email,
+      name: inv.email,
+      role: inv.role,
     })),
   ];
 
@@ -702,11 +704,18 @@ export function Composer() {
               onOpenChange={setShowShare}
               collaborators={draftCollaborators}
               isOwner
-              onInvite={(email) =>
-                setInvites((prev) => (prev.includes(email) ? prev : [...prev, email]))
+              onInvite={(email, role) =>
+                setInvites((prev) =>
+                  prev.some((i) => i.email === email) ? prev : [...prev, { email, role }],
+                )
+              }
+              onRole={(userId, role) =>
+                setInvites((prev) =>
+                  prev.map((i) => (`pending:${i.email}` === userId ? { ...i, role } : i)),
+                )
               }
               onRemove={(userId) =>
-                setInvites((prev) => prev.filter((email) => `pending:${email}` !== userId))
+                setInvites((prev) => prev.filter((i) => `pending:${i.email}` !== userId))
               }
             />
             {labelPicker.open && (

@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { labelsQuery } from './labels-api.js';
 import { mergeNote, removeNote, upsertNote } from './note-selectors.js';
 import { notesQuery } from './notes-api.js';
-import { settingsQuery } from './queries.js';
+import { sessionQuery, settingsQuery } from './queries.js';
 
 type Handler = (queryClient: QueryClient, payload: never) => boolean | undefined;
 
@@ -138,6 +138,18 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
     mergeIfKnown(qc, p.noteId, (n) => ({
       collaborators: n.collaborators.filter((c) => c.userId !== p.userId),
     })),
+  'collaborator.role_changed': (qc, p) =>
+    mergeIfKnown(qc, p.noteId, (n) => {
+      const meId = qc.getQueryData(sessionQuery.queryKey)?.user.id;
+      return {
+        collaborators: n.collaborators.map((c) =>
+          c.userId === p.userId ? { ...c, role: p.role } : c,
+        ),
+        // `role` on the note is MY level — the one the UI reads to go
+        // read-only — so it only moves when the change is about me.
+        ...(p.userId === meId ? { role: p.role } : {}),
+      };
+    }),
   'settings.updated': (qc, p) => {
     qc.setQueryData(settingsQuery.queryKey, (old): UserSettings | undefined =>
       old ? { ...old, ...p } : undefined,

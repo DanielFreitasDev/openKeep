@@ -1,12 +1,11 @@
 import { z } from 'zod';
 import { LIMITS } from '../constants/limits.js';
 import { zAttachment } from './attachments.js';
-import { zId, zNoteBackground, zNoteColor } from './common.js';
+import { zId, zNoteBackground, zNoteColor, zNoteRole } from './common.js';
 import { zCollaborator } from './realtime.js';
 import { zReminder } from './reminders.js';
 
 export const zNoteType = z.enum(['text', 'list']);
-export const zNoteRole = z.enum(['owner', 'collaborator']);
 export const zIndent = z.union([z.literal(0), z.literal(1)]);
 
 export const zNoteItem = z.object({
