@@ -1,3 +1,21 @@
+# [1.25.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.24.0...v1.25.0) (2026-07-31)
+
+
+### Features
+
+* link one note to another with [[ and see backlinks ([0f6dcdb](https://github.com/DanielFreitasDev/openKeep/commit/0f6dcdb08e44a9319615dc7884fabb4aedd2cd67))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.25.0
+```
+
+Or download `compose.yml` below (image pinned to `1.25.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.25.0/docs/DEPLOYMENT.md).
+
 # [1.24.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.23.0...v1.24.0) (2026-07-31)
 
 
