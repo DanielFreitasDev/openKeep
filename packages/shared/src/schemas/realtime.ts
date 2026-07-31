@@ -30,6 +30,8 @@ export type WsEvent =
   | { type: 'note.state_changed'; payload: NoteStateResult }
   | { type: 'note.labels_changed'; payload: { id: string; labelIds: string[] } }
   | { type: 'note.converted'; payload: { note: FullNote } }
+  /** Every note of this account is gone at once — per-note events would be thousands. */
+  | { type: 'notes.purged'; payload: { deleted: number } }
   | { type: 'item.added'; payload: { noteId: string; item: NoteItem } }
   | { type: 'item.updated'; payload: { noteId: string; item: NoteItem; cascaded: NoteItem[] } }
   | { type: 'item.removed'; payload: { noteId: string; itemId: string } }

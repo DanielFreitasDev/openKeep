@@ -1,6 +1,7 @@
 import {
   zConvertNote,
   zCreateNote,
+  zDeleteAllNotes,
   zFullNote,
   zId,
   zListNotesQuery,
@@ -209,6 +210,60 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
         originOf(req),
       );
       return note;
+    },
+  );
+
+  /**
+   * Empty the account. Guarded by a literal in the body as well as the UI's
+   * typed confirmation — an accidental POST from a script must not be enough,
+   * and there is no trash behind this one.
+   */
+  app.post(
+    '/api/notes/delete-all',
+    {
+      ...auth,
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['notes'],
+        body: zDeleteAllNotes,
+        response: { 200: z.object({ deleted: z.number(), left: z.number() }) },
+      },
+    },
+    async (req) => {
+      // Who to tell, read before the rows are gone — and kept apart, because
+      // the two halves mean opposite things to a collaborator: my note is
+      // GONE, their note merely lost me.
+      const { owned, shared } = await svc.noteIdsByRole(db, req.user.id);
+      const audience = new Map<string, string[]>();
+      for (const id of [...owned, ...shared]) audience.set(id, await memberIds(db, id));
+
+      const result = await svc.deleteAllNotes(db, req.user.id, storage);
+
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'notes.purged', payload: { deleted: result.deleted } },
+        originOf(req),
+      );
+      const others = (id: string) => (audience.get(id) ?? []).filter((m) => m !== req.user.id);
+      for (const id of owned) {
+        const targets = others(id);
+        if (targets.length > 0) {
+          realtime.publishToUsers(targets, {
+            type: 'note.removed',
+            payload: { id, reason: 'deleted' },
+          });
+        }
+      }
+      for (const id of shared) {
+        const targets = others(id);
+        if (targets.length > 0) {
+          realtime.publishToUsers(targets, {
+            type: 'collaborator.removed',
+            payload: { noteId: id, userId: req.user.id },
+          });
+        }
+      }
+      return result;
     },
   );
 

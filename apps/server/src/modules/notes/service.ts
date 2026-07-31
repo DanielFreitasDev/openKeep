@@ -605,6 +605,62 @@ export async function emptyTrash(db: Db, userId: string, storage?: Storage): Pro
   return deleted.length;
 }
 
+/** The two halves of "my notes": the ones I own and the ones shared with me. */
+export async function noteIdsByRole(
+  db: Db,
+  userId: string,
+): Promise<{ owned: string[]; shared: string[] }> {
+  const rows = await db
+    .select({ noteId: noteMembers.noteId, role: noteMembers.role })
+    .from(noteMembers)
+    .where(eq(noteMembers.userId, userId));
+  return {
+    owned: rows.filter((r) => r.role === 'owner').map((r) => r.noteId),
+    shared: rows.filter((r) => r.role !== 'owner').map((r) => r.noteId),
+  };
+}
+
+export interface DeleteAllResult {
+  /** Notes I own, gone forever (with their attachments' files). */
+  deleted: number;
+  /** Notes owned by someone else that I simply left. */
+  left: number;
+}
+
+/**
+ * "Delete all my notes" — the Settings escape hatch, past the trash and past
+ * undo. It does NOT touch other people's data: notes I own are destroyed, and
+ * notes merely SHARED with me are left (my membership row goes, the note does
+ * not), which empties my board without deleting from under a collaborator.
+ * Labels survive: they are not notes, and re-typing 50 of them is its own
+ * punishment.
+ */
+export async function deleteAllNotes(
+  db: Db,
+  userId: string,
+  storage?: Storage,
+): Promise<DeleteAllResult> {
+  const ownedIds = (
+    await db.select({ id: notes.id }).from(notes).where(eq(notes.ownerId, userId))
+  ).map((r) => r.id);
+  // Files are unlinked only after the rows are gone, so a failure mid-way
+  // leaves rows pointing at files rather than rows pointing at nothing.
+  const keys = ownedIds.length > 0 ? await attachmentKeysForNotes(db, ownedIds) : [];
+
+  const deleted =
+    ownedIds.length === 0
+      ? []
+      : await db.delete(notes).where(inArray(notes.id, ownedIds)).returning({ id: notes.id });
+
+  const left = await db
+    .delete(noteMembers)
+    .where(and(eq(noteMembers.userId, userId), eq(noteMembers.role, 'collaborator')))
+    .returning({ noteId: noteMembers.noteId });
+
+  if (storage && keys.length > 0) await unlinkAttachmentFiles(storage, keys);
+  return { deleted: deleted.length, left: left.length };
+}
+
 export async function copyNote(
   db: Db,
   userId: string,

@@ -3225,6 +3225,59 @@
         }
       }
     },
+    "/api/notes/delete-all": {
+      "post": {
+        "tags": [
+          "notes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirm": {
+                    "type": "string",
+                    "enum": [
+                      "delete-all-notes"
+                    ]
+                  }
+                },
+                "required": [
+                  "confirm"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "number"
+                    },
+                    "left": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "deleted",
+                    "left"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/notes/merge": {
       "post": {
         "tags": [

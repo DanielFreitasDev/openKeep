@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -476,7 +476,21 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   fecha o diálogo e limpa a seleção; falhas continuam aparecendo no snackbar de erro do próprio
   `invite` (uma por nota que recusar, ex.: já colaborador).
 
-- [ ] **Proteger nota com PIN/senha (ocultar)** *(impacto médio · esforço M)*
+- [x] **Apagar todas as notas da conta** *(impacto baixo · esforço P)* — feito em 2026-07-31
+  **O quê:** item pedido fora do roadmap: uma saída em Configurações para zerar a conta de uma vez,
+  em vez de excluir nota por nota (a lixeira também é esvaziada).
+  **Entregue:** "Zona de perigo" no diálogo de Configurações, com `POST /api/notes/delete-all`.
+  **A confirmação é o texto digitado, não o botão** — o botão de confirmar nasce desabilitado e só
+  arma quando a palavra (`EXCLUIR`/`DELETE`, traduzida) é digitada, com a contagem do que vai sumir
+  na tela enquanto se digita. O corpo da requisição também carrega um literal
+  (`{"confirm":"delete-all-notes"}`): um POST acidental de script não basta, porque atrás desta rota
+  não existe lixeira.
+  **O que ela não faz:** não toca em dado de terceiro. Notas minhas são destruídas (com os arquivos
+  dos anexos); notas apenas **compartilhadas comigo** eu apenas *deixo* — some a minha linha de
+  `note_members`, a nota continua com o dono. Marcadores sobrevivem: não são notas. O evento
+  `notes.purged` avisa as minhas outras abas (mandar um `note.removed` por nota seriam milhares), e
+  os colaboradores recebem o evento certo para cada metade: `note.removed` nas minhas, que
+  acabaram, e `collaborator.removed` nas deles, que só perderam um colaborador. *(impacto médio · esforço M)*
   **O quê:** nota "trancada": conteúdo borrado/oculto (inclusive na busca) até confirmar senha
   da conta ou PIN. Top-6 da Android Police.
   **Como:** flag por membership + re-auth pontual (Better Auth já expõe verificação de senha);

@@ -294,3 +294,30 @@ test('the editor footer counts words and characters as you type', async ({ page 
   await body.pressSequentially(' four');
   await expect(dialog.getByText('4 words · 18 characters')).toBeVisible();
 });
+
+test('delete all notes: the typed word is the confirmation', async ({ page }) => {
+  await composeNote(page, { title: 'Doomed one', body: 'goes away' });
+  await composeNote(page, { title: 'Doomed two', body: 'also goes away' });
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Delete all notes' }).click();
+
+  const confirm = page.getByRole('button', { name: 'Delete forever' });
+  await expect(page.getByText('2 notes you own will be deleted forever.')).toBeVisible();
+  // Armed only by the exact word — the button is not the confirmation.
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm.').fill('delet');
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm.').fill('DELETE');
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+
+  await expect(page.getByText('2 notes deleted')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('[data-note-id]')).toHaveCount(0);
+
+  // Past the trash, not into it.
+  await page.getByRole('link', { name: 'Trash' }).click();
+  await expect(page.locator('[data-note-id]')).toHaveCount(0);
+});

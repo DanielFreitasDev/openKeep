@@ -110,6 +110,12 @@ export const zConvertNote = z.object({ to: zNoteType });
  * the rest are folded into it and trashed.
  */
 export const zMergeNotes = z.object({ noteIds: z.array(zId).min(2).max(50) });
+
+/**
+ * Emptying the account is past the trash and past undo, so the intent is
+ * spelled out in the body: a stray POST is not enough on its own.
+ */
+export const zDeleteAllNotes = z.object({ confirm: z.literal('delete-all-notes') });
 export type MergeNotes = z.infer<typeof zMergeNotes>;
 
 export const zNoteVersionMeta = z.object({

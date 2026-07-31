@@ -23,5 +23,19 @@
   "calendarReveal": "Show",
   "calendarHide": "Hide",
   "calendarRotate": "Generate a new link",
-  "calendarRevoke": "Turn off"
+  "calendarRevoke": "Turn off",
+  "dangerZone": "Danger zone",
+  "deleteAll": "Delete all notes",
+  "deleteAllHint": "Permanently deletes every note you own, including the ones in the trash. Labels are kept.",
+  "deleteAllTitle": "Delete all notes?",
+  "deleteAllBody_one": "1 note you own will be deleted forever. This cannot be undone — it does not go to the trash.",
+  "deleteAllBody_other": "{{count}} notes you own will be deleted forever. This cannot be undone — they do not go to the trash.",
+  "deleteAllShared_one": "1 note shared with you will be removed from your list only; the owner keeps it.",
+  "deleteAllShared_other": "{{count}} notes shared with you will be removed from your list only; their owners keep them.",
+  "deleteAllPrompt": "Type {{word}} to confirm.",
+  "deleteAllWord": "DELETE",
+  "deleteAllConfirm": "Delete forever",
+  "deleteAllDone_one": "1 note deleted",
+  "deleteAllDone_other": "{{count}} notes deleted",
+  "deleteAllFailed": "Could not delete your notes"
 }

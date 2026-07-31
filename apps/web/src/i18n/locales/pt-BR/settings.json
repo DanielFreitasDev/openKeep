@@ -23,5 +23,19 @@
   "calendarReveal": "Mostrar",
   "calendarHide": "Ocultar",
   "calendarRotate": "Gerar um novo link",
-  "calendarRevoke": "Desativar"
+  "calendarRevoke": "Desativar",
+  "dangerZone": "Zona de perigo",
+  "deleteAll": "Excluir todas as notas",
+  "deleteAllHint": "Exclui permanentemente todas as notas que são suas, inclusive as da lixeira. Os marcadores são mantidos.",
+  "deleteAllTitle": "Excluir todas as notas?",
+  "deleteAllBody_one": "1 nota sua será excluída para sempre. Não dá para desfazer — ela não vai para a lixeira.",
+  "deleteAllBody_other": "{{count}} notas suas serão excluídas para sempre. Não dá para desfazer — elas não vão para a lixeira.",
+  "deleteAllShared_one": "1 nota compartilhada com você sai só da sua lista; quem é dono continua com ela.",
+  "deleteAllShared_other": "{{count}} notas compartilhadas com você saem só da sua lista; quem é dono continua com elas.",
+  "deleteAllPrompt": "Digite {{word}} para confirmar.",
+  "deleteAllWord": "EXCLUIR",
+  "deleteAllConfirm": "Excluir para sempre",
+  "deleteAllDone_one": "1 nota excluída",
+  "deleteAllDone_other": "{{count}} notas excluídas",
+  "deleteAllFailed": "Não foi possível excluir suas notas"
 }
