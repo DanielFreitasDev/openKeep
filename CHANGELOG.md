@@ -1,3 +1,21 @@
+# [1.21.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.20.0...v1.21.0) (2026-07-31)
+
+
+### Features
+
+* Keep-app motion for the mobile drawer, FAB and sheets ([f1f34da](https://github.com/DanielFreitasDev/openKeep/commit/f1f34da468ab4f491925a8962a552fda4957f0b0))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.21.0
+```
+
+Or download `compose.yml` below (image pinned to `1.21.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.21.0/docs/DEPLOYMENT.md).
+
 # [1.20.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.19.0...v1.20.0) (2026-07-31)
 
 
