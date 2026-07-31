@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { patchSettings, settingsQuery } from '../../lib/queries.js';
 import { useUiStore } from '../../stores/ui.js';
+import { CalendarFeedSection } from './CalendarFeedSection.js';
 
 const EMPTY_DIALOG_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
@@ -125,6 +126,8 @@ export function SettingsDialog() {
               onChange={toggle('sharingEnabled')}
             />
           </section>
+
+          <CalendarFeedSection />
 
           <div className="mt-6 flex justify-end">
             <Dialog.Close className="rounded px-4 py-2 font-medium text-primary text-sm hover:bg-(--surface-hover)">

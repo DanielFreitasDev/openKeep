@@ -137,7 +137,7 @@ test('labels carry a colour and an emoji, and the manual order is draggable', as
   const names = () =>
     rows
       .locator('input[type="text"]')
-      .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+      .evaluateAll((els) => els.map((e) => (e as unknown as { value: string }).value));
   await expect(rows).toHaveCount(2);
   expect(await names()).toEqual(['Zebra', 'Apple']);
 

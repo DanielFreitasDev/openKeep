@@ -13,5 +13,15 @@
   "afternoon": "Tarde",
   "evening": "Noite",
   "sharing": "Compartilhamento",
-  "enableSharing": "Ativar compartilhamento"
+  "enableSharing": "Ativar compartilhamento",
+  "calendarFeed": "Feed de calendário",
+  "calendarFeedHint": "Assine seus lembretes no Google Agenda, Thunderbird ou em qualquer app que leia iCalendar. Quem tiver o link consegue ler os títulos dos seus lembretes.",
+  "calendarEnable": "Criar link do feed",
+  "calendarUrl": "URL do feed de calendário",
+  "calendarCopy": "Copiar link",
+  "calendarCopied": "Link copiado",
+  "calendarReveal": "Mostrar",
+  "calendarHide": "Ocultar",
+  "calendarRotate": "Gerar um novo link",
+  "calendarRevoke": "Desativar"
 }

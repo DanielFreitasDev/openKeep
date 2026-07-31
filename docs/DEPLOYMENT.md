@@ -81,6 +81,7 @@ The MCP endpoint ships in the same container — nothing extra to deploy or conf
 - **Jobs** (in-process pg-boss): reminder firing (per-minute), trash purge (hourly), storage cleanup (daily), link-preview fetches, imports/exports.
 - **Backups**: `pg_dump` the database + snapshot the `openkeep-storage` volume (attachments, pending exports). Restore both, start the app.
 - **Logs**: structured JSON on stdout (pino). Note content never appears above debug level.
+- **Calendar feeds** (per user, opt-in): Settings → Calendar feed mints `/api/calendar/<token>.ics`. The route has no session — the token in the path is the credential, stored in plaintext so the URL keeps working in the calendar app it was pasted into. It exposes reminder titles and note body snippets to whoever holds the link; rotating or turning it off revokes every subscription at once.
 - **Metrics** (opt-in): `METRICS_ENABLED=true` serves the Prometheus text format at `GET /metrics` — HTTP requests and latency by route *template*, pg-boss runs and duration by queue, open WebSocket connections, plus the standard `process_*`/`nodejs_*` gauges. Left off, the route does not exist (404). It carries no note content, but it does describe the instance: set `METRICS_TOKEN` (≥16 chars) to require `Authorization: Bearer <token>`, or keep the path off your public listener. The endpoint sits at the root, not under `/api` — no session, no PAT, not in the OpenAPI spec.
 
 ## Security posture

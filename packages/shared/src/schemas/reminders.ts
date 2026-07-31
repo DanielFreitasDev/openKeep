@@ -26,3 +26,11 @@ export const zPushSubscription = z.object({
   keys: z.object({ p256dh: z.string().max(300), auth: z.string().max(200) }),
 });
 export type PushSubscriptionInput = z.infer<typeof zPushSubscription>;
+
+/**
+ * The iCalendar subscription. `url` is null until the feed is turned on; the
+ * secret lives in the URL, so this is deliberately NOT part of user settings
+ * (which the client can PATCH wholesale).
+ */
+export const zCalendarFeed = z.object({ url: z.string().nullable() });
+export type CalendarFeed = z.infer<typeof zCalendarFeed>;

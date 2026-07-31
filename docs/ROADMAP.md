@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -542,9 +542,26 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   **Como:** tabela de webhooks por usuário + job pg-boss com retry/backoff pendurado no mesmo
   ponto que publica no WS (`publishToUsers`); payload = DTO já existente.
 
-- [ ] **Feed iCalendar (.ics) dos lembretes** *(impacto médio · esforço P/M)*
+- [x] **Feed iCalendar (.ics) dos lembretes** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   URL secreta `/api/calendar/<token>.ics` para assinar no Google Calendar/Thunderbird/Proton.
   Lembretes já são RFC-5545 por dentro (DECISIONS — rrule) → mapeamento quase direto para VEVENT.
+  **Entregue:** token por conta em `user_settings` (nulo = sem feed), criado/rotacionado/revogado
+  numa seção nova do diálogo de Configurações. O token fica **fora** do DTO de settings de
+  propósito: `zUserSettingsPatch` é o parcial de `zUserSettings`, e um segredo não pode morar num
+  corpo que o cliente dá PATCH. Guardado em claro, não em hash — o endereço *é* a credencial e
+  precisa continuar copiável de outro dispositivo; rotacionar cancela todas as assinaturas de uma
+  vez. A rota `.ics` não tem sessão nenhuma (cliente de calendário não faz login), tem rate limit
+  como qualquer superfície anônima e devolve o mesmo 404 para token inválido e para token que já
+  existiu — sem oráculo.
+  **A decisão que não é óbvia: o feed não exporta `RRULE`.** Recorrência é expandida em VEVENTs
+  individuais em UTC (janela de −30 a +365 dias, teto de 366 por regra). O motivo é o próprio
+  DECISIONS: a expansão daqui roda em "fake UTC" no fuso do lembrete justamente para manter o
+  horário de parede através do horário de verão, e reproduzir isso em iCalendar exigiria embarcar
+  um `VTIMEZONE` com as regras de transição de cada fuso — trabalho de biblioteca inteira para
+  errar diferente. Expandir usa o mesmo expansor do job que dispara os lembretes, então feed e
+  notificação nunca discordam. O preço é o feed ser uma projeção, e por isso o cabeçalho anuncia
+  `REFRESH-INTERVAL:PT1H`. O serializer é puro e testado à parte, inclusive o *folding* de 75
+  **octetos** que não pode cortar um caractere multibyte no meio (emoji em título de nota).
 
 - [ ] **Criar nota por e-mail** *(impacto baixo · esforço G)*
   Endereço secreto que vira nota. Exige receber e-mail (inbound webhook de um provedor ou SMTP

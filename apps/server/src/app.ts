@@ -16,6 +16,7 @@ import { createMetrics } from './lib/metrics.js';
 import type { Storage } from './lib/storage.js';
 import { registerApiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerAttachmentRoutes } from './modules/attachments/routes.js';
+import { registerCalendarRoutes } from './modules/calendar/routes.js';
 import { registerImportExportRoutes } from './modules/import-export/routes.js';
 import { registerItemRoutes } from './modules/items/routes.js';
 import { registerLabelRoutes } from './modules/labels/routes.js';
@@ -134,6 +135,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   await registerAttachmentRoutes(app, deps.db, deps.storage, realtime);
   registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
   registerReminderRoutes(app, deps.db, config, realtime);
+  registerCalendarRoutes(app, deps.db, config);
   registerSharingRoutes(app, deps.db, realtime);
   registerImportExportRoutes(app, deps.db, deps.storage, deps.enqueueJob ?? (async () => {}));
   registerMcp(app, deps.db);

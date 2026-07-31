@@ -116,3 +116,24 @@ export function nextOccurrence(opts: {
   if (!fakeNext) return null;
   return fromFakeUtc(fakeNext, opts.timezone);
 }
+
+/**
+ * Every occurrence inside a window, same wall-clock strategy as the single
+ * step above. `limit` caps a rule that would otherwise expand forever (an
+ * hourly reminder over a year is 8,760 events nobody wants in a feed).
+ */
+export function occurrencesBetween(opts: {
+  rrule: string;
+  dtstart: Date;
+  timezone: string;
+  from: Date;
+  to: Date;
+  limit: number;
+}): Date[] {
+  const parsed = parseRule(opts.rrule);
+  const rule = new RRule({ ...parsed, dtstart: toFakeUtc(opts.dtstart, opts.timezone) });
+  return rule
+    .between(toFakeUtc(opts.from, opts.timezone), toFakeUtc(opts.to, opts.timezone), true)
+    .slice(0, opts.limit)
+    .map((fake) => fromFakeUtc(fake, opts.timezone));
+}

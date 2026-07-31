@@ -33,6 +33,12 @@ export const userSettings = pgTable(
     viewMode: text().notNull().default('grid'),
     /** Grid order: manual (the fractional position) or a client-side view of it. */
     noteSort: text().notNull().default('manual'),
+    /**
+     * Secret in the iCalendar feed URL. Null = no feed; rotating it revokes
+     * every subscription at once. Not part of the settings DTO — a bearer
+     * secret has no business in a body the client can PATCH.
+     */
+    calendarToken: text().unique(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()

@@ -55,3 +55,40 @@ test('custom date & time with recurrence shows recurring chip in editor', async 
     cardRootByTitle(page, 'Water plants').getByRole('button', { name: 'Edit reminder' }),
   ).toBeVisible();
 });
+
+test('calendar feed: create the link, it serves the reminder, revoking kills it', async ({
+  page,
+  playwright,
+}) => {
+  await composeNote(page, { title: 'Dentist', body: 'bring the card' });
+  await cardRootByTitle(page, 'Dentist').hover();
+  await cardRootByTitle(page, 'Dentist').getByRole('button', { name: 'Remind me' }).click();
+  await page.getByRole('button', { name: 'Tomorrow' }).click();
+  await expect(
+    cardRootByTitle(page, 'Dentist').getByRole('button', { name: 'Edit reminder' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Create feed link' }).click();
+
+  const field = page.getByLabel('Calendar feed URL');
+  await expect(field).toBeVisible();
+  const url = await field.inputValue();
+  expect(url).toMatch(/\/api\/calendar\/[A-Za-z0-9_-]+\.ics$/);
+
+  // Fetched with no session at all — the token in the path is the credential.
+  const anonymous = await playwright.request.newContext();
+  const feed = await anonymous.get(url);
+  expect(feed.status()).toBe(200);
+  expect(feed.headers()['content-type']).toContain('text/calendar');
+  const body = await feed.text();
+  expect(body).toContain('BEGIN:VCALENDAR');
+  expect(body).toContain('SUMMARY:Dentist');
+
+  // Hidden by default once reopened: the URL is a secret.
+  await page.getByRole('button', { name: 'Turn off' }).click();
+  await expect(page.getByRole('button', { name: 'Create feed link' })).toBeVisible();
+  expect((await anonymous.get(url)).status()).toBe(404);
+  await anonymous.dispose();
+});
