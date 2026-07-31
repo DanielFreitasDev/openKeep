@@ -31,6 +31,8 @@ export const userSettings = pgTable(
     timezone: text(),
     /** grid | list — mirrored from the client so it roams across devices. */
     viewMode: text().notNull().default('grid'),
+    /** Grid order: manual (the fractional position) or a client-side view of it. */
+    noteSort: text().notNull().default('manual'),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
@@ -38,6 +40,10 @@ export const userSettings = pgTable(
   },
   (t) => [
     check('user_settings_view_mode_check', sql`${t.viewMode} in ('grid', 'list')`),
+    check(
+      'user_settings_note_sort_check',
+      sql`${t.noteSort} in ('manual', 'edited', 'created', 'title')`,
+    ),
     check(
       'user_settings_times_check',
       sql`${t.reminderMorning} ~ ${TIME_RE} and ${t.reminderAfternoon} ~ ${TIME_RE} and ${t.reminderEvening} ~ ${TIME_RE}`,

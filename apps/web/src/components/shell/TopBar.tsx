@@ -17,6 +17,7 @@ import { useUiStore } from '../../stores/ui.js';
 import { IconButton } from '../IconButton.js';
 import { AccountMenu } from './AccountMenu.js';
 import { SettingsMenu } from './SettingsMenu.js';
+import { SortMenu } from './SortMenu.js';
 
 export function TopBar() {
   const { t } = useTranslation('shell');
@@ -27,6 +28,9 @@ export function TopBar() {
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   const urlSearch = useSearch({ strict: false }) as { q?: string };
   const onSearchRoute = pathname === '/search';
+  /** Trash and Reminders carry their own order, so the picker stays out of them. */
+  const sortable =
+    pathname === '/' || pathname === '/archive' || onSearchRoute || pathname.startsWith('/label/');
   const searchValue = onSearchRoute ? (urlSearch.q ?? '') : '';
 
   const goSearch = (q: string) =>
@@ -104,6 +108,7 @@ export function TopBar() {
 
         <div className="ml-auto flex items-center gap-1">
           <SyncButton />
+          {sortable && <SortMenu />}
           {viewToggleButton()}
           <SettingsMenu />
           <div className="ml-1 mr-2">
@@ -160,6 +165,7 @@ export function TopBar() {
               >
                 {t('searchYourNotes')}
               </button>
+              {sortable && <SortMenu size={44} iconSize={22} />}
               {viewToggleButton(44, 22)}
               <div className="ml-1">
                 <AccountMenu />

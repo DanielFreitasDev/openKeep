@@ -1,7 +1,8 @@
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
+import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
@@ -16,8 +17,10 @@ export const Route = createFileRoute('/_shell/archive')({
 
 function ArchiveView() {
   const { t } = useTranslation('notes');
-  const { data: archived, isSuccess } = useQuery({ ...notesQuery, select: selectArchived });
   const { data: settings } = useQuery(settingsQuery);
+  const noteSort = settings?.noteSort ?? 'manual';
+  const select = useCallback((notes: FullNote[]) => selectArchived(notes, noteSort), [noteSort]);
+  const { data: archived, isSuccess } = useQuery({ ...notesQuery, select });
   usePublishViewOrder(useMemo(() => (archived ?? []).map((n) => n.id), [archived]));
 
   if (isSuccess && archived.length === 0) {

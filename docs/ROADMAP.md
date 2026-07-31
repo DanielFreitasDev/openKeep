@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (imprimir / salvar como PDF; antes: busca dentro da nota com
+> Última atualização: **2026-07-31** (ordenação alternativa das notas; imprimir / salvar como PDF;
+> antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
 > A, B e C — o vocabulário da nota agora é o do markdown, com
 > import/export `.md`; PWA share target, filtro "Pessoas" na busca, auth do WS no handshake, aviso
@@ -344,10 +345,26 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   Cor ou emoji por label (chip e sidebar) + reordenar por arrasto no sidebar em vez de ordem
   alfabética fixa. Reusar `fractional-indexing` (DECISIONS #12).
 
-- [ ] **Ordenação alternativa das notas** *(impacto médio · esforço P/M)*
+- [x] **Ordenação alternativa das notas** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   O Keep só tem ordem manual. Adicionar seletor por visão: manual (padrão) · data de edição ·
   data de criação · título. Client-side sobre o corpus; persistir em settings. Não mexe nas
   posições fracionais (a manual continua a fonte de verdade).
+  **Entregue:** botão "Ordenar notas" na barra superior (desktop e pilha do mobile), com menu de
+  rádio e a preferência em `settings.noteSort` — uma só, global, como o `viewMode`, e não uma por
+  visão: são quatro colunas para um seletor que ninguém troca por tela. O botão só aparece onde a
+  ordem se aplica (Notas, Arquivo, marcador, busca); Lixeira e Lembretes têm ordem própria e ficam
+  de fora. Todo o trabalho é um comparador em `note-selectors.ts` — o `byPosition` já era o único
+  ponto de ordenação —, então nenhuma rota do servidor mudou.
+  **O detalhe que decide o desenho:** ordenação alternativa e arrastar não podem coexistir. Soltar
+  um card fora da ordem manual gravaria uma posição que a tela nem está mostrando; então fora de
+  `manual` o `dndSection` some da grade da home e o arrasto simplesmente não existe — nenhuma
+  ordenação escreve posição, e voltar para manual devolve o arranjo intacto (o e2e afirma isso
+  comparando a ordem inicial com a de volta). Outros detalhes: (a) o comparador desempata sempre
+  pela posição fracionária, então notas com o mesmo minuto de edição não trocam de lugar a cada
+  render; (b) título usa `localeCompare` com `sensitivity: 'base'` e `numeric`, e nota sem título
+  cai no fim — string vazia no topo seria um bloco de cards mudos; (c) datas são ISO em UTC, que
+  comparam lexicograficamente (mesmo truque da lixeira); (d) o `select` do React Query passou a ser
+  memoizado por `noteSort` nas quatro rotas, senão o corpus era reordenado a cada render.
 
 - [ ] **Operadores de busca** *(impacto médio · esforço M)*
   `label:mercado`, `color:blue`, `has:image|list|reminder`, `is:pinned|archived`,

@@ -71,6 +71,13 @@
       "when": 1785354701416,
       "tag": "0009_attachments-updated-at",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785500966870,
+      "tag": "0010_note-sort",
+      "breakpoints": true
     }
   ]
 }

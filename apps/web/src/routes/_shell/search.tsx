@@ -53,6 +53,8 @@ function SearchView() {
   const hasAny =
     params.q.trim() !== '' || params.type || params.label || params.color || params.collaborator;
 
+  const noteSort = settings?.noteSort ?? 'manual';
+
   // Must be referentially stable, or react-query re-runs the whole search on
   // every render of this view rather than only when the filters change.
   const select = useCallback(
@@ -64,9 +66,9 @@ function SearchView() {
         color: params.color,
         collaboratorId: params.collaborator,
       };
-      return selectSearch(notes, filters);
+      return selectSearch(notes, filters, noteSort);
     },
-    [params.q, params.type, labelId, params.color, params.collaborator],
+    [params.q, params.type, labelId, params.color, params.collaborator, noteSort],
   );
 
   const { data: results } = useQuery({ ...notesQuery, select });

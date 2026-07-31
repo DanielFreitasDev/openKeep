@@ -69,6 +69,71 @@ describe('note selectors', () => {
     expect(selectTrashed(notes).map((n) => n.title)).toEqual(['new-trash', 'old-trash']);
   });
 
+  it('orders by edit and creation date, newest first', () => {
+    const notes = [
+      note({
+        title: 'stale',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+      }),
+      note({
+        title: 'newborn',
+        createdAt: '2026-07-30T00:00:00.000Z',
+        updatedAt: '2026-07-30T00:00:00.000Z',
+      }),
+      note({
+        title: 'revived',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    ];
+    expect(selectMain(notes, 'edited').others.map((n) => n.title)).toEqual([
+      'revived',
+      'newborn',
+      'stale',
+    ]);
+    expect(selectMain(notes, 'created').others.map((n) => n.title)).toEqual([
+      'newborn',
+      'stale',
+      'revived',
+    ]);
+  });
+
+  it('orders by title, ignoring case and accents, with untitled notes last', () => {
+    const notes = [
+      note({ title: 'zebra' }),
+      note({ title: '' }),
+      // Code-point order would drop 'Á' (U+00C1) past every lowercase letter.
+      note({ title: 'Ábaco' }),
+      note({ title: 'apple' }),
+    ];
+    expect(selectMain(notes, 'title').others.map((n) => n.title)).toEqual([
+      'Ábaco',
+      'apple',
+      'zebra',
+      '',
+    ]);
+  });
+
+  it('keeps ties and the default in manual order', () => {
+    const notes = [
+      note({ title: 'second', position: 'a5' }),
+      note({ title: 'first', position: 'a1' }),
+    ];
+    // Same timestamps on both: the fractional position breaks the tie.
+    expect(selectMain(notes, 'edited').others.map((n) => n.title)).toEqual(['first', 'second']);
+    expect(selectMain(notes).others.map((n) => n.title)).toEqual(['first', 'second']);
+  });
+
+  it('sorts the archive by preference too', () => {
+    const notes = [
+      note({ title: 'b', archived: true, position: 'a1' }),
+      note({ title: 'a', archived: true, position: 'a9' }),
+    ];
+    expect(selectArchived(notes, 'title').map((n) => n.title)).toEqual(['a', 'b']);
+    expect(selectArchived(notes).map((n) => n.title)).toEqual(['b', 'a']);
+  });
+
   it('cache ops: upsert, merge, remove are immutable', () => {
     const a = note({ title: 'a' });
     const list = [a];

@@ -30,9 +30,10 @@ function LabelView() {
   // Stable identity: an inline select re-filters the whole corpus on every
   // render instead of only when the label changes.
   const labelId = label?.id;
+  const noteSort = settings?.noteSort ?? 'manual';
   const select = useCallback(
-    (notes: FullNote[]) => (labelId ? selectByLabel(notes, labelId) : EMPTY_SECTIONS),
-    [labelId],
+    (notes: FullNote[]) => (labelId ? selectByLabel(notes, labelId, noteSort) : EMPTY_SECTIONS),
+    [labelId, noteSort],
   );
   const { data: sections } = useQuery({ ...notesQuery, select });
 

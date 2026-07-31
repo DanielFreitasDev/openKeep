@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   reminderAfternoon: '13:00',
   reminderEvening: '18:00',
   timezone: null,
+  noteSort: 'manual',
   viewMode: 'grid',
 };
 

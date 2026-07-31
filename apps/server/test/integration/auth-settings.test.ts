@@ -53,6 +53,7 @@ describe('auth & settings', () => {
       reminderEvening: '18:00',
       timezone: null,
       viewMode: 'grid',
+      noteSort: 'manual',
     });
   });
 
@@ -73,7 +74,12 @@ describe('auth & settings', () => {
       method: 'PATCH',
       url: '/api/settings',
       headers: { cookie },
-      payload: { viewMode: 'list', reminderMorning: '07:30', sharingEnabled: false },
+      payload: {
+        viewMode: 'list',
+        reminderMorning: '07:30',
+        sharingEnabled: false,
+        noteSort: 'title',
+      },
     });
     expect(patch.statusCode).toBe(200);
     expect(patch.json().viewMode).toBe('list');
@@ -83,6 +89,7 @@ describe('auth & settings', () => {
       viewMode: 'list',
       reminderMorning: '07:30',
       sharingEnabled: false,
+      noteSort: 'title',
     });
   });
 
@@ -98,6 +105,18 @@ describe('auth & settings', () => {
     const body = res.json();
     expect(body.code).toBe('validation_failed');
     expect(body.errors[0].path).toContain('reminderMorning');
+  });
+
+  it('rejects a note sort outside the enum before it reaches the check constraint', async () => {
+    const cookie = await t.signUp('erin@example.com', 'Erin');
+    const res = await t.app.inject({
+      method: 'PATCH',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { noteSort: 'by-vibes' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('validation_failed');
   });
 
   it('requires auth for settings', async () => {

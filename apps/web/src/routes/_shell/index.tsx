@@ -1,7 +1,8 @@
 import lightbulbSvg from '@material-symbols/svg-700/outlined/lightbulb.svg?raw';
+import type { FullNote } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
@@ -18,9 +19,13 @@ export const Route = createFileRoute('/_shell/')({
 
 function NotesView() {
   const { t } = useTranslation('notes');
-  const { data: notes, isSuccess } = useQuery({ ...notesQuery, select: selectMain });
   const { data: settings } = useQuery(settingsQuery);
   const viewMode = settings?.viewMode ?? 'grid';
+  const noteSort = settings?.noteSort ?? 'manual';
+
+  // Stable identity, or react-query re-sorts the corpus on every render.
+  const select = useCallback((notes: FullNote[]) => selectMain(notes, noteSort), [noteSort]);
+  const { data: notes, isSuccess } = useQuery({ ...notesQuery, select });
 
   const pinned = notes?.pinned ?? [];
   const others = notes?.others ?? [];
@@ -41,11 +46,19 @@ function NotesView() {
           {pinned.length > 0 && (
             <>
               <SectionHeader label={t('pinnedSection')} />
-              <NotesGrid notes={pinned} viewMode={viewMode} dndSection="pinned" />
+              <NotesGrid
+                notes={pinned}
+                viewMode={viewMode}
+                {...(noteSort === 'manual' && { dndSection: 'pinned' as const })}
+              />
               {others.length > 0 && <SectionHeader label={t('othersSection')} />}
             </>
           )}
-          <NotesGrid notes={others} viewMode={viewMode} dndSection="others" />
+          <NotesGrid
+            notes={others}
+            viewMode={viewMode}
+            {...(noteSort === 'manual' && { dndSection: 'others' as const })}
+          />
         </div>
       )}
     </div>

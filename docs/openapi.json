@@ -219,6 +219,15 @@
                         "grid",
                         "list"
                       ]
+                    },
+                    "noteSort": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "edited",
+                        "created",
+                        "title"
+                      ]
                     }
                   },
                   "required": [
@@ -230,7 +239,8 @@
                     "reminderAfternoon",
                     "reminderEvening",
                     "timezone",
-                    "viewMode"
+                    "viewMode",
+                    "noteSort"
                   ],
                   "additionalProperties": false
                 }
@@ -284,6 +294,15 @@
                       "grid",
                       "list"
                     ]
+                  },
+                  "noteSort": {
+                    "type": "string",
+                    "enum": [
+                      "manual",
+                      "edited",
+                      "created",
+                      "title"
+                    ]
                   }
                 }
               }
@@ -332,6 +351,15 @@
                         "grid",
                         "list"
                       ]
+                    },
+                    "noteSort": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "edited",
+                        "created",
+                        "title"
+                      ]
                     }
                   },
                   "required": [
@@ -343,7 +371,8 @@
                     "reminderAfternoon",
                     "reminderEvening",
                     "timezone",
-                    "viewMode"
+                    "viewMode",
+                    "noteSort"
                   ],
                   "additionalProperties": false
                 }

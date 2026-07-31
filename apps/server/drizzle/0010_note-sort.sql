@@ -1,0 +1,2 @@
+ALTER TABLE "user_settings" ADD COLUMN "note_sort" text DEFAULT 'manual' NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_note_sort_check" CHECK ("user_settings"."note_sort" in ('manual', 'edited', 'created', 'title'));

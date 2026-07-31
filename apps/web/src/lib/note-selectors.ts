@@ -1,4 +1,4 @@
-import type { Collaborator, FullNote } from '@openkeep/shared';
+import type { Collaborator, FullNote, NoteSort } from '@openkeep/shared';
 import { comparePositions } from '@openkeep/shared';
 
 export interface MainSections {
@@ -8,25 +8,60 @@ export interface MainSections {
 
 const byPosition = (a: FullNote, b: FullNote) => comparePositions(a, b);
 
+/** ISO-8601 UTC compares lexicographically, so newest-first is a plain reverse. */
+const byNewest = (key: 'updatedAt' | 'createdAt') => (a: FullNote, b: FullNote) =>
+  b[key].localeCompare(a[key]) || byPosition(a, b);
+
+/**
+ * Untitled notes have no place in an alphabet, so they fall to the end in
+ * manual order rather than crowding the top as a block of empty strings.
+ */
+const byTitle = (a: FullNote, b: FullNote) => {
+  if ((a.title === '') !== (b.title === '')) return a.title === '' ? 1 : -1;
+  return (
+    a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }) ||
+    byPosition(a, b)
+  );
+};
+
+/**
+ * The comparator behind every grid. `manual` is the fractional position — the
+ * only order that is stored, and the only one drag-and-drop can rewrite; the
+ * others are views over the same corpus, so switching back is lossless.
+ */
+export function noteComparator(sort: NoteSort = 'manual'): (a: FullNote, b: FullNote) => number {
+  switch (sort) {
+    case 'edited':
+      return byNewest('updatedAt');
+    case 'created':
+      return byNewest('createdAt');
+    case 'title':
+      return byTitle;
+    default:
+      return byPosition;
+  }
+}
+
 /** Main view: non-archived, non-trashed, split into PINNED / OTHERS. */
-export function selectMain(notes: FullNote[]): MainSections {
+export function selectMain(notes: FullNote[], sort?: NoteSort): MainSections {
+  const cmp = noteComparator(sort);
   const pinned: FullNote[] = [];
   const others: FullNote[] = [];
   for (const n of notes) {
     if (n.trashedAt !== null || n.archived) continue;
     (n.pinned ? pinned : others).push(n);
   }
-  pinned.sort(byPosition);
-  others.sort(byPosition);
+  pinned.sort(cmp);
+  others.sort(cmp);
   return { pinned, others };
 }
 
 /** Archive view: archived, non-trashed, flat. */
-export function selectArchived(notes: FullNote[]): FullNote[] {
-  return notes.filter((n) => n.trashedAt === null && n.archived).sort(byPosition);
+export function selectArchived(notes: FullNote[], sort?: NoteSort): FullNote[] {
+  return notes.filter((n) => n.trashedAt === null && n.archived).sort(noteComparator(sort));
 }
 
-/** Trash view: most recently trashed first. */
+/** Trash view: most recently trashed first (its own order — the sort preference does not apply). */
 export function selectTrashed(notes: FullNote[]): FullNote[] {
   return notes
     .filter((n) => n.trashedAt !== null && n.role === 'owner')
@@ -37,7 +72,7 @@ export function selectById(notes: FullNote[], id: string): FullNote | undefined 
   return notes.find((n) => n.id === id);
 }
 
-/** Reminders view: notes with my reminder, upcoming first (done last). */
+/** Reminders view: notes with my reminder, upcoming first (done last) — likewise unsorted by preference. */
 export function selectReminders(notes: FullNote[]): FullNote[] {
   return notes
     .filter((n) => n.trashedAt === null && n.reminder !== null)
@@ -50,8 +85,11 @@ export function selectReminders(notes: FullNote[]): FullNote[] {
 }
 
 /** Label view: non-trashed notes carrying the label, pinned split like main. */
-export function selectByLabel(notes: FullNote[], labelId: string): MainSections {
-  return selectMain(notes.filter((n) => n.labelIds.includes(labelId)));
+export function selectByLabel(notes: FullNote[], labelId: string, sort?: NoteSort): MainSections {
+  return selectMain(
+    notes.filter((n) => n.labelIds.includes(labelId)),
+    sort,
+  );
 }
 
 /**
@@ -150,7 +188,7 @@ export interface SearchResults {
 }
 
 /** Instant client-side search over the corpus (Keep behavior). */
-export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults {
+export function selectSearch(notes: FullNote[], f: SearchFilters, sort?: NoteSort): SearchResults {
   const hasAny = f.q.trim() !== '' || f.type || f.labelId || f.color || f.collaboratorId;
   if (!hasAny) return { active: [], archived: [] };
 
@@ -172,9 +210,10 @@ export function selectSearch(notes: FullNote[], f: SearchFilters): SearchResults
     return matchesWords(n, words);
   });
 
+  const cmp = noteComparator(sort);
   return {
-    active: matched.filter((n) => !n.archived).sort(byPosition),
-    archived: matched.filter((n) => n.archived).sort(byPosition),
+    active: matched.filter((n) => !n.archived).sort(cmp),
+    archived: matched.filter((n) => n.archived).sort(cmp),
   };
 }
 

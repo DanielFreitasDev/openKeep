@@ -17,6 +17,7 @@ function toDto(row: SettingsRow): UserSettings {
     reminderEvening: row.reminderEvening,
     timezone: row.timezone,
     viewMode: row.viewMode as UserSettings['viewMode'],
+    noteSort: row.noteSort as UserSettings['noteSort'],
   };
 }
 

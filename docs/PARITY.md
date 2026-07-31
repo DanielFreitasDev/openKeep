@@ -52,6 +52,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
 | Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ 🔀 hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy/remind/labels (tri-state) — plus bulk collaborator, which Keep has no bulk form of | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
+| Sort the grid | Keep has manual order only | ✅ 🔀 "Sort notes" in the top bar: manual (default) · date edited · date created · title, roaming via `settings.noteSort`. Client-side over the corpus in Notes/Archive/label/search — Trash and Reminders keep their own order — and no sort writes a position, so drag is disabled off manual and switching back restores the arrangement | post-1.0 |
 | Responsive: drawer sidebar, 1-col ≤600px | ✓ | ✅ 🔀 phones now mirror the Keep Android app instead (DECISIONS #23) | M8 |
 | Mobile (<768px): search-pill bar, 2-up grid, create FAB, full-screen editor + bottom sheets, long-press select, full-height drawer w/ Settings | Keep web has none (Android app UX) | ✅ 🔀 CSS-breakpoint layer over the same DOM; untouched FAB notes discarded on close; e2e `mobile.spec.ts` | post-1.0 |
 | PWA installable + cached reads | Keep has none | ✅ 🔀 Workbox precache + NetworkFirst API + update prompt; push in same SW | M8 |
