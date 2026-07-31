@@ -12,6 +12,7 @@ import type { Auth } from './auth/auth.js';
 import type { Config } from './config.js';
 import type { Db } from './db/client.js';
 import { buildLogger } from './lib/logger.js';
+import { createMetrics } from './lib/metrics.js';
 import type { Storage } from './lib/storage.js';
 import { registerApiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerAttachmentRoutes } from './modules/attachments/routes.js';
@@ -27,6 +28,7 @@ import { registerSharingRoutes } from './modules/sharing/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerMcp } from './plugins/mcp.js';
+import { registerMetrics } from './plugins/metrics.js';
 import { registerApiCsp, registerOriginCheck } from './plugins/security.js';
 import { findWebDist, registerSpa, spaFallback } from './plugins/static.js';
 import { registerSwagger } from './plugins/swagger.js';
@@ -71,9 +73,14 @@ export async function buildApp(config: Config, deps: AppDeps) {
 
   registerOriginCheck(app, config);
   registerApiCsp(app);
+  // Before the routes it measures: the onResponse hook must be in place when
+  // the first request lands.
+  const metrics = config.METRICS_ENABLED ? createMetrics() : undefined;
   await app.register(rateLimit, { global: false });
   const realtime = deps.realtime ?? new Realtime();
   app.decorate('realtime', realtime);
+  app.decorate('metrics', metrics);
+  if (metrics) registerMetrics(app, config, metrics, () => realtime.connectionCount());
   await registerWs(app, config, deps.auth, realtime);
   await registerSwagger(app, config.isDev);
   await registerAuth(app, config, deps.auth, deps.db);

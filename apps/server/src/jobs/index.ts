@@ -4,6 +4,8 @@ import { PgBoss } from 'pg-boss';
 import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
 import { userJobs } from '../db/schema/jobs.js';
+import type { Metrics } from '../lib/metrics.js';
+import { trackJob } from '../lib/metrics.js';
 import type { Storage } from '../lib/storage.js';
 import {
   cleanupExpiredExports,
@@ -113,7 +115,10 @@ export async function startJobs(
   log: FastifyBaseLogger,
   storage?: Storage,
   realtime?: Realtime,
+  metrics?: Metrics,
 ): Promise<PgBoss> {
+  /** Every worker body runs through here, so a queue is never counted twice. */
+  const work = <T>(queue: string, body: () => Promise<T>) => trackJob(metrics, queue, body);
   const boss = new PgBoss({
     db: {
       executeSql: (text, values) =>
@@ -126,61 +131,69 @@ export async function startJobs(
 
   await boss.createQueue('purge-trash');
   await boss.schedule('purge-trash', '0 * * * *');
-  await boss.work('purge-trash', async () => {
-    const purged = await purgeExpiredTrash(db, new Date(), storage, config.TRASH_RETENTION_DAYS);
-    if (purged > 0) log.info({ purged }, 'purged expired trash');
-  });
+  await boss.work('purge-trash', async () =>
+    work('purge-trash', async () => {
+      const purged = await purgeExpiredTrash(db, new Date(), storage, config.TRASH_RETENTION_DAYS);
+      if (purged > 0) log.info({ purged }, 'purged expired trash');
+    }),
+  );
 
   const pushEnabled = configureWebPush(config);
   await boss.createQueue('fire-reminders');
   await boss.schedule('fire-reminders', '* * * * *');
-  await boss.work('fire-reminders', async () => {
-    const fired = await fireDueReminders(db);
-    if (fired.length > 0) {
-      log.info({ count: fired.length }, 'reminders fired');
-      for (const f of fired) {
-        realtime?.publishToUsers([f.userId], {
-          type: 'reminder.fired',
-          payload: { noteId: f.noteId, title: f.noteTitle, remindAt: f.remindAt.toISOString() },
-        });
+  await boss.work('fire-reminders', async () =>
+    work('fire-reminders', async () => {
+      const fired = await fireDueReminders(db);
+      if (fired.length > 0) {
+        log.info({ count: fired.length }, 'reminders fired');
+        for (const f of fired) {
+          realtime?.publishToUsers([f.userId], {
+            type: 'reminder.fired',
+            payload: { noteId: f.noteId, title: f.noteTitle, remindAt: f.remindAt.toISOString() },
+          });
+        }
+        if (pushEnabled) await pushFiredReminders(db, fired);
       }
-      if (pushEnabled) await pushFiredReminders(db, fired);
-    }
-  });
+    }),
+  );
 
   await boss.createQueue('link-preview-fetch');
   await boss.work<{ url: string; requestedBy?: string }>('link-preview-fetch', async ([job]) => {
     if (!job) return;
-    await linkPreviewFetchJob(db, job.data, realtime);
+    await work('link-preview-fetch', () => linkPreviewFetchJob(db, job.data, realtime));
   });
 
   if (storage) {
     await boss.createQueue('import-takeout');
     await boss.work<{ jobId: string }>('import-takeout', async ([job]) => {
       if (!job) return;
-      await importTakeoutJob(db, storage, job.data.jobId, realtime);
+      await work('import-takeout', () => importTakeoutJob(db, storage, job.data.jobId, realtime));
     });
 
     await boss.createQueue('export-user-data');
     await boss.work<{ jobId: string }>('export-user-data', async ([job]) => {
       if (!job) return;
-      await exportUserDataJob(db, storage, job.data.jobId, realtime);
+      await work('export-user-data', () =>
+        exportUserDataJob(db, storage, job.data.jobId, realtime),
+      );
     });
 
     await boss.createQueue('cleanup-storage');
     await boss.schedule('cleanup-storage', '30 3 * * *');
-    await boss.work('cleanup-storage', async () => {
-      const exportsRemoved = await cleanupExpiredExports(db, storage);
-      const staleImports = await cleanupStaleImports(db, storage);
-      const previewsRemoved = await pruneExpiredPreviews(db);
-      const orphansRemoved = await reconcileStorage(db, storage);
-      if (exportsRemoved + staleImports + previewsRemoved + orphansRemoved > 0) {
-        log.info(
-          { exportsRemoved, staleImports, previewsRemoved, orphansRemoved },
-          'storage cleanup',
-        );
-      }
-    });
+    await boss.work('cleanup-storage', async () =>
+      work('cleanup-storage', async () => {
+        const exportsRemoved = await cleanupExpiredExports(db, storage);
+        const staleImports = await cleanupStaleImports(db, storage);
+        const previewsRemoved = await pruneExpiredPreviews(db);
+        const orphansRemoved = await reconcileStorage(db, storage);
+        if (exportsRemoved + staleImports + previewsRemoved + orphansRemoved > 0) {
+          log.info(
+            { exportsRemoved, staleImports, previewsRemoved, orphansRemoved },
+            'storage cleanup',
+          );
+        }
+      }),
+    );
   }
 
   return boss;

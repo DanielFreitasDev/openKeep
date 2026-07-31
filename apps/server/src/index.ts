@@ -49,7 +49,7 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
-  boss = await startJobs(config, pool, db, app.log, storage, realtime);
+  boss = await startJobs(config, pool, db, app.log, storage, realtime, app.metrics);
   enqueueLinkPreview = async (url, requestedBy) => {
     const { urlHashOf, normalizeUrl } = await import('./modules/link-preview/service.js');
     await boss?.send(

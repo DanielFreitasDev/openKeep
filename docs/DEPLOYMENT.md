@@ -68,6 +68,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `SMTP_URL`, `SMTP_FROM` | Password-reset emails |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web-push reminders (`pnpm --filter @openkeep/server gen:vapid`) |
 | `TRASH_RETENTION_DAYS` | How long trashed notes survive the hourly purge (default `7`, Keep parity). The Trash banner states whatever you set. |
+| `METRICS_ENABLED`, `METRICS_TOKEN` | Prometheus metrics at `GET /metrics` (see below) |
 
 ## MCP / AI clients
 
@@ -80,6 +81,7 @@ The MCP endpoint ships in the same container — nothing extra to deploy or conf
 - **Jobs** (in-process pg-boss): reminder firing (per-minute), trash purge (hourly), storage cleanup (daily), link-preview fetches, imports/exports.
 - **Backups**: `pg_dump` the database + snapshot the `openkeep-storage` volume (attachments, pending exports). Restore both, start the app.
 - **Logs**: structured JSON on stdout (pino). Note content never appears above debug level.
+- **Metrics** (opt-in): `METRICS_ENABLED=true` serves the Prometheus text format at `GET /metrics` — HTTP requests and latency by route *template*, pg-boss runs and duration by queue, open WebSocket connections, plus the standard `process_*`/`nodejs_*` gauges. Left off, the route does not exist (404). It carries no note content, but it does describe the instance: set `METRICS_TOKEN` (≥16 chars) to require `Authorization: Bearer <token>`, or keep the path off your public listener. The endpoint sits at the root, not under `/api` — no session, no PAT, not in the OpenAPI spec.
 
 ## Security posture
 

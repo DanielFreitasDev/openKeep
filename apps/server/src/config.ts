@@ -25,6 +25,8 @@ const EnvSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true'),
+  /** Bearer token for `GET /metrics`; unset leaves the endpoint unauthenticated. */
+  METRICS_TOKEN: z.string().min(16, 'METRICS_TOKEN must be at least 16 characters').optional(),
   /** Days a trashed note survives. Keep's 7 by default; capped so the banner stays truthful. */
   TRASH_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(LIMITS.trashRetentionDays),
 });

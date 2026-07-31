@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (ordenação alternativa das notas; imprimir / salvar como PDF;
+> Última atualização: **2026-07-31** (roving tabindex + setas no grid, `/metrics`; ordenação
+> alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
 > A, B e C — o vocabulário da nota agora é o do markdown, com
@@ -105,10 +106,14 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   (DECISIONS #22) e re-enfileirar o upload no replay (FormData não serializa — guardar blob +
   metadados e reconstruir).
 
-- [ ] **Virtualização do grid acima de ~400 cards/seção** *(impacto médio · esforço G)*
+- [x] **Virtualização do grid acima de ~400 cards/seção** *(impacto médio · esforço G)* — feito em 2026-07-31
   Hoje todo card renderiza (teto prático ~5k notas, ver ARCHITECTURE.md). O motor de masonry já
   é posicionamento absoluto → janela de renderização por faixa de scroll é encaixável sem trocar
   o layout. Cuidado com FLIP animations e âncora de scroll.
+  **Entregue:** já estava no código desde o commit `934b50e` ("render only the notes near the
+  viewport") — o item ficou por marcar. A janela liga a partir de 60 notas por seção, cobre o
+  viewport ± 900px e segue o scroll em passos de 300px; todo card continua tendo um *rect* na
+  layout, então masonry, preview de arrasto e altura de rolagem não sabem quem está montado.
 
 - [x] **Heartbeat de WebSocket no cliente** *(impacto baixo · esforço P)* — feito em 2026-07-30
   O servidor pinga a cada 30s; o cliente confia em reconexão por visibilidade/online. Adicionar
@@ -118,9 +123,23 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   caindo no backoff normal. O handler de `visibilitychange` também derruba socket obsoleto (caso
   do notebook acordando, em que os timers ficaram congelados).
 
-- [ ] **Roving tabindex no grid** *(impacto baixo · esforço P/M)*
+- [x] **Roving tabindex no grid** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   Todos os cards são tab stops (`tabIndex=0`). Implementar roving: um tab stop por grid, setas/j/k
   movem o foco ativo — melhora Tab-navigation com centenas de notas.
+  **Entregue:** cada grade expõe **um** tab stop (a nota focada quando é dela, senão a primeira),
+  então Tab atravessa o quadro em vez de percorrer N cards — com a seção fixada na tela são dois,
+  um por grade. As setas são do próprio card (`onKeyDown`), não do gerenciador de atalhos: o
+  gerenciador dá `preventDefault` em tudo que casa, e sequestrar as setas globalmente tiraria do
+  usuário a rolagem da página quando nenhum card tem foco.
+  **O detalhe que decide o desenho:** masonry não tem linhas — duas colunas vizinhas quase nunca
+  compartilham um `y` —, então "o card de baixo" não é um passo de índice. A direção sai da
+  geometria (`components/grid/focus.ts`, puro e testado): vence o card mais próximo que
+  **sobrepõe** o atual no eixo perpendicular. Cima/baixo ficam presos à coluna, sem exceção
+  (colunas terminam em alturas diferentes; pular de lado no fim de uma levaria o foco para onde o
+  olho não estava), enquanto esquerda/direita caem no card mais próximo do semiplano quando nada
+  está no mesmo nível — senão o escalonamento poderia isolar uma coluna. j/k continuam sendo a
+  ordem de leitura. Adotar o foco exige `:focus-visible`: sem isso, todo editor fechado devolveria
+  o card com o anel de foco aceso para quem usa mouse.
 
 - [x] **Auth do WS durante o handshake** *(impacto baixo · esforço P/M)* — feito em 2026-07-30
   Hoje o cookie de sessão é checado logo após o upgrade (fecha 4401 antes de registrar). Mover a
@@ -139,10 +158,22 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   `onSend` que decide pelo content-type (`application/json` e `application/problem+json`), então
   Swagger UI, SPA e downloads de anexo mantêm os cabeçalhos deles.
 
-- [ ] **Endpoint `/metrics` (+ Sentry opcional)** *(impacto baixo · esforço P/M)*
+- [x] **Endpoint `/metrics`** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   `METRICS_ENABLED` já é validado na config mas a rota não existe. Expor Prometheus
   (contadores HTTP, jobs pg-boss, sockets ativos) atrás de auth/bind interno; avaliar Sentry
   como opt-in por env.
+  **Entregue:** `GET /metrics` no formato texto do Prometheus, **fora do `/api`** de propósito —
+  não é a API JSON (sem sessão, sem PAT, fora do OpenAPI) e scrapers esperam na raiz. Desligado, a
+  rota não existe (404), não é um 401. Expõe requisições e latência por *template* de rota
+  (`/api/notes/:id` é uma série; por id seria uma bomba de cardinalidade, e requisição sem rota cai
+  em `unmatched`), execuções e duração dos jobs pg-boss por fila, sockets abertos e as métricas
+  padrão do Node. O registro é **por instância**, não o global do prom-client: a suíte de
+  integração levanta um app por teste e registrar o mesmo nome duas vezes num registro
+  compartilhado lança. Auth é escolha do deploy: com `METRICS_TOKEN` exige `Bearer` (comparação em
+  tempo constante), sem ele fica aberto e a rota deve ficar fora do listener público — está em
+  DEPLOYMENT.md e no `.env.example`. O gauge de sockets é amostrado no scrape, porque um par de
+  contadores desanda no primeiro socket que morre sem frame de close. Sentry segue fora (adiado, e
+  a linha do PARITY.md agora fala só dele).
 
 - [x] **Aviso de `sharees` no import do Takeout** *(impacto baixo · esforço P)* — feito em 2026-07-30
   Notas importadas nunca são recompartilhadas e nada avisa. Ao final do job, listar no relatório
@@ -587,12 +618,14 @@ O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada 
    marca TipTap suportada de ponta a ponta desde a fase C.
 4. **Link público somente leitura** (3.3).
 5. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
-6. **Resto dos quick wins de 1.2**: roving tabindex, `/metrics`. O que sobrou da rodada.
-7. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
+6. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
 
+A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
+do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
+
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
-DECISIONS antes), virtualização do grid.
+DECISIONS antes).
 
 ---
 

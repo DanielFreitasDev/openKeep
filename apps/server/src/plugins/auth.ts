@@ -15,6 +15,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     requireAuth: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     realtime: import('../realtime/registry.js').Realtime;
+    /** Undefined unless METRICS_ENABLED — the jobs runner shares this one. */
+    metrics: import('../lib/metrics.js').Metrics | undefined;
   }
 }
 
