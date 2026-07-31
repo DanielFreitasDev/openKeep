@@ -1,4 +1,5 @@
-import type { Label } from '@openkeep/shared';
+import type { Label, PatchLabel } from '@openkeep/shared';
+import { positionBetween } from '@openkeep/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../lib/api.js';
 import {
@@ -6,8 +7,8 @@ import {
   createLabelApi,
   deleteLabelApi,
   labelsQuery,
+  patchLabelApi,
   removeLabelFromNoteApi,
-  renameLabelApi,
 } from '../lib/labels-api.js';
 import { mergeNote } from '../lib/note-selectors.js';
 import { notesQuery } from '../lib/notes-api.js';
@@ -30,21 +31,48 @@ export function useLabelMutations() {
     void queryClient.invalidateQueries({ queryKey: labelsQuery.queryKey });
   };
 
-  const sortByName = (l: Label[]) =>
-    [...l].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  /** The server's order: manual position first, name only as the tiebreak. */
+  const sorted = (l: Label[]) =>
+    [...l].sort(
+      (a, b) =>
+        (a.position < b.position ? -1 : a.position > b.position ? 1 : 0) ||
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+    );
 
   const create = useMutation({
     mutationFn: (name: string) => createLabelApi(name),
-    onSuccess: (label) => setLabels((old) => sortByName([...(old ?? []), label])),
+    onSuccess: (label) => setLabels((old) => sorted([...(old ?? []), label])),
     onError: onLabelError,
   });
 
-  const rename = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => renameLabelApi(id, name),
-    onMutate: ({ id, name }) =>
-      setLabels((old) => sortByName((old ?? []).map((l) => (l.id === id ? { ...l, name } : l)))),
+  /** Rename / colour / emoji / position — one optimistic PATCH. */
+  const patch = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: PatchLabel }) => patchLabelApi(id, patch),
+    onMutate: ({ id, patch }) =>
+      setLabels((old) => sorted((old ?? []).map((l) => (l.id === id ? { ...l, ...patch } : l)))),
     onError: onLabelError,
   });
+
+  const rename = {
+    mutate: ({ id, name }: { id: string; name: string }) => patch.mutate({ id, patch: { name } }),
+  };
+
+  /**
+   * Drop `id` at `toIndex` of the CURRENT order. The position is computed from
+   * the neighbours it lands between, so only the moved row is written.
+   */
+  const reorder = (id: string, toIndex: number) => {
+    const current = sorted(queryClient.getQueryData(labelsQuery.queryKey) ?? []);
+    const without = current.filter((l) => l.id !== id);
+    const clamped = Math.max(0, Math.min(without.length, toIndex));
+    const prev = without[clamped - 1]?.position ?? null;
+    const next = without[clamped]?.position ?? null;
+    // Already sitting in that gap: a drop that moved nothing writes nothing.
+    const me = current.find((l) => l.id === id);
+    if (me && (prev === null || me.position > prev) && (next === null || me.position < next))
+      return;
+    patch.mutate({ id, patch: { position: positionBetween(prev, next) } });
+  };
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteLabelApi(id),
@@ -74,5 +102,5 @@ export function useLabelMutations() {
     },
   });
 
-  return { create, rename, remove, setNoteLabel };
+  return { create, patch, rename, reorder, remove, setNoteLabel };
 }

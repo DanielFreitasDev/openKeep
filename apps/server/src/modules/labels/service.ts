@@ -1,6 +1,6 @@
-import type { Label } from '@openkeep/shared';
-import { LIMITS } from '@openkeep/shared';
-import { and, asc, count, eq, sql } from 'drizzle-orm';
+import type { Label, PatchLabel } from '@openkeep/shared';
+import { LIMITS, positionAfter } from '@openkeep/shared';
+import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { labels, noteLabels } from '../../db/schema/labels.js';
 import { AppError, errors } from '../../lib/errors.js';
@@ -9,7 +9,14 @@ import { assertNoteAccess } from '../notes/access.js';
 type LabelRow = typeof labels.$inferSelect;
 
 function toDto(row: LabelRow): Label {
-  return { id: row.id, name: row.name, createdAt: row.createdAt.toISOString() };
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color as Label['color'],
+    emoji: row.emoji,
+    position: row.position,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -21,12 +28,17 @@ function isUniqueViolation(err: unknown): boolean {
   return false;
 }
 
+/**
+ * Manual order, name as tiebreak. Before this column existed the order WAS the
+ * name, and the migration froze that arrangement into positions — so an
+ * account that never drags a label sees exactly what it saw before.
+ */
 export async function listLabels(db: Db, userId: string): Promise<Label[]> {
   const rows = await db
     .select()
     .from(labels)
     .where(eq(labels.userId, userId))
-    .orderBy(asc(sql`lower(${labels.name})`));
+    .orderBy(asc(labels.position), asc(sql`lower(${labels.name})`));
   return rows.map(toDto);
 }
 
@@ -36,8 +48,19 @@ export async function createLabel(db: Db, userId: string, name: string): Promise
     if ((row?.n ?? 0) >= LIMITS.labelsPerUserMax) {
       throw errors.labelLimitReached();
     }
+    // New labels land at the bottom of the manual order rather than jumping
+    // into the middle alphabetically.
+    const [last] = await tx
+      .select({ position: labels.position })
+      .from(labels)
+      .where(eq(labels.userId, userId))
+      .orderBy(desc(labels.position))
+      .limit(1);
     try {
-      const [created] = await tx.insert(labels).values({ userId, name }).returning();
+      const [created] = await tx
+        .insert(labels)
+        .values({ userId, name, position: positionAfter(last?.position ?? null) })
+        .returning();
       return toDto(created!);
     } catch (err) {
       if (isUniqueViolation(err)) {
@@ -48,16 +71,17 @@ export async function createLabel(db: Db, userId: string, name: string): Promise
   });
 }
 
-export async function renameLabel(
+export async function patchLabel(
   db: Db,
   userId: string,
   labelId: string,
-  name: string,
+  patch: PatchLabel,
 ): Promise<Label> {
+  if (Object.keys(patch).length === 0) throw errors.badRequest('Nothing to update');
   try {
     const [updated] = await db
       .update(labels)
-      .set({ name })
+      .set(patch)
       .where(and(eq(labels.id, labelId), eq(labels.userId, userId)))
       .returning();
     if (!updated) throw errors.notFound();

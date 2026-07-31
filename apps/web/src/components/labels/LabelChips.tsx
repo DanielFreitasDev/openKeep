@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { Icon } from '../Icon.js';
+import { LabelDot } from './LabelStyleMenu.js';
 
 /**
  * Label chips. On cards: up to `max`, then a "+N" chip; click navigates to the
@@ -35,8 +36,15 @@ export function LabelChips({
       {shown.map((label) => (
         <span
           key={label.id}
-          className="group/chip relative inline-flex h-6 max-w-40 items-center rounded-full bg-(--surface-hover) px-2.5 font-medium text-[0.6875rem] text-on-surface-variant"
+          // A coloured label tints its own chip; 'default' keeps the neutral
+          // surface, so an account that never picks colours looks unchanged.
+          className="group/chip relative inline-flex h-6 max-w-40 items-center gap-1 rounded-full px-2.5 font-medium text-[0.6875rem] text-on-surface-variant"
+          style={{
+            background:
+              label.color === 'default' ? 'var(--surface-hover)' : `var(--note-${label.color})`,
+          }}
         >
+          {label.emoji && <LabelDot label={label} size={14} />}
           <button
             type="button"
             className="truncate"

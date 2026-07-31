@@ -18,7 +18,7 @@ import type {
   UserSettings,
   UserSettingsPatch,
 } from '@openkeep/shared';
-import { htmlToPlainText, plainTextToHtml } from '@openkeep/shared';
+import { htmlToPlainText, plainTextToHtml, positionAfter } from '@openkeep/shared';
 import { OpenKeepApiError } from '../client/errors.js';
 import type {
   CreateItemInput,
@@ -325,7 +325,9 @@ export class FakeOpenKeepClient implements OpenKeepClient {
   // ---------------------------------------------------------------- labels
 
   async listLabels(): Promise<Label[]> {
-    return [...this.labels.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return [...this.labels.values()].sort(
+      (a, b) => a.position.localeCompare(b.position) || a.name.localeCompare(b.name),
+    );
   }
 
   async createLabel(name: string): Promise<Label> {
@@ -335,7 +337,19 @@ export class FakeOpenKeepClient implements OpenKeepClient {
         throw apiError(409, 'label_exists', 'Label already exists');
       }
     }
-    const label: Label = { id: randomUUID(), name, createdAt: new Date().toISOString() };
+    const label: Label = {
+      id: randomUUID(),
+      name,
+      color: 'default',
+      emoji: null,
+      position: positionAfter(
+        [...this.labels.values()]
+          .map((l) => l.position)
+          .sort()
+          .at(-1) ?? null,
+      ),
+      createdAt: new Date().toISOString(),
+    };
     this.labels.set(label.id, label);
     return label;
   }

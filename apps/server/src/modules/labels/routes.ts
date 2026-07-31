@@ -1,4 +1,4 @@
-import { zCreateLabel, zId, zLabel, zRenameLabel } from '@openkeep/shared';
+import { zCreateLabel, zId, zLabel, zPatchLabel } from '@openkeep/shared';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { App } from '../../app.js';
@@ -50,14 +50,16 @@ export function registerLabelRoutes(app: App, db: Db, realtime: Realtime): void 
       schema: {
         tags: ['labels'],
         params: zLabelParams,
-        body: zRenameLabel,
+        body: zPatchLabel,
         response: { 200: zLabel },
       },
     },
     async (req) => {
-      const label = await svc.renameLabel(db, req.user.id, req.params.id, req.body.name);
+      const label = await svc.patchLabel(db, req.user.id, req.params.id, req.body);
       realtime.publishToUsers(
         [req.user.id],
+        // Still `label.renamed`: to every client this is "a label changed",
+        // and the payload is the whole label either way.
         { type: 'label.renamed', payload: { label } },
         originOf(req),
       );

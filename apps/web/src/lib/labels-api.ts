@@ -1,4 +1,4 @@
-import type { Label } from '@openkeep/shared';
+import type { Label, PatchLabel } from '@openkeep/shared';
 import { queryOptions } from '@tanstack/react-query';
 import { api } from './api.js';
 
@@ -11,8 +11,9 @@ export const labelsQuery = queryOptions({
 export const createLabelApi = (name: string) =>
   api<Label>('/api/labels', { method: 'POST', body: { name } });
 
-export const renameLabelApi = (id: string, name: string) =>
-  api<Label>(`/api/labels/${id}`, { method: 'PATCH', body: { name } });
+/** Rename, recolour, re-emoji and reorder all ride the same PATCH. */
+export const patchLabelApi = (id: string, patch: PatchLabel) =>
+  api<Label>(`/api/labels/${id}`, { method: 'PATCH', body: patch });
 
 export const deleteLabelApi = (id: string) =>
   api<undefined>(`/api/labels/${id}`, { method: 'DELETE' });

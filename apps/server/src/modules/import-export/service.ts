@@ -266,9 +266,20 @@ async function attachLabels(
         .from(labelsTable)
         .where(eq(labelsTable.userId, userId));
       if ((countRow?.n ?? 0) >= LIMITS.labelsPerUserMax) continue;
+      // Imported labels append to the manual order, like hand-made ones.
+      const [last] = await tx
+        .select({ position: labelsTable.position })
+        .from(labelsTable)
+        .where(eq(labelsTable.userId, userId))
+        .orderBy(desc(labelsTable.position))
+        .limit(1);
       const [created] = await tx
         .insert(labelsTable)
-        .values({ userId, name: labelName.slice(0, LIMITS.labelNameMax) })
+        .values({
+          userId,
+          name: labelName.slice(0, LIMITS.labelNameMax),
+          position: positionAfter(last?.position ?? null),
+        })
         .onConflictDoNothing()
         .returning();
       labelId = created?.id;

@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -372,9 +372,29 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   recolher, rota `/label/pai/filho`, filtro incluindo descendentes. Manter cap (50) e unicidade
   case-insensitive por nível. Labels continuam sendo a base — "pasta" é só label com filhos.
 
-- [ ] **Cor/emoji e ordem manual nos labels** *(impacto médio · esforço P/M)*
+- [x] **Cor/emoji e ordem manual nos labels** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   Cor ou emoji por label (chip e sidebar) + reordenar por arrasto no sidebar em vez de ordem
   alfabética fixa. Reusar `fractional-indexing` (DECISIONS #12).
+  **Entregue:** três colunas em `labels` (`color`, `emoji`, `position`) e um `PATCH /api/labels/:id`
+  só — renomear, colorir, dar emoji e reordenar são o mesmo verbo, cada campo opcional. A cor é do
+  **mesmo palette das notas** (`NOTE_COLORS` + os tokens `--note-*` que já existem), então marcador
+  colorido não inventa uma segunda linguagem de cor: o chip se pinta e o sidebar troca o ícone
+  genérico de etiqueta pela marca do próprio marcador (emoji quando tem, senão a bolinha da cor).
+  O emoji é decorativo — `aria-hidden`, porque o nome está ao lado — e vem de uma lista curta mais
+  um campo livre: um seletor de emoji completo é um megabyte de dados para um enfeite.
+  **A migração é a parte que exige cuidado:** `position` é `NOT NULL` e a tabela já tem linhas, então
+  ela entra nula, é preenchida com `row_number()` **na ordem alfabética atual** (congelando o que a
+  conta já vê, em chaves `a0…az` do alfabeto base62 do `fractional-indexing`, que cobre o teto de 50)
+  e só depois vira `NOT NULL`. Quem nunca arrastar nada não percebe diferença; marcador novo entra
+  no fim, não no meio do alfabeto.
+  **Onde o arrasto ficou:** no diálogo "Editar marcadores", não no sidebar. No sidebar cada marcador
+  é um `Link` de navegação que também vira ícone na régua colapsada e item do drawer no mobile —
+  arrastar ali disputa com o clique que navega. O diálogo já é a tela de gerência, tem linhas
+  estáveis e ganhou alça de arrasto própria; o sidebar reflete a ordem escolhida. As setas ↑/↓ na
+  alça movem uma casa (o arrasto sozinho não é acessível) e é esse o caminho que o e2e exercita.
+  Só a linha movida é escrita — uma posição fracionária —, e soltar de volta no mesmo intervalo não
+  escreve nada. O MCP continua com `rename_label` só de nome: cor e ordem são decisão visual, e
+  nenhuma tool ficou devendo comportamento existente.
 
 - [x] **Ordenação alternativa das notas** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   O Keep só tem ordem manual. Adicionar seletor por visão: manual (padrão) · data de edição ·

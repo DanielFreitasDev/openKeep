@@ -123,3 +123,53 @@ test('# in the note body opens the label picker and assigns', async ({ page }) =
     cardRootByTitle(page, 'Hashtag note').getByRole('button', { name: 'Hash', exact: true }),
   ).toBeVisible();
 });
+
+test('labels carry a colour and an emoji, and the manual order is draggable', async ({ page }) => {
+  await page.getByRole('button', { name: 'Edit labels' }).click();
+  const createBox = page.getByRole('textbox', { name: 'Create new label' });
+  for (const name of ['Zebra', 'Apple']) {
+    await createBox.fill(name);
+    await createBox.press('Enter');
+  }
+
+  // Creation order, not alphabetical — the manual order starts as "as typed".
+  const rows = page.getByTestId('label-row');
+  const names = () =>
+    rows
+      .locator('input[type="text"]')
+      .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  await expect(rows).toHaveCount(2);
+  expect(await names()).toEqual(['Zebra', 'Apple']);
+
+  // Colour + emoji for the first one.
+  await page.getByRole('button', { name: 'Colour and emoji for Zebra' }).click();
+  await page.getByRole('button', { name: 'Mint', exact: true }).click();
+  await page.getByRole('button', { name: '⭐', exact: true }).click();
+  await page.keyboard.press('Escape');
+
+  // Arrow keys on the drag handle reorder (same path the drag commits).
+  await page.getByRole('button', { name: 'Reorder Apple' }).focus();
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(names).toEqual(['Apple', 'Zebra']);
+
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // The sidebar shows the emoji — decorative, so it is aria-hidden and the
+  // link is still named after the label alone.
+  const zebra = page.getByRole('link', { name: 'Zebra', exact: true });
+  await expect(zebra).toContainText('⭐');
+
+  // The sidebar follows the manual order, and it survives a reload: the
+  // position is stored, not local state.
+  const sidebarOrder = () =>
+    page
+      .getByRole('navigation')
+      .getByRole('link')
+      .filter({ hasText: /Apple|Zebra/ })
+      .allInnerTexts()
+      .then((texts) => texts.map((x) => x.replace(/\s+/g, '')));
+  await expect.poll(sidebarOrder).toEqual(['Apple', '⭐Zebra']);
+  await page.reload();
+  await expect(zebra).toContainText('⭐');
+  await expect.poll(sidebarOrder).toEqual(['Apple', '⭐Zebra']);
+});

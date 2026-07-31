@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { labelsQuery } from '../../lib/labels-api.js';
 import { useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
+import { LabelDot } from '../labels/LabelStyleMenu.js';
 
 interface NavItem {
   to: string;
@@ -119,7 +120,15 @@ export function Sidebar() {
               'aria-current': 'page',
             }}
           >
-            <Icon svg={labelSvg} size={24} />
+            {/* The label's own mark where the generic tag icon used to be —
+                the emoji when it has one, otherwise its colour. */}
+            {label.emoji || label.color !== 'default' ? (
+              <span className="flex h-6 w-6 flex-none items-center justify-center">
+                <LabelDot label={label} size={22} />
+              </span>
+            ) : (
+              <Icon svg={labelSvg} size={24} />
+            )}
             {expanded && <span className="truncate">{label.name}</span>}
           </Link>
         ))}

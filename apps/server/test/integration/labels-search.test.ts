@@ -26,16 +26,21 @@ describe('labels', () => {
     return res.statusCode === 201 ? (res.json() as Label) : res.json();
   };
 
-  it('creates, lists alphabetically, renames and deletes labels', async () => {
+  // Manual order, not alphabetical: a new label appends to the bottom, where
+  // the user last saw the list end.
+  it('creates, lists in manual order, renames and deletes labels', async () => {
     await createLabel('Work');
     await createLabel('alpha');
     const list = await t.app.inject({ method: 'GET', url: '/api/labels', headers: { cookie } });
-    expect((list.json() as Label[]).map((l) => l.name)).toEqual(['alpha', 'Work']);
+    expect((list.json() as Label[]).map((l) => l.name)).toEqual(['Work', 'alpha']);
 
-    const alpha = (list.json() as Label[])[0]!;
+    const work = (list.json() as Label[])[0]!;
+    expect(work.color).toBe('default');
+    expect(work.emoji).toBeNull();
+
     const renamed = await t.app.inject({
       method: 'PATCH',
-      url: `/api/labels/${alpha.id}`,
+      url: `/api/labels/${work.id}`,
       headers: { cookie },
       payload: { name: 'Beta' },
     });
@@ -43,10 +48,76 @@ describe('labels', () => {
 
     const del = await t.app.inject({
       method: 'DELETE',
-      url: `/api/labels/${alpha.id}`,
+      url: `/api/labels/${work.id}`,
       headers: { cookie },
     });
     expect(del.statusCode).toBe(204);
+  });
+
+  it('patches colour, emoji and position independently', async () => {
+    const fresh = await createTestApp();
+    try {
+      const c = await fresh.signUp('style@example.com', 'Style');
+      const mk = async (name: string) => {
+        const res = await fresh.app.inject({
+          method: 'POST',
+          url: '/api/labels',
+          headers: { cookie: c },
+          payload: { name },
+        });
+        return res.json() as Label;
+      };
+      const first = await mk('first');
+      const second = await mk('second');
+      const third = await mk('third');
+
+      const styled = await fresh.app.inject({
+        method: 'PATCH',
+        url: `/api/labels/${second.id}`,
+        headers: { cookie: c },
+        payload: { color: 'mint', emoji: '⭐' },
+      });
+      expect(styled.statusCode).toBe(200);
+      expect(styled.json()).toMatchObject({ color: 'mint', emoji: '⭐', name: 'second' });
+
+      // Move `third` in front of `first` — one row written, order changes.
+      const before = third.position;
+      const moved = await fresh.app.inject({
+        method: 'PATCH',
+        url: `/api/labels/${third.id}`,
+        headers: { cookie: c },
+        payload: { position: 'Zz' },
+      });
+      expect(moved.statusCode).toBe(200);
+      expect((moved.json() as Label).position).not.toBe(before);
+
+      const list = await fresh.app.inject({
+        method: 'GET',
+        url: '/api/labels',
+        headers: { cookie: c },
+      });
+      expect((list.json() as Label[]).map((l) => l.name)).toEqual(['third', 'first', 'second']);
+
+      // Clearing the emoji is a null, not an omission.
+      const cleared = await fresh.app.inject({
+        method: 'PATCH',
+        url: `/api/labels/${second.id}`,
+        headers: { cookie: c },
+        payload: { emoji: null },
+      });
+      expect((cleared.json() as Label).emoji).toBeNull();
+      expect((cleared.json() as Label).color).toBe('mint');
+
+      const empty = await fresh.app.inject({
+        method: 'PATCH',
+        url: `/api/labels/${first.id}`,
+        headers: { cookie: c },
+        payload: {},
+      });
+      expect(empty.statusCode).toBe(400);
+    } finally {
+      await fresh.close();
+    }
   });
 
   it('rejects duplicates case-insensitively', async () => {

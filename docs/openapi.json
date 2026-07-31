@@ -4518,6 +4518,30 @@
                       "name": {
                         "type": "string"
                       },
+                      "color": {
+                        "type": "string",
+                        "enum": [
+                          "default",
+                          "coral",
+                          "peach",
+                          "sand",
+                          "mint",
+                          "sage",
+                          "fog",
+                          "storm",
+                          "dusk",
+                          "blossom",
+                          "clay",
+                          "chalk"
+                        ]
+                      },
+                      "emoji": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "string"
+                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time",
@@ -4527,6 +4551,9 @@
                     "required": [
                       "id",
                       "name",
+                      "color",
+                      "emoji",
+                      "position",
                       "createdAt"
                     ],
                     "additionalProperties": false
@@ -4577,6 +4604,30 @@
                     "name": {
                       "type": "string"
                     },
+                    "color": {
+                      "type": "string",
+                      "enum": [
+                        "default",
+                        "coral",
+                        "peach",
+                        "sand",
+                        "mint",
+                        "sage",
+                        "fog",
+                        "storm",
+                        "dusk",
+                        "blossom",
+                        "clay",
+                        "chalk"
+                      ]
+                    },
+                    "emoji": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "position": {
+                      "type": "string"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -4586,6 +4637,9 @@
                   "required": [
                     "id",
                     "name",
+                    "color",
+                    "emoji",
+                    "position",
                     "createdAt"
                   ],
                   "additionalProperties": false
@@ -4612,11 +4666,36 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 255
+                  },
+                  "color": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "coral",
+                      "peach",
+                      "sand",
+                      "mint",
+                      "sage",
+                      "fog",
+                      "storm",
+                      "dusk",
+                      "blossom",
+                      "clay",
+                      "chalk"
+                    ]
+                  },
+                  "emoji": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 16
+                  },
+                  "position": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
                   }
-                },
-                "required": [
-                  "name"
-                ]
+                }
               }
             }
           }
@@ -4649,6 +4728,30 @@
                     "name": {
                       "type": "string"
                     },
+                    "color": {
+                      "type": "string",
+                      "enum": [
+                        "default",
+                        "coral",
+                        "peach",
+                        "sand",
+                        "mint",
+                        "sage",
+                        "fog",
+                        "storm",
+                        "dusk",
+                        "blossom",
+                        "clay",
+                        "chalk"
+                      ]
+                    },
+                    "emoji": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "position": {
+                      "type": "string"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -4658,6 +4761,9 @@
                   "required": [
                     "id",
                     "name",
+                    "color",
+                    "emoji",
+                    "position",
                     "createdAt"
                   ],
                   "additionalProperties": false
