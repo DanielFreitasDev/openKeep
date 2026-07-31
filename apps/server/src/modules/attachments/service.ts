@@ -42,8 +42,34 @@ const MAGIC: { mime: string; ext: string; match: (b: Buffer) => boolean }[] = [
   },
 ];
 
+const EBML_MAGIC = Buffer.from([0x1a, 0x45, 0xdf, 0xa3]);
+
 /**
- * Audio formats Keep's Takeout can carry (voice recordings + imported files).
+ * WebM (EBML) is the container `MediaRecorder` writes in Chrome, so in-browser
+ * recordings arrive as one — but the signature alone says nothing about what
+ * is inside, and this pipeline must not become a video upload by accident.
+ *
+ * So the answer comes from the codec ids in the Tracks element, which every
+ * writer puts near the head (a recording's is in the first few hundred bytes):
+ * an audio codec must be declared, and a video one must not. The names are
+ * matched in full rather than by their `A_`/`V_` prefix, because the window
+ * also covers compressed frames, where two-byte needles turn up by chance.
+ * Beyond the window we decline instead of guessing.
+ */
+const WEBM_HEAD_BYTES = 8192;
+const WEBM_AUDIO_CODEC = /A_(OPUS|VORBIS|AAC|MPEG|PCM|FLAC|MS)/;
+const WEBM_VIDEO_CODEC = /V_(VP8|VP9|AV1|MPEG|THEORA|UNCOMPRESSED|MS)/;
+
+function isAudioWebm(data: Buffer): boolean {
+  if (!data.subarray(0, 4).equals(EBML_MAGIC)) return false;
+  const head = data.subarray(0, WEBM_HEAD_BYTES).toString('latin1');
+  return WEBM_AUDIO_CODEC.test(head) && !WEBM_VIDEO_CODEC.test(head);
+}
+
+/**
+ * Audio formats we accept: what Keep's Takeout can carry (voice recordings +
+ * imported files) plus what the browser's own recorder produces — WebM/Opus in
+ * Chrome, Ogg/Opus in Firefox, MP4/AAC in Safari.
  * Order matters: container signatures before the loose MPEG frame-sync match.
  */
 const AUDIO_MAGIC: { mime: string; ext: string; match: (b: Buffer) => boolean }[] = [
@@ -62,6 +88,7 @@ const AUDIO_MAGIC: { mime: string; ext: string; match: (b: Buffer) => boolean }[
       b.subarray(8, 11).toString('latin1').startsWith('3g'),
   },
   { mime: 'audio/ogg', ext: 'ogg', match: (b) => b.subarray(0, 4).toString('latin1') === 'OggS' },
+  { mime: 'audio/webm', ext: 'webm', match: isAudioWebm },
   {
     mime: 'audio/wav',
     ext: 'wav',
@@ -307,8 +334,10 @@ export async function getDrawingData(
 }
 
 /**
- * Audio ingest — Takeout import only in v1 (the upload route stays
- * images-only). Magic bytes decide the type; stored as-is, no thumbnail.
+ * Audio ingest, shared by the Takeout importer and the recorder. Magic bytes
+ * decide the type; stored as-is, no thumbnail and no re-encode — an audio
+ * attachment is a recording, not a photo, and transcoding it server-side would
+ * cost a media stack to lose fidelity.
  */
 async function ingestAudio(
   db: Db,
@@ -349,6 +378,22 @@ async function ingestAudio(
     await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
   }
   return toAttachmentDto(created!);
+}
+
+/**
+ * Browser recording upload (`MediaRecorder` → this route). Same access rules
+ * as an image: an editor of a note that is not in the trash.
+ */
+export async function uploadAudio(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  noteId: string,
+  data: Buffer,
+): Promise<Attachment> {
+  const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
+  assertNotTrashed(note);
+  return ingestAudio(db, storage, userId, noteId, data);
 }
 
 /**

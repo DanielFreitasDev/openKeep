@@ -155,6 +155,80 @@ describe('attachments', () => {
     expect(file.statusCode).toBe(200);
   });
 
+  // A browser recording, as MediaRecorder frames it: EBML header, DocType
+  // webm, then the track's codec id. The bytes are stored as-is, so a
+  // hand-built head is the whole contract this route has with the file.
+  const ebml = (...codecs: string[]) =>
+    Buffer.concat([
+      Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+      Buffer.from('\x42\x86\x81\x01webm'),
+      Buffer.from(codecs.join('\0')),
+      Buffer.alloc(64),
+    ]);
+
+  const uploadAudio = async (buf: Buffer, targetNoteId = noteId) => {
+    const { payload, headers } = multipartBody(buf, 'recording.webm', 'audio/webm');
+    return t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${targetNoteId}/audio`,
+      headers: { ...headers, cookie },
+      payload,
+    });
+  };
+
+  it('uploads a browser recording, stored as-is with no thumb', async () => {
+    const res = await uploadAudio(ebml('A_OPUS'));
+    expect(res.statusCode).toBe(201);
+    const att = res.json() as Attachment;
+    expect(att.kind).toBe('audio');
+    expect(att.mime).toBe('audio/webm');
+    expect(att.hasThumb).toBe(false);
+
+    const file = await t.app.inject({
+      method: 'GET',
+      url: `/api/attachments/${att.id}/file`,
+      headers: { cookie },
+    });
+    expect(file.statusCode).toBe(200);
+    expect(file.headers['content-type']).toBe('audio/webm');
+    expect(file.rawPayload.subarray(0, 4)).toEqual(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+
+    const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
+    const note = (list.json() as FullNote[]).find((n) => n.id === noteId);
+    expect(note?.attachments.map((a) => a.id)).toContain(att.id);
+  });
+
+  it('rejects a webm carrying video, and non-audio bytes', async () => {
+    const video = await uploadAudio(ebml('V_VP9', 'A_OPUS'));
+    expect(video.statusCode).toBe(415);
+    expect(video.json().code).toBe('unsupported_media_type');
+
+    const png = await uploadAudio(await makePng());
+    expect(png.statusCode).toBe(415);
+  });
+
+  it('a stranger gets the same 404 as a missing note', async () => {
+    const stranger = await t.signUp('stranger-audio@example.com', 'S');
+    const { payload, headers } = multipartBody(ebml('A_OPUS'), 'r.webm', 'audio/webm');
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/audio`,
+      headers: { ...headers, cookie: stranger },
+      payload,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('search type=audio matches the note that got the recording', async () => {
+    const res = await t.app.inject({
+      method: 'GET',
+      url: '/api/search?type=audio',
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as FullNote[]).some((n) => n.id === noteId)).toBe(true);
+  });
+
   it('search type=image now matches notes with images', async () => {
     const res = await t.app.inject({
       method: 'GET',

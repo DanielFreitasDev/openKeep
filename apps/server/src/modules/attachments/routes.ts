@@ -78,6 +78,31 @@ export async function registerAttachmentRoutes(
   );
 
   app.post(
+    '/api/notes/:id/audio',
+    {
+      preHandler: [app.requireAuth],
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      schema: { tags: ['attachments'], params: zNoteParams, response: { 201: zAttachment } },
+    },
+    async (req, reply) => {
+      // The plugin's global cap is the image one; audio is allowed to be
+      // bigger, so this route raises it for its own request. Without the
+      // override busboy would truncate a long recording at 10 MB and the
+      // sniffer would then reject a file that was merely cut short.
+      const file = await req.file({ limits: { fileSize: LIMITS.audioMaxBytes } });
+      if (!file) throw errors.badRequest('Expected a multipart file field');
+      const data = await file.toBuffer();
+      const attachment = await svc.uploadAudio(db, storage, req.user.id, req.params.id, data);
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
+        originOf(req),
+      );
+      return reply.status(201).send(attachment);
+    },
+  );
+
+  app.post(
     '/api/notes/:id/drawings',
     {
       preHandler: [app.requireAuth],

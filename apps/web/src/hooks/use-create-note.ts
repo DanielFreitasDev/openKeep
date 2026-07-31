@@ -12,6 +12,8 @@ interface CreateOpts {
   /** Route to land on; defaults to the current one. The share target leaves `/share`. */
   to?: string;
   replace?: boolean;
+  /** Open the editor with the microphone already armed (the FAB's "Recording"). */
+  record?: boolean;
 }
 
 /**
@@ -65,8 +67,12 @@ export function useCreateAndOpenNote() {
         search: (old: Record<string, unknown>) => ({
           ...old,
           note: id,
+          // A note opened to record starts empty and stays `new`: a take that
+          // is never made (permission refused, or the user changes their mind)
+          // should leave nothing behind, exactly like an untouched note.
           new: bornEmpty ? true : undefined,
           compose: undefined,
+          record: opts?.record ? true : undefined,
         }),
         replace: opts?.replace,
         resetScroll: false,

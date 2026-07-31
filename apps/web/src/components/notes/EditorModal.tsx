@@ -18,6 +18,7 @@ import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
+import micSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
@@ -34,6 +35,7 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
+import { audioRecordingSupported, useAudioRecorder } from '../../hooks/use-audio-recorder.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
@@ -55,6 +57,7 @@ import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
 import { NoteLabelChips } from '../labels/LabelChips.js';
 import { NoteLabelPicker } from '../labels/LabelPicker.js';
+import { AudioRecorderBar } from './AudioRecorderBar.js';
 import type { ChecklistHandle } from './ChecklistEditor.js';
 import { ChecklistEditor } from './ChecklistEditor.js';
 import { ColorPicker } from './ColorPicker.js';
@@ -165,7 +168,12 @@ function MobileAction({
 
 /** Route-driven editor: open when ?note=<id> is present on any shell route. */
 export function EditorModal() {
-  const search = useSearch({ strict: false }) as { note?: string; new?: boolean; drawing?: string };
+  const search = useSearch({ strict: false }) as {
+    note?: string;
+    new?: boolean;
+    drawing?: string;
+    record?: boolean;
+  };
   const navigate = useNavigate();
   const noteId = search.note;
 
@@ -180,16 +188,26 @@ export function EditorModal() {
   // While the full-screen drawing editor is up, the note editor stands down —
   // its modal focus trap would swallow the drawing surface's pointer events.
   if (!noteId || search.drawing) return null;
-  return <EditorDialog key={noteId} noteId={noteId} isNew={search.new === true} onClose={close} />;
+  return (
+    <EditorDialog
+      key={noteId}
+      noteId={noteId}
+      isNew={search.new === true}
+      autoRecord={search.record === true}
+      onClose={close}
+    />
+  );
 }
 
 function EditorDialog({
   noteId,
   isNew,
+  autoRecord,
   onClose,
 }: {
   noteId: string;
   isNew: boolean;
+  autoRecord: boolean;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation('editor');
@@ -214,13 +232,22 @@ function EditorDialog({
 
   if (!note) return null;
   return (
-    <EditorBody note={note} isNew={isNew} onClose={onClose} t={t} lang={i18n.language} m={m} />
+    <EditorBody
+      note={note}
+      isNew={isNew}
+      autoRecord={autoRecord}
+      onClose={onClose}
+      t={t}
+      lang={i18n.language}
+      m={m}
+    />
   );
 }
 
 function EditorBody({
   note,
   isNew,
+  autoRecord,
   onClose,
   t,
   lang,
@@ -228,6 +255,7 @@ function EditorBody({
 }: {
   note: FullNote;
   isNew: boolean;
+  autoRecord: boolean;
   onClose: () => void;
   t: (k: string, o?: Record<string, unknown>) => string;
   lang: string;
@@ -278,6 +306,49 @@ function EditorBody({
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef(false);
   const attachmentM = useAttachmentMutations();
+  // Keep's voice note. Offered only where the browser can actually run it
+  // (MediaRecorder + a secure context) and never on a note this person may
+  // only read — the take lands as an attachment, which is shared content.
+  const canRecord = canEdit && audioRecordingSupported();
+  // A take counts as content the moment it exists, not when its upload acks:
+  // the untouched-note discard below reads the note's own attachments, which
+  // stay empty until then — and a note created by the FAB to record into is
+  // exactly the note that discard is aimed at.
+  const recordedRef = useRef(false);
+  const recorder = useAudioRecorder(
+    (file) => {
+      recordedRef.current = true;
+      attachmentM.uploadAudio.mutate({ noteId: note.id, file });
+    },
+    (kind) =>
+      show({
+        message: t(
+          kind === 'denied'
+            ? 'micDenied'
+            : kind === 'tooShort'
+              ? 'recordingTooShort'
+              : 'recordingFailed',
+        ),
+      }),
+  );
+  const recordingRef = useRef(false);
+  recordingRef.current = recorder.status !== 'idle';
+
+  // Arrived from the FAB's "Recording": arm the mic once, then drop the flag
+  // from the URL so a reload (or the back button) does not record again.
+  const autoRecordedRef = useRef(false);
+  useEffect(() => {
+    if (!autoRecord || autoRecordedRef.current) return;
+    autoRecordedRef.current = true;
+    void navigate({
+      to: '.',
+      search: (old: Record<string, unknown>) => ({ ...old, record: undefined }),
+      replace: true,
+      resetScroll: false,
+    });
+    if (canRecord) void recorder.start();
+  }, [autoRecord, canRecord, recorder.start, navigate]);
+
   const printNote = usePrintNote();
   const setOpenEditorNoteId = useUiStore((s) => s.setOpenEditorNoteId);
 
@@ -545,6 +616,9 @@ function EditorBody({
 
   const discardUntouched = (): boolean => {
     if (discardedRef.current || !isNew) return false;
+    // Closing the note mid-recording keeps the take (the recorder stops on
+    // unmount), so this note is about to receive an attachment.
+    if (recordedRef.current || recordingRef.current) return false;
     const n = noteSnapRef.current;
     if (n.trashedAt !== null) return false;
     const titleEmpty = (titleRef.current?.value ?? n.title).trim() === '';
@@ -712,6 +786,15 @@ function EditorBody({
               onNext={() => setFind((f) => ({ ...f, step: f.step + 1 }))}
               onPrev={() => setFind((f) => ({ ...f, step: f.step - 1 }))}
               onClose={() => setFind((f) => ({ ...f, open: false }))}
+            />
+          )}
+
+          {recorder.status !== 'idle' && (
+            <AudioRecorderBar
+              status={recorder.status}
+              seconds={recorder.seconds}
+              onStop={recorder.stop}
+              onCancel={recorder.cancel}
             />
           )}
 
@@ -896,6 +979,19 @@ function EditorBody({
                     iconSize={19}
                     className="text-on-surface-variant"
                     onClick={() => fileInputRef.current?.click()}
+                  />
+                )}
+                {canRecord && (
+                  <IconButton
+                    svg={micSvg}
+                    label={t('recordAudio')}
+                    size={38}
+                    iconSize={19}
+                    className="text-on-surface-variant"
+                    // The bar owns the recording once it is running: two stops
+                    // in two places is one more than there is to stop.
+                    disabled={recorder.status !== 'idle'}
+                    onClick={() => void recorder.start()}
                   />
                 )}
                 <IconButton
@@ -1122,6 +1218,16 @@ function EditorBody({
                 fileInputRef.current?.click();
               }}
             />
+            {canRecord && (
+              <SheetItem
+                svg={micSvg}
+                label={t('recordAudio')}
+                onClick={() => {
+                  setSheet(null);
+                  void recorder.start();
+                }}
+              />
+            )}
             <SheetItem
               svg={brushSvg}
               label={t('drawing:drawing')}

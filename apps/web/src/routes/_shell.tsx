@@ -32,12 +32,16 @@ import { useUiStore } from '../stores/ui.js';
 // the full-screen drawing editor: `new` (optionally without a note yet — the
 // note is only created when ink is saved) or an attachment id to re-edit.
 // `compose` is the app-shortcut entry point (manifest `shortcuts`): it creates
-// a note of that type and hands over to `note`/`new`.
+// a note of that type and hands over to `note`/`new`. `record` arms the
+// microphone in the editor it opens with (the FAB's "Recording"), and the
+// editor drops it from the URL the moment it acts on it — a reload should not
+// start recording again.
 const shellSearch = z.object({
   note: z.string().uuid().optional(),
   new: z.boolean().optional(),
   drawing: z.union([z.literal('new'), z.string().uuid()]).optional(),
   compose: z.enum(['text', 'list']).optional(),
+  record: z.boolean().optional(),
 });
 
 export const Route = createFileRoute('/_shell')({

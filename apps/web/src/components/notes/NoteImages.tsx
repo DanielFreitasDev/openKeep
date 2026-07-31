@@ -80,15 +80,31 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
         </div>
       ))}
       {audios.map((att) => (
-        // biome-ignore lint/a11y/useMediaCaption: user-recorded audio notes have no caption track
-        <audio
-          key={att.id}
-          controls
-          preload="none"
-          src={attachmentFileUrl(att.id)}
-          className="my-1 w-full px-2"
-          onClick={(e) => e.stopPropagation()}
-        />
+        <div key={att.id} className="flex items-center gap-1 px-2">
+          {/* biome-ignore lint/a11y/useMediaCaption: user-recorded audio notes have no caption track */}
+          <audio
+            controls
+            preload="none"
+            src={attachmentFileUrl(att.id)}
+            className="my-1 min-w-0 flex-1"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {editable && (
+            // Always visible, unlike the one over an image: a native player
+            // fills its row, so there is no quiet corner to reveal it in.
+            <IconButton
+              svg={closeSvg}
+              label={t('removeAudio')}
+              size={32}
+              iconSize={16}
+              className="flex-none text-on-surface-variant"
+              onClick={(e) => {
+                e.stopPropagation();
+                m.remove.mutate({ noteId: note.id, attachmentId: att.id });
+              }}
+            />
+          )}
+        </div>
       ))}
     </div>
   );

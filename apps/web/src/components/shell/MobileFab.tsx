@@ -2,10 +2,12 @@ import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
 import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
+import micSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import textSvg from '@material-symbols/svg-700/outlined/text_fields.svg?raw';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { audioRecordingSupported } from '../../hooks/use-audio-recorder.js';
 import { useCreateAndOpenNote } from '../../hooks/use-create-note.js';
 import { useMountTransition } from '../../hooks/use-mount-transition.js';
 import { Icon } from '../Icon.js';
@@ -46,6 +48,20 @@ export function MobileFab({ labelId }: { labelId?: string }) {
 
   const actions = [
     { svg: imageSvg, label: t('createImage'), onClick: () => imageInputRef.current?.click() },
+    // The note is created empty and armed: the editor asks for the microphone
+    // on arrival, and a refused take leaves nothing behind (`new`).
+    ...(audioRecordingSupported()
+      ? [
+          {
+            svg: micSvg,
+            label: t('createRecording'),
+            onClick: () => {
+              setOpen(false);
+              createNote('text', { labelId, record: true });
+            },
+          },
+        ]
+      : []),
     {
       svg: brushSvg,
       label: t('createDrawing'),

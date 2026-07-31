@@ -74,7 +74,7 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 ## Images & attachments
 
 - Multiple images per note, stacked above the title; upload validation (magic bytes; ~10 MB, 25 MP caps); server thumbnails; delete on hover.
-- Audio attachments playback (recording is post-1.0).
+- Audio attachments: playback, plus in-browser recording *(divergence — Keep records only on Android)* from the editor toolbar, the mobile "Add to note" sheet and the FAB, with a Stop/Discard bar and a 10-minute ceiling per take.
 
 ## Drawings
 
@@ -136,7 +136,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 
 ## Post-1.0 roadmap
 
-Drawing extras (lasso select, draw on image, zoom/pan + auto-extending canvas) · audio recording + optional transcription · OCR "Grab image text" · "Things" auto-classification · optional LLM "Help me create a list" · native `display: grid-lanes` masonry when cross-browser · full local-first offline.
+Drawing extras (lasso select, draw on image, zoom/pan + auto-extending canvas) · optional audio transcription · OCR "Grab image text" · "Things" auto-classification · optional LLM "Help me create a list" · native `display: grid-lanes` masonry when cross-browser · full local-first offline.
 
 ## Out of scope
 

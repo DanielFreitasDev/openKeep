@@ -53,6 +53,7 @@
   "background_celebration": "Celebration",
   "addImage": "Add image",
   "removeImage": "Remove image",
+  "removeAudio": "Remove audio",
   "uploadFailed": "Couldn't upload the image",
   "selectNote": "Select note",
   "deselectNote": "Deselect note",

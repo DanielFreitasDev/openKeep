@@ -6,6 +6,7 @@ import {
   deleteAttachmentApi,
   updateDrawingApi,
   uploadAttachment,
+  uploadAudioApi,
   uploadDrawingApi,
 } from '../lib/attachments-api.js';
 import { mergeNote } from '../lib/note-selectors.js';
@@ -50,6 +51,17 @@ export function useAttachmentMutations() {
         err instanceof ApiError && err.problem.detail ? err.problem.detail : t('uploadFailed'),
     });
 
+  // Registered here rather than at the call site on purpose: the editor can
+  // unmount while a take is still uploading (closing the note stops and keeps
+  // the recording), and only callbacks declared on the mutation itself still
+  // run to put the attachment in the cache.
+  const uploadAudio = useMutation({
+    mutationFn: ({ noteId, file }: { noteId: string; file: File }) => uploadAudioApi(noteId, file),
+    onSuccess: (attachment, { noteId }) =>
+      setNote(noteId, (n) => ({ attachments: [...n.attachments, attachment] })),
+    onError: (err) => uploadFailedToast(err),
+  });
+
   const uploadDrawing = useMutation({
     mutationFn: ({ noteId, file, drawing }: { noteId: string; file: File; drawing: DrawingData }) =>
       uploadDrawingApi(noteId, file, drawing),
@@ -76,5 +88,5 @@ export function useAttachmentMutations() {
     onError: uploadFailedToast,
   });
 
-  return { upload, remove, uploadDrawing, updateDrawing };
+  return { upload, uploadAudio, remove, uploadDrawing, updateDrawing };
 }

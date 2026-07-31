@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (permissão somente-leitura no compartilhamento;
+> Última atualização: **2026-07-31** (gravação de áudio no navegador;
+> permissão somente-leitura no compartilhamento;
 > backup automático agendado; indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
@@ -216,9 +217,39 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
 
 Itens que o próprio catálogo já lista como roadmap.
 
-- [ ] **Gravação de áudio no navegador** *(impacto alto · esforço M)*
+- [x] **Gravação de áudio no navegador** *(impacto alto · esforço M)* — feito em 2026-07-31
   O player e o import de áudio existem; falta gravar (o Keep web não grava — divergência boa).
   `MediaRecorder` → upload como attachment de áudio existente. Transcrição fica no item 3.6.
+  **Entregue:** o caminho todo já existia menos as duas pontas — `kind='audio'` está no banco desde
+  a v1.0 e o player renderiza o anexo —, então a entrega é o gravador no cliente e uma rota,
+  `POST /api/notes/:id/audio`, que reusa o mesmo `ingestAudio` do import do Takeout (guarda os bytes
+  como vieram: uma gravação não é uma foto, e transcodificar no servidor custaria uma pilha de mídia
+  para perder fidelidade). Entradas: botão de microfone na barra do editor, item na folha
+  "Adicionar à nota" do mobile e "Gravação" no FAB — esse cria a nota já com o microfone armado
+  (`?record`, que o editor consome e apaga da URL) e nasce `new`, então recusar a permissão não
+  deixa nota vazia para trás.
+  **O formato é negociado, não escolhido:** cada engine grava no seu contêiner (Opus em WebM no
+  Chrome, Opus em Ogg no Firefox, AAC em MP4 no Safari) e não aceita o dos outros, então o cliente
+  pede o primeiro candidato que o browser admitir e o servidor sniffa o resultado como qualquer
+  upload. O único formato novo no allowlist é o WebM — e ele exigiu mais que uma assinatura: EBML
+  não diz o que está dentro, então a regra também lê os *codec ids* do Tracks (precisa declarar
+  áudio e não declarar vídeo), senão a rota de áudio viraria upload de vídeo por acidente.
+  **A barra é toda a UI**: não há o que configurar, então ela mostra que o microfone está aberto, há
+  quanto tempo, e as duas saídas (Parar / Descartar). Detalhes que decidiram o desenho: (a) o tempo
+  sai do relógio, não da contagem de ticks, para que uma aba em segundo plano relate a duração real
+  — e o teto de 10 min caia onde deve; (b) o teto existe pela aba esquecida, não pelo limite de 20 MB
+  (Opus só chega lá depois de horas); (c) Esc cancela a gravação, não a nota — enquanto a barra está
+  de pé ela é o que está mais por dentro na tela, e diz isso com um "Descartar" ao lado; (d) tomada
+  abaixo de 400ms não sobe: medindo o que o Chrome escreve, até ~100ms o arquivo é só cabeçalho
+  (110 bytes, sem faixa declarada) e o servidor recusa com razão — então tocar Parar na subida
+  responde "a gravação foi curta demais" em vez de falhar um upload; (e) fechar a
+  nota no meio **guarda** a gravação: o áudio já foi falado, e a mutation de upload é registrada no
+  `useMutation` (não no `mutate`) justamente para sobreviver ao editor que a começou; (f) o botão de
+  remover do anexo de áudio fica sempre visível, ao contrário do da imagem — um player nativo ocupa
+  a linha inteira e não sobra canto quieto para revelá-lo.
+  **No e2e:** dispositivo falso do Chromium (`--use-fake-device-for-media-stream`) com a permissão
+  concedida pelo contexto, então o que sobe é um WebM/Opus de verdade passando pelo sniffer — não um
+  blob dublê.
 
 - [ ] **OCR — "Capturar texto da imagem"** *(impacto médio · esforço M/G)*
   Extrair texto de imagens para o corpo (paridade com o Keep) e, idealmente, indexar no FTS
@@ -790,6 +821,10 @@ do grid já estava no código sem estar marcada. Sobram lá só undo/redo de ses
 
 O antigo item 1 da fila — **somente-leitura no compartilhamento** — saiu em 2026-07-31 e caiu no
 chokepoint como previsto: nenhuma rota ganhou uma segunda checagem, só um nível a mais.
+
+**Gravação de áudio** saiu em 2026-07-31: era o único item de impacto alto cuja infraestrutura
+inteira já estava no repo (`kind='audio'`, player, sniffer) — restavam o gravador e uma rota. A
+seção 2 agora só tem OCR, "Things", masonry nativo e o offline completo.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

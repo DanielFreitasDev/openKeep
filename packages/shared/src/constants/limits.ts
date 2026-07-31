@@ -25,8 +25,14 @@ export const LIMITS = {
   /** Upload caps: ~10 MB and 25 megapixels per image. */
   imageMaxBytes: 10 * 1024 * 1024,
   imageMaxPixels: 25_000_000,
-  /** Audio attachments (Takeout import only in v1). */
+  /** Audio attachments (Takeout imports and browser recordings). */
   audioMaxBytes: 20 * 1024 * 1024,
+  /**
+   * A single browser recording stops itself here (10 min). Opus at the
+   * recorder's bitrate reaches the byte cap only after hours, so the ceiling
+   * that actually matters is a tab left recording by accident.
+   */
+  audioRecordingMaxSeconds: 600,
   /** Takeout archives carry full-size photos — far beyond the image cap. */
   importZipMaxBytes: 512 * 1024 * 1024,
   /** Drawings: stroke/point caps keep the vector JSON bounded (~1 MB). */
