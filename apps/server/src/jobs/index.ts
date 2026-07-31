@@ -7,6 +7,7 @@ import { userJobs } from '../db/schema/jobs.js';
 import type { Metrics } from '../lib/metrics.js';
 import { trackJob } from '../lib/metrics.js';
 import type { Storage } from '../lib/storage.js';
+import { runScheduledBackup } from '../modules/backup/service.js';
 import {
   cleanupExpiredExports,
   cleanupStaleImports,
@@ -177,6 +178,21 @@ export async function startJobs(
         exportUserDataJob(db, storage, job.data.jobId, realtime),
       );
     });
+
+    if (config.BACKUP_CRON) {
+      await boss.createQueue('scheduled-backup');
+      await boss.schedule('scheduled-backup', config.BACKUP_CRON);
+      await boss.work('scheduled-backup', async () =>
+        work('scheduled-backup', async () => {
+          const result = await runScheduledBackup(db, storage, {
+            dir: config.backupDirAbs,
+            keep: config.BACKUP_KEEP,
+          });
+          const level = result.failed > 0 ? 'warn' : 'info';
+          log[level]({ ...result, dir: config.backupDirAbs }, 'scheduled backup');
+        }),
+      );
+    }
 
     await boss.createQueue('cleanup-storage');
     await boss.schedule('cleanup-storage', '30 3 * * *');

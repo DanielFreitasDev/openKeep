@@ -4,7 +4,7 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
+> Última atualização: **2026-07-31** (backup automático agendado; indentar item de checklist arrastando; buscas salvas; operadores de busca; apagar todas as notas da conta; feed iCalendar dos lembretes; cor/emoji e ordem manual nos marcadores; mesclar notas; roving tabindex + setas no grid, `/metrics`; ordenação
 > alternativa das notas; imprimir / salvar como PDF;
 > antes: busca dentro da nota com
 > Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
@@ -672,9 +672,26 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   quem roda em container efêmero/quer backup por bucket. Atenção a streams no upload/download e
   às URLs de thumb com cache-bust `?v=` (DECISIONS #24).
 
-- [ ] **Backup automático agendado** *(impacto médio · esforço P/M)*
+- [x] **Backup automático agendado** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   O export JSON completo já existe; agendar via pg-boss (cron por env) gravando o zip em
   diretório/S3 com rotação (manter N). DEPLOYMENT.md ganha a seção "restaurar".
+  **Entregue:** `BACKUP_CRON` (cron de 5 campos) liga um job pg-boss que grava **um arquivo por
+  conta** em `BACKUP_DIR/<userId>/openkeep-<carimbo UTC>.zip`, mantendo os `BACKUP_KEEP` mais novos
+  (padrão 7). Sem o cron, a fila nem é registrada — e um cron malformado derruba o boot, porque um
+  job que nunca dispara é indistinguível de "os backups estão rodando". S3 fica de fora: é o item
+  vizinho do roadmap, e o backup vai atrás da interface de storage quando ela existir.
+  **Um arquivo por conta, e é o mesmo arquivo do export:** `writeExportZip` saiu de dentro do
+  `runExport` e agora serve aos dois, então backup e "Exportar" produzem o mesmo zip — restaurar é o
+  fluxo de import que já existe, não um segundo formato que ninguém testa. O carimbo é ISO sem
+  separadores (`20260731T030000Z`): ordem alfabética *é* ordem cronológica, então a rotação é um
+  `sort()` e não uma leitura de mtime.
+  **O que o job promete quando algo dá errado:** cada arquivo é escrito como `.part` e renomeado no
+  fim — um crash no meio não deixa um zip truncado com cara de backup, e a rotação só enxerga
+  arquivos prontos, já que `.part` não casa com o padrão do nome. Conta que falha não aborta a
+  rodada nem gira a rotação dela (senão um erro repetido apagaria os backups bons, um por dia).
+  **A honestidade fica no DEPLOYMENT.md:** o par `pg_dump` + volume continua sendo o backup
+  completo. O arquivo por conta restaura notas, marcadores, cor, fixadas e datas pelo `markdown/`,
+  mas **não** anexos (estão no zip, o importador não os reata) nem compartilhamento.
 
 - [ ] **Mais idiomas (es, depois comunidade)** *(impacto médio · esforço M)*
   A estrutura i18n é sólida (EN base + pt-BR completo + teste de paridade). Generalizar o teste
@@ -741,7 +758,8 @@ O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada 
 3. **Vincular notas + backlinks** (3.1) — o `[[` reaproveita o popover do `#`, e o link já é
    marca TipTap suportada de ponta a ponta desde a fase C.
 4. **Link público somente leitura** (3.3).
-5. **Admin mínimo + backup agendado** (3.5) — pacote self-host (a retenção da lixeira já saiu).
+5. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
+   já saíram).
 6. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
 

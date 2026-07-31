@@ -31,6 +31,21 @@ describe('loadConfig', () => {
     );
   });
 
+  it('leaves the scheduled backup off unless a cron is given', () => {
+    const off = loadConfig({ ...valid });
+    expect(off.BACKUP_CRON).toBeUndefined();
+    expect(off.BACKUP_KEEP).toBe(7);
+    const on = loadConfig({ ...valid, BACKUP_CRON: '0 4 * * *', BACKUP_KEEP: '3' });
+    expect(on.BACKUP_CRON).toBe('0 4 * * *');
+    expect(on.BACKUP_KEEP).toBe(3);
+  });
+
+  // A cron that never fires is indistinguishable from "backups are running".
+  it('rejects a cron that is not five fields', () => {
+    expect(() => loadConfig({ ...valid, BACKUP_CRON: 'daily' })).toThrow(/BACKUP_CRON/);
+    expect(() => loadConfig({ ...valid, BACKUP_CRON: '0 4 * *' })).toThrow(/BACKUP_CRON/);
+  });
+
   it('rejects a missing DATABASE_URL with a readable message', () => {
     const { DATABASE_URL: _omitted, ...rest } = valid;
     expect(() => loadConfig(rest)).toThrow(/DATABASE_URL/);

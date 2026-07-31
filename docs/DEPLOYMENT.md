@@ -69,6 +69,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web-push reminders (`pnpm --filter @openkeep/server gen:vapid`) |
 | `TRASH_RETENTION_DAYS` | How long trashed notes survive the hourly purge (default `7`, Keep parity). The Trash banner states whatever you set. |
 | `METRICS_ENABLED`, `METRICS_TOKEN` | Prometheus metrics at `GET /metrics` (see below) |
+| `BACKUP_CRON`, `BACKUP_DIR`, `BACKUP_KEEP` | Scheduled per-account export archives (see below). Unset `BACKUP_CRON` = no backup job. |
 
 ## MCP / AI clients
 
@@ -78,11 +79,22 @@ The MCP endpoint ships in the same container — nothing extra to deploy or conf
 
 - **Migrations** run automatically at boot (also: `pnpm db:migrate`).
 - **Health**: `GET /api/healthz` (process) and `GET /api/readyz` (DB). The container healthcheck lives in the Docker image (`HEALTHCHECK` → `/api/healthz`), so `docker compose up --wait` and orchestrators gate on it; point external monitoring at `/api/readyz` for DB-aware readiness.
-- **Jobs** (in-process pg-boss): reminder firing (per-minute), trash purge (hourly), storage cleanup (daily), link-preview fetches, imports/exports.
-- **Backups**: `pg_dump` the database + snapshot the `openkeep-storage` volume (attachments, pending exports). Restore both, start the app.
+- **Jobs** (in-process pg-boss): reminder firing (per-minute), trash purge (hourly), storage cleanup (daily), link-preview fetches, imports/exports, and the scheduled backup when `BACKUP_CRON` is set.
+- **Backups**: `pg_dump` the database + snapshot the `openkeep-storage` volume (attachments, pending exports). Restore both, start the app. That pair is the *complete* backup; the scheduled export archives below are a convenience on top of it, not a replacement.
 - **Logs**: structured JSON on stdout (pino). Note content never appears above debug level.
 - **Calendar feeds** (per user, opt-in): Settings → Calendar feed mints `/api/calendar/<token>.ics`. The route has no session — the token in the path is the credential, stored in plaintext so the URL keeps working in the calendar app it was pasted into. It exposes reminder titles and note body snippets to whoever holds the link; rotating or turning it off revokes every subscription at once.
 - **Metrics** (opt-in): `METRICS_ENABLED=true` serves the Prometheus text format at `GET /metrics` — HTTP requests and latency by route *template*, pg-boss runs and duration by queue, open WebSocket connections, plus the standard `process_*`/`nodejs_*` gauges. Left off, the route does not exist (404). It carries no note content, but it does describe the instance: set `METRICS_TOKEN` (≥16 chars) to require `Authorization: Bearer <token>`, or keep the path off your public listener. The endpoint sits at the root, not under `/api` — no session, no PAT, not in the OpenAPI spec.
+
+## Scheduled backups and restoring
+
+`BACKUP_CRON` (five-field cron, e.g. `0 4 * * *`) turns on a pg-boss job that writes **one export archive per account** to `BACKUP_DIR/<userId>/openkeep-<UTC timestamp>.zip` and keeps the newest `BACKUP_KEEP` (default `7`) per account, deleting older ones. Unset, the job is not registered at all. Each archive is byte-for-byte what that user gets from Settings → Export — `notes.json`, `labels.json`, `settings.json`, a `markdown/` copy of every note (front matter included) and `attachments/`. Archives are written to `.part` and renamed on success, so a crash mid-run never leaves a truncated file that looks like a backup, and a failing account does not rotate its good archives away.
+
+Point `BACKUP_DIR` at a mounted volume — inside the container the rootfs is read-only, so it must live under `/data` (or another writable mount) to survive a restart. Nothing prunes by age or disk usage beyond the per-account count: `BACKUP_KEEP` × accounts × archive size is your ceiling.
+
+**Restoring:**
+
+- **The whole instance** — restore the `pg_dump` and the storage volume, then start the app. This is the only route that brings back accounts, sessions, sharing and attachments exactly as they were.
+- **One account's notes** — sign in as that user and use Settings → Import with the archive. The importer reads the `markdown/` folder, so notes, labels, colour, pinned/archived state and the original timestamps come back; trashed notes come back as notes. Two things do **not**: attachments (images, audio and drawings are in the zip but the importer does not re-attach them) and collaborators (imported notes are never re-shared). Re-importing an unchanged archive is a no-op — files are fingerprinted by name and bytes — so it is safe to run twice.
 
 ## Security posture
 

@@ -511,86 +511,99 @@ export async function importMarkdownFiles(
 
 // ---------------------------------------------------------------- export
 
+/**
+ * Write one account's complete export archive to `outPath`. Shared by the
+ * on-demand export job and the scheduled backup, so a backup is byte-for-byte
+ * the same thing the user can download from Settings — one format to restore.
+ */
+export async function writeExportZip(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  outPath: string,
+): Promise<{ notes: number; labels: number }> {
+  const output = fs.createWriteStream(outPath);
+  const archive = new ZipArchive({ zlib: { level: 6 } });
+  archive.pipe(output);
+
+  const allNotes = await listNotes(db, userId);
+  const allLabels = await listLabels(db, userId);
+  const settings = await getSettings(db, userId);
+
+  archive.append(
+    JSON.stringify({ app: 'OpenKeep', version: 1, exportedAt: new Date().toISOString() }, null, 2),
+    { name: 'manifest.json' },
+  );
+  archive.append(JSON.stringify(allNotes, null, 2), { name: 'notes.json' });
+  archive.append(JSON.stringify(allLabels, null, 2), { name: 'labels.json' });
+  archive.append(JSON.stringify(settings, null, 2), { name: 'settings.json' });
+
+  // A second, human-readable copy of every note. notes.json is the exact
+  // backup; markdown/ is what opens in Obsidian, Joplin or any editor — and
+  // what /api/import/markdown reads back, front matter and all.
+  const labelNames = new Map(allLabels.map((label) => [label.id, label.name]));
+  const usedNames = new Set<string>();
+  for (const note of allNotes) {
+    const markdown = noteToMarkdown(note, {
+      labels: note.labelIds
+        .map((id) => labelNames.get(id))
+        .filter((name): name is string => name !== undefined),
+      color: note.color,
+      background: note.background,
+      pinned: note.pinned,
+      archived: note.archived,
+      created: note.createdAt,
+      updated: note.updatedAt,
+    });
+    if (markdown.trim() === '') continue;
+    // The id suffix already makes names unique; this only guards a zip entry
+    // colliding after the title was flattened for the file system.
+    let name = markdownFileName(note.title, note.id);
+    while (usedNames.has(name)) name = `_${name}`;
+    usedNames.add(name);
+    archive.append(markdown, { name: `markdown/${note.trashedAt ? 'trash/' : ''}${name}` });
+  }
+
+  for (const note of allNotes) {
+    for (const att of note.attachments) {
+      const [row] = await db
+        .select({ storageKey: attachmentsTable.storageKey })
+        .from(attachmentsTable)
+        .where(eq(attachmentsTable.id, att.id))
+        .limit(1);
+      if (row && (await storage.exists('attachments', row.storageKey))) {
+        archive.file(storage.pathFor('attachments', row.storageKey), {
+          name: `attachments/${note.id}/${row.storageKey}`,
+        });
+      }
+    }
+  }
+
+  await archive.finalize();
+  await once(output, 'close');
+  return { notes: allNotes.length, labels: allLabels.length };
+}
+
 /** pg-boss `export-user-data` handler body. */
 export async function runExport(db: Db, storage: Storage, jobId: string): Promise<void> {
   const [job] = await db.select().from(userJobs).where(eq(userJobs.id, jobId)).limit(1);
   if (job?.kind !== 'export') return;
-  const userId = job.userId;
 
   await updateJob(db, jobId, { status: 'running' });
   try {
     const fileKey = storage.newKey('zip');
-    const outPath = storage.pathFor('exports', fileKey);
-    const output = fs.createWriteStream(outPath);
-    const archive = new ZipArchive({ zlib: { level: 6 } });
-    archive.pipe(output);
-
-    const allNotes = await listNotes(db, userId);
-    const allLabels = await listLabels(db, userId);
-    const settings = await getSettings(db, userId);
-
-    archive.append(
-      JSON.stringify(
-        { app: 'OpenKeep', version: 1, exportedAt: new Date().toISOString() },
-        null,
-        2,
-      ),
-      { name: 'manifest.json' },
+    const summary = await writeExportZip(
+      db,
+      storage,
+      job.userId,
+      storage.pathFor('exports', fileKey),
     );
-    archive.append(JSON.stringify(allNotes, null, 2), { name: 'notes.json' });
-    archive.append(JSON.stringify(allLabels, null, 2), { name: 'labels.json' });
-    archive.append(JSON.stringify(settings, null, 2), { name: 'settings.json' });
-
-    // A second, human-readable copy of every note. notes.json is the exact
-    // backup; markdown/ is what opens in Obsidian, Joplin or any editor — and
-    // what /api/import/markdown reads back, front matter and all.
-    const labelNames = new Map(allLabels.map((label) => [label.id, label.name]));
-    const usedNames = new Set<string>();
-    for (const note of allNotes) {
-      const markdown = noteToMarkdown(note, {
-        labels: note.labelIds
-          .map((id) => labelNames.get(id))
-          .filter((name): name is string => name !== undefined),
-        color: note.color,
-        background: note.background,
-        pinned: note.pinned,
-        archived: note.archived,
-        created: note.createdAt,
-        updated: note.updatedAt,
-      });
-      if (markdown.trim() === '') continue;
-      // The id suffix already makes names unique; this only guards a zip entry
-      // colliding after the title was flattened for the file system.
-      let name = markdownFileName(note.title, note.id);
-      while (usedNames.has(name)) name = `_${name}`;
-      usedNames.add(name);
-      archive.append(markdown, { name: `markdown/${note.trashedAt ? 'trash/' : ''}${name}` });
-    }
-
-    for (const note of allNotes) {
-      for (const att of note.attachments) {
-        const [row] = await db
-          .select({ storageKey: attachmentsTable.storageKey })
-          .from(attachmentsTable)
-          .where(eq(attachmentsTable.id, att.id))
-          .limit(1);
-        if (row && (await storage.exists('attachments', row.storageKey))) {
-          archive.file(storage.pathFor('attachments', row.storageKey), {
-            name: `attachments/${note.id}/${row.storageKey}`,
-          });
-        }
-      }
-    }
-
-    await archive.finalize();
-    await once(output, 'close');
-
     await updateJob(db, jobId, {
       status: 'done',
       fileKey,
       finishedAt: new Date(),
       expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
-      summary: JSON.stringify({ notes: allNotes.length, labels: allLabels.length }),
+      summary: JSON.stringify(summary),
     });
   } catch (err) {
     await updateJob(db, jobId, {

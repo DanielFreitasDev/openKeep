@@ -29,6 +29,18 @@ const EnvSchema = z.object({
   METRICS_TOKEN: z.string().min(16, 'METRICS_TOKEN must be at least 16 characters').optional(),
   /** Days a trashed note survives. Keep's 7 by default; capped so the banner stays truthful. */
   TRASH_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(LIMITS.trashRetentionDays),
+  /**
+   * Five-field cron for the scheduled backup; unset means no backup job at all.
+   * Only the shape is checked here — pg-boss owns the semantics — but an
+   * obviously wrong value must fail at boot rather than silently never fire.
+   */
+  BACKUP_CRON: z
+    .string()
+    .regex(/^\S+(\s+\S+){4}$/, 'BACKUP_CRON must be a 5-field cron expression')
+    .optional(),
+  BACKUP_DIR: z.string().default('./backups'),
+  /** Archives kept per account before the oldest is deleted. */
+  BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(7),
 });
 
 export type Config = z.infer<typeof EnvSchema> & {
@@ -36,6 +48,7 @@ export type Config = z.infer<typeof EnvSchema> & {
   isDev: boolean;
   isTest: boolean;
   storageDirAbs: string;
+  backupDirAbs: string;
 };
 
 /** Load `.env` from cwd or repo root without overriding real env vars. */
@@ -78,5 +91,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     isDev: cfg.NODE_ENV === 'development',
     isTest: cfg.NODE_ENV === 'test',
     storageDirAbs: path.resolve(process.cwd(), cfg.STORAGE_DIR),
+    backupDirAbs: path.resolve(process.cwd(), cfg.BACKUP_DIR),
   };
 }
