@@ -27,6 +27,7 @@
   "formatRule": "Divisor",
   "formatClear": "Limpar formatação",
   "downloadMarkdown": "Baixar como .md",
+  "print": "Imprimir",
   "findInNote": "Localizar na nota",
   "findCount": "{{current}}/{{total}}",
   "findNoResults": "Sem resultados",

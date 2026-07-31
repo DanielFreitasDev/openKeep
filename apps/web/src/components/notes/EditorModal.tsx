@@ -22,6 +22,7 @@ import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
 import photoCameraSvg from '@material-symbols/svg-700/outlined/photo_camera.svg?raw';
+import printSvg from '@material-symbols/svg-700/outlined/print.svg?raw';
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
 import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
@@ -36,6 +37,7 @@ import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js'
 import { useAutosave } from '../../hooks/use-autosave.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { usePrintNote } from '../../hooks/use-print-note.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
@@ -268,6 +270,7 @@ function EditorBody({
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef(false);
   const attachmentM = useAttachmentMutations();
+  const printNote = usePrintNote();
   const setOpenEditorNoteId = useUiStore((s) => s.setOpenEditorNoteId);
 
   // The open note's card keeps its grid footprint with hidden content (Keep
@@ -926,6 +929,15 @@ function EditorBody({
                         </Menu.Item>
                         <Menu.Item
                           className={menuItemClass}
+                          onClick={() => {
+                            autosave.flush();
+                            printNote(currentNote());
+                          }}
+                        >
+                          {t('print')}
+                        </Menu.Item>
+                        <Menu.Item
+                          className={menuItemClass}
                           onClick={() =>
                             m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' })
                           }
@@ -1189,6 +1201,15 @@ function EditorBody({
                 setSheet(null);
                 autosave.flush();
                 downloadNoteMarkdown(currentNote());
+              }}
+            />
+            <SheetItem
+              svg={printSvg}
+              label={t('print')}
+              onClick={() => {
+                setSheet(null);
+                autosave.flush();
+                printNote(currentNote());
               }}
             />
             {isList && (

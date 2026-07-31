@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-30** (busca dentro da nota com Ctrl+F; antes: ações em massa —
-> lembrete, marcadores e colaborador na barra de seleção; markdown fases A, B e C — o vocabulário da nota agora é o do markdown, com
+> Última atualização: **2026-07-31** (imprimir / salvar como PDF; antes: busca dentro da nota com
+> Ctrl+F; ações em massa — lembrete, marcadores e colaborador na barra de seleção; markdown fases
+> A, B e C — o vocabulário da nota agora é o do markdown, com
 > import/export `.md`; PWA share target, filtro "Pessoas" na busca, auth do WS no handshake, aviso
 > de sharees no import, e2e de login/signup, CSP da API, heartbeat de WS, flush em blur, retenção da
 > lixeira, atalhos do manifest, contador de palavras)
@@ -399,9 +400,26 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   excluir corpo do corpus client-side enquanto trancada (título genérico "Nota protegida").
   **Não é criptografia** — deixar explícito na UI (o servidor continua lendo o conteúdo).
 
-- [ ] **Exportar como PDF / imprimir bem** *(impacto médio · esforço P/M)*
+- [x] **Exportar como PDF / imprimir bem** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   Menu da nota → "Imprimir/PDF": stylesheet de impressão dedicada (nota limpa, sem chrome) +
   `window.print()`. Resolve "exportar como PDF ou imagem" sem dependência server-side.
+  **Entregue:** "Imprimir" no menu ⋮ da nota, na sheet "Mais" do mobile e no menu do card. A página
+  que vai para a impressora **não é o app**: `lib/print-note.ts` monta um `<article>` próprio
+  (título, imagens, corpo *ou* checklist, rodapé com marcadores e "Editado …"), pendura em `<body>`
+  e o `@media print` esconde todo o resto. Imprimir o editor aberto não serviria — título e itens de
+  lista são `textarea` nativos, que saem cortados na altura de rolagem, e o modal levaria a moldura
+  inteira do app junto. Tudo no navegador, como o "Baixar como .md": funciona offline e imprime o
+  que a nota diz **agora**, inclusive a edição que o autosave ainda deve (o menu dá flush antes).
+  Detalhes que apareceram no caminho: (a) as cores de papel saem de tokens repontados no
+  `#print-root` (`--on-surface` etc.), não de `!important` sobre cada regra — assim o `.note-body`,
+  que já estiliza o vocabulário markdown, imprime igual nos dois temas; (b) `document.title` vira o
+  título da nota durante a impressão, porque é dele que o navegador tira o nome do PDF; (c) a
+  limpeza fica no `afterprint`, não no retorno de `window.print()` (só o Chrome bloqueia lá) — e
+  imprimir duas vezes seguidas desfaz a folha anterior *inteira*, senão o listener velho devolveria
+  como título do app o título da primeira nota; (d) as imagens são aguardadas antes do diálogo (com
+  teto de 3s), já que a folha está `display:none` até a mídia de impressão valer; (e) áudio não vai
+  para o papel. A regra que esconde o app precisa de `!important`: diálogos e popovers se posicionam
+  por style inline.
 
 ### 3.4 Captura e integrações
 

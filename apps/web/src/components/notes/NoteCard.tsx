@@ -18,6 +18,7 @@ import { memo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
+import { usePrintNote } from '../../hooks/use-print-note.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { setEditorOrigin } from '../../lib/editor-origin.js';
 import { useSelectionStore } from '../../stores/selection.js';
@@ -62,6 +63,7 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
   const navigate = useNavigate();
   const m = useNoteMutations();
   const attachmentM = useAttachmentMutations();
+  const printNote = usePrintNote();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const toggleSelect = useSelectionStore((s) => s.toggle);
   const isSelected = useSelectionStore((s) => s.selected.has(note.id));
@@ -359,6 +361,9 @@ export const NoteCard = memo(function NoteCard({ note }: { note: FullNote }) {
                     </Menu.Item>
                     <Menu.Item className={menuItemClass} onClick={() => downloadNoteMarkdown(note)}>
                       {t('editor:downloadMarkdown')}
+                    </Menu.Item>
+                    <Menu.Item className={menuItemClass} onClick={() => printNote(note)}>
+                      {t('editor:print')}
                     </Menu.Item>
                     <Menu.Item
                       className={menuItemClass}

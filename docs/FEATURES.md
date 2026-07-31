@@ -120,6 +120,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 - **Google Takeout import**: upload the Keep zip; async job with progress; maps colors/labels/pins/archive/trash; idempotent re-import.
 - **Markdown import** *(divergence)*: `.md` files upload directly, or a zipped vault (Obsidian, Joplin, a folder of notes) goes through the same archive job — front matter restores labels/color/pin, a file of `- [ ]` items becomes a checklist, and re-importing an unchanged file is a no-op.
 - JSON export of all your data (+ attachment files) as a zip.
+- **Print / "Save as PDF"** *(divergence)*: "Print" in the note and card menus prints a purpose-built sheet — title, images, body or checklist, labels and the edited stamp — with the app itself hidden; the browser's own dialog handles paper or PDF, and names the file after the note.
 
 ## AI integration (MCP) *(divergence: OpenKeep addition — real Keep has no API)*
 
