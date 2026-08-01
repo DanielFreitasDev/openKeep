@@ -17,6 +17,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { memo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
+import { useNoteFromTemplate } from '../../hooks/use-create-note.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { usePrintNote } from '../../hooks/use-print-note.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
@@ -82,6 +83,7 @@ export const NoteCard = memo(function NoteCard({
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useNoteMutations();
+  const noteFromTemplate = useNoteFromTemplate();
   const attachmentM = useAttachmentMutations();
   const printNote = usePrintNote();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -400,8 +402,23 @@ export const NoteCard = memo(function NoteCard({
                     <Menu.Item className={menuItemClass} onClick={() => setShowLabelPicker(true)}>
                       {note.labelIds.length > 0 ? t('labels:changeLabels') : t('labels:addLabel')}
                     </Menu.Item>
-                    <Menu.Item className={menuItemClass} onClick={() => m.copy.mutate(note.id)}>
-                      {t('makeACopy')}
+                    {note.isTemplate ? (
+                      <Menu.Item
+                        className={menuItemClass}
+                        onClick={() => noteFromTemplate(note.id)}
+                      >
+                        {t('useTemplate')}
+                      </Menu.Item>
+                    ) : (
+                      <Menu.Item className={menuItemClass} onClick={() => m.copy.mutate(note.id)}>
+                        {t('makeACopy')}
+                      </Menu.Item>
+                    )}
+                    <Menu.Item
+                      className={menuItemClass}
+                      onClick={() => m.toggleTemplateWithUndo(note)}
+                    >
+                      {note.isTemplate ? t('removeFromTemplates') : t('saveAsTemplate')}
                     </Menu.Item>
                     <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                       {t('editor:versionHistory')}

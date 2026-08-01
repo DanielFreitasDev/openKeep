@@ -4,6 +4,7 @@ import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
 import editSvg from '@material-symbols/svg-700/outlined/edit.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
 import lightbulbSvg from '@material-symbols/svg-700/outlined/lightbulb.svg?raw';
+import noteStackSvg from '@material-symbols/svg-700/outlined/note_stack.svg?raw';
 import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
 import settingsSvg from '@material-symbols/svg-700/outlined/settings.svg?raw';
 import { useQuery } from '@tanstack/react-query';
@@ -12,6 +13,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMountTransition } from '../../hooks/use-mount-transition.js';
 import { labelsQuery } from '../../lib/labels-api.js';
+import { selectHasTemplates } from '../../lib/note-selectors.js';
+import { notesQuery } from '../../lib/notes-api.js';
 import { settingsQuery } from '../../lib/queries.js';
 import { savedSearchTarget } from '../../lib/saved-searches.js';
 import { useUiStore } from '../../stores/ui.js';
@@ -31,6 +34,9 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/trash', svg: deleteSvg, labelKey: 'navTrash' },
 ];
 
+/** Templates earn their row: the shelf appears once there is one on it. */
+const TEMPLATES_ITEM: NavItem = { to: '/templates', svg: noteStackSvg, labelKey: 'navTemplates' };
+
 /**
  * Keep sidebar: persistent expanded ↔ icon rail, with Gmail-style hover
  * slide-out (overlay, no content reflow) while collapsed. On mobile it is the
@@ -45,6 +51,7 @@ export function Sidebar() {
   const setActiveDialog = useUiStore((s) => s.setActiveDialog);
   const { data: labels } = useQuery(labelsQuery);
   const { data: settings } = useQuery(settingsQuery);
+  const { data: hasTemplates } = useQuery({ ...notesQuery, select: selectHasTemplates });
   const savedSearches = settings?.savedSearches ?? [];
   const [hovered, setHovered] = useState(false);
 
@@ -190,7 +197,7 @@ export function Sidebar() {
           </Link>
         ))}
 
-        {NAV_ITEMS.slice(2).map((item) => (
+        {[...(hasTemplates ? [TEMPLATES_ITEM] : []), ...NAV_ITEMS.slice(2)].map((item) => (
           <Link
             key={item.to}
             to={item.to}

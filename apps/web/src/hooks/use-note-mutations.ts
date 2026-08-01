@@ -169,6 +169,25 @@ export function useNoteMutations() {
     });
   };
 
+  /**
+   * Save as template, and the same gesture back.
+   *
+   * Saving MOVES the note to the shelf rather than copying it there: a
+   * template is a state of the note, not a second copy of it — copying would
+   * leave two things to keep in step and one of them to delete by hand. The
+   * way back is this same menu item, and the snackbar offers it immediately,
+   * because the note has just left the grid the click happened on.
+   */
+  const toggleTemplateWithUndo = (note: FullNote) => {
+    const isTemplate = !note.isTemplate;
+    patchState.mutate({ id: note.id, patch: { isTemplate } });
+    show({
+      message: t(isTemplate ? 'noteSavedAsTemplate' : 'noteUnsavedAsTemplate'),
+      actionLabel: t('common:undo'),
+      onAction: () => patchState.mutate({ id: note.id, patch: { isTemplate: !isTemplate } }),
+    });
+  };
+
   const trashWithUndo = (note: FullNote) => {
     trash.mutate(note.id);
     show({
@@ -245,6 +264,7 @@ export function useNoteMutations() {
     deleteChecked,
     archiveWithUndo,
     unarchiveWithUndo,
+    toggleTemplateWithUndo,
     trashWithUndo,
     trashManyWithUndo,
     restoreWithUndo,

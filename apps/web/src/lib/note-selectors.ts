@@ -42,13 +42,24 @@ export function noteComparator(sort: NoteSort = 'manual'): (a: FullNote, b: Full
   }
 }
 
+/**
+ * Live in some view of the board — everything the trash and the templates
+ * shelf have not taken out of it.
+ *
+ * A template is a note kept for its shape, not for what it says, so it leaves
+ * the board whole: no grid, no label, no reminder list, no search, no link
+ * target. The trash is the one bucket that outranks it, because a trashed
+ * template is still a trashed note and has to be restorable from there.
+ */
+const onBoard = (n: FullNote) => n.trashedAt === null && !n.isTemplate;
+
 /** Main view: non-archived, non-trashed, split into PINNED / OTHERS. */
 export function selectMain(notes: FullNote[], sort?: NoteSort): MainSections {
   const cmp = noteComparator(sort);
   const pinned: FullNote[] = [];
   const others: FullNote[] = [];
   for (const n of notes) {
-    if (n.trashedAt !== null || n.archived) continue;
+    if (!onBoard(n) || n.archived) continue;
     (n.pinned ? pinned : others).push(n);
   }
   pinned.sort(cmp);
@@ -58,7 +69,27 @@ export function selectMain(notes: FullNote[], sort?: NoteSort): MainSections {
 
 /** Archive view: archived, non-trashed, flat. */
 export function selectArchived(notes: FullNote[], sort?: NoteSort): FullNote[] {
-  return notes.filter((n) => n.trashedAt === null && n.archived).sort(noteComparator(sort));
+  return notes.filter((n) => onBoard(n) && n.archived).sort(noteComparator(sort));
+}
+
+/**
+ * Templates view: my starting shapes, flat.
+ *
+ * Sorted like any other grid (the preference applies here too) — a shelf of
+ * templates is read the same way a shelf of notes is.
+ */
+export function selectTemplates(notes: FullNote[], sort?: NoteSort): FullNote[] {
+  return notes.filter((n) => n.trashedAt === null && n.isTemplate).sort(noteComparator(sort));
+}
+
+/**
+ * Whether the shelf has anything on it — the sidebar row and the "from a
+ * template" entry points both hide until it does, so nobody who never makes a
+ * template ever sees one. A boolean rather than the list: it is read on every
+ * render of the shell, and it must not hand out a new array each time.
+ */
+export function selectHasTemplates(notes: FullNote[]): boolean {
+  return notes.some((n) => n.trashedAt === null && n.isTemplate);
 }
 
 /** Trash view: most recently trashed first (its own order — the sort preference does not apply). */
@@ -75,7 +106,7 @@ export function selectById(notes: FullNote[], id: string): FullNote | undefined 
 /** Reminders view: notes with my reminder, upcoming first (done last) — likewise unsorted by preference. */
 export function selectReminders(notes: FullNote[]): FullNote[] {
   return notes
-    .filter((n) => n.trashedAt === null && n.reminder !== null)
+    .filter((n) => onBoard(n) && n.reminder !== null)
     .sort((a, b) => {
       if (a.reminder!.done !== b.reminder!.done) return a.reminder!.done ? 1 : -1;
       const ea = a.reminder!.snoozedUntil ?? a.reminder!.remindAt;
@@ -135,7 +166,7 @@ export interface SearchFilters {
 export function selectPeople(notes: FullNote[], myId: string | undefined): Collaborator[] {
   const people = new Map<string, Collaborator>();
   for (const n of notes) {
-    if (n.trashedAt !== null) continue;
+    if (!onBoard(n)) continue;
     for (const c of n.collaborators) {
       if (c.userId !== myId) people.set(c.userId, c);
     }
@@ -204,7 +235,7 @@ const LINK_TARGET_LIMIT = 8;
  */
 export function selectLinkTargets(notes: FullNote[], excludeId: string | null, q: string) {
   return notes
-    .filter((n) => n.trashedAt === null && n.id !== excludeId && matchesQuery(n, q))
+    .filter((n) => onBoard(n) && n.id !== excludeId && matchesQuery(n, q))
     .sort(byNewest('updatedAt'))
     .slice(0, LINK_TARGET_LIMIT);
 }
@@ -221,7 +252,7 @@ export function selectLinkTargets(notes: FullNote[], excludeId: string | null, q
 export function selectBacklinks(notes: FullNote[], noteId: string): FullNote[] {
   const needle = `href="${noteLinkHref(noteId)}"`;
   return notes
-    .filter((n) => n.trashedAt === null && n.id !== noteId && n.bodyHtml.includes(needle))
+    .filter((n) => onBoard(n) && n.id !== noteId && n.bodyHtml.includes(needle))
     .sort(byNewest('updatedAt'));
 }
 
@@ -261,7 +292,7 @@ export function selectSearch(notes: FullNote[], f: SearchFilters, sort?: NoteSor
   const words = queryWords(query.text.join(' '));
   const excluded = queryWords(query.exclude.join(' '));
   const matched = notes.filter((n) => {
-    if (n.trashedAt !== null) return false;
+    if (!onBoard(n)) return false;
     if (f.type && !hasType(n, f.type)) return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;

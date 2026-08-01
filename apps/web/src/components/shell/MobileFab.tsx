@@ -3,14 +3,19 @@ import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import micSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
+import noteStackSvg from '@material-symbols/svg-700/outlined/note_stack.svg?raw';
 import textSvg from '@material-symbols/svg-700/outlined/text_fields.svg?raw';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { audioRecordingSupported } from '../../hooks/use-audio-recorder.js';
 import { useCreateAndOpenNote } from '../../hooks/use-create-note.js';
 import { useMountTransition } from '../../hooks/use-mount-transition.js';
+import { selectHasTemplates } from '../../lib/note-selectors.js';
+import { notesQuery } from '../../lib/notes-api.js';
 import { Icon } from '../Icon.js';
+import { TemplatePickerDialog } from '../notes/TemplatePickerDialog.js';
 
 /** Longest collapse: the last action's stagger delay plus its own exit. */
 const EXIT_MS = 180;
@@ -27,6 +32,8 @@ export function MobileFab({ labelId }: { labelId?: string }) {
   const navigate = useNavigate();
   const createNote = useCreateAndOpenNote();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const { data: hasTemplates } = useQuery({ ...notesQuery, select: selectHasTemplates });
 
   useEffect(() => {
     if (!open) return;
@@ -75,6 +82,20 @@ export function MobileFab({ labelId }: { labelId?: string }) {
         });
       },
     },
+    // Only once the shelf has something on it — the sidebar row hides on the
+    // same rule, so nobody meets templates before making one.
+    ...(hasTemplates
+      ? [
+          {
+            svg: noteStackSvg,
+            label: t('notes:newFromTemplate'),
+            onClick: () => {
+              setOpen(false);
+              setShowTemplates(true);
+            },
+          },
+        ]
+      : []),
     { svg: checkboxSvg, label: t('createList'), onClick: () => createAndOpen('list') },
     { svg: textSvg, label: t('createText'), onClick: () => createAndOpen('text') },
   ];
@@ -126,6 +147,7 @@ export function MobileFab({ labelId }: { labelId?: string }) {
           />
         </button>
       </div>
+      <TemplatePickerDialog open={showTemplates} onOpenChange={setShowTemplates} />
       <input
         ref={imageInputRef}
         type="file"

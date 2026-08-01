@@ -28,6 +28,7 @@ function note(overrides: Partial<FullNote> = {}): FullNote {
     role: 'collaborator',
     pinned: false,
     archived: false,
+    isTemplate: false,
     color: 'default',
     background: 'none',
     position: 'a0',

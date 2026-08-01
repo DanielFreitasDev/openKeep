@@ -21,6 +21,7 @@ import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
 import micSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
+import noteStackSvg from '@material-symbols/svg-700/outlined/note_stack.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
 import photoCameraSvg from '@material-symbols/svg-700/outlined/photo_camera.svg?raw';
@@ -44,6 +45,7 @@ import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { audioRecordingSupported, useAudioRecorder } from '../../hooks/use-audio-recorder.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
+import { useNoteFromTemplate } from '../../hooks/use-create-note.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { usePrintNote } from '../../hooks/use-print-note.js';
@@ -279,6 +281,7 @@ function EditorBody({
   const canEdit = canEditContent(note);
   const isList = note.type === 'list';
   const navigate = useNavigate();
+  const noteFromTemplate = useNoteFromTemplate();
   // Block grid/base single-char shortcuts while the editor is open; Ctrl+F is
   // the one key the editor claims for itself (assigned below, through a ref, so
   // the binding registered here stays stable for the editor's whole life).
@@ -732,6 +735,17 @@ function EditorBody({
     }
   };
 
+  /**
+   * Onto the template shelf, or off it — and either way out of this editor,
+   * for the same reason archiving closes it: the note has just left the view
+   * that was underneath, so staying open would leave nothing to go back to.
+   */
+  const toggleTemplate = () => {
+    autosave.flush();
+    m.toggleTemplateWithUndo(note);
+    onClose();
+  };
+
   /** The note as it reads right now, including edits the autosave still owes. */
   const currentNote = (): FullNote => ({
     ...note,
@@ -1086,10 +1100,16 @@ function EditorBody({
                           className={menuItemClass}
                           onClick={() => {
                             autosave.flush();
-                            m.copy.mutate(note.id);
+                            if (note.isTemplate) noteFromTemplate(note.id);
+                            else m.copy.mutate(note.id);
                           }}
                         >
-                          {t('notes:makeACopy')}
+                          {note.isTemplate ? t('notes:useTemplate') : t('notes:makeACopy')}
+                        </Menu.Item>
+                        <Menu.Item className={menuItemClass} onClick={toggleTemplate}>
+                          {note.isTemplate
+                            ? t('notes:removeFromTemplates')
+                            : t('notes:saveAsTemplate')}
                         </Menu.Item>
                         <Menu.Item
                           className={menuItemClass}
@@ -1381,11 +1401,20 @@ function EditorBody({
             )}
             <SheetItem
               svg={contentCopySvg}
-              label={t('notes:makeACopy')}
+              label={note.isTemplate ? t('notes:useTemplate') : t('notes:makeACopy')}
               onClick={() => {
                 setSheet(null);
                 autosave.flush();
-                m.copy.mutate(note.id);
+                if (note.isTemplate) noteFromTemplate(note.id);
+                else m.copy.mutate(note.id);
+              }}
+            />
+            <SheetItem
+              svg={noteStackSvg}
+              label={note.isTemplate ? t('notes:removeFromTemplates') : t('notes:saveAsTemplate')}
+              onClick={() => {
+                setSheet(null);
+                toggleTemplate();
               }}
             />
             {'share' in navigator && (

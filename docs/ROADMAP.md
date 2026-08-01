@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (anexar qualquer arquivo — PDF, documentos, zip;
+> Última atualização: **2026-08-01** (modelos de nota;
+> antes: anexar qualquer arquivo — PDF, documentos, zip;
 > compartilhar por link público somente leitura;
 > vincular notas com `[[` e backlinks;
 > gravação de áudio no navegador;
@@ -413,11 +414,33 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   `[[` e `#` entraram juntos no diálogo `?`: nenhum dos dois é combinação de teclas, então não há
   como descobri-los tentando modificadores.
 
-- [ ] **Modelos de nota (templates)** *(impacto médio · esforço M)*
+- [x] **Modelos de nota (templates)** *(impacto médio · esforço M)* — feito em 2026-08-01
   **O quê:** salvar nota como modelo e criar a partir dele (composer → "Novo a partir de
   modelo"). Ausência sentida por quem vai para o Notion/Obsidian.
   **Como:** flag `is_template` no membership ou tabela própria; criar = clonar conteúdo
   (reaproveitar o "Make a copy", que já copia cor/labels/imagens).
+  **Entregue:** uma coluna (`note_members.is_template`) e **nenhuma rota nova**. Modelo é estado
+  por usuário, então ele mora onde moram fixar e arquivar — o mesmo `PATCH /api/notes/:id/state`,
+  o mesmo nível `member` no chokepoint — e "usar modelo" é o `POST /api/notes/:id/copy` que já
+  existia, porque a cópia nasce com a flag no padrão: um modelo usado devolve **nota**, não um
+  segundo modelo. Isso é o que faz a feature caber numa sessão.
+  **Salvar como modelo move a nota, não a duplica:** copiar deixaria duas coisas para manter em
+  sincronia e uma para apagar à mão. É o gesto de arquivar — some do quadro, o snackbar oferece o
+  desfazer na hora, e o mesmo item de menu é o caminho de volta. Por isso também o editor se fecha
+  ao salvar: a nota acabou de sair da tela que estava por baixo.
+  **A prateleira é uma exclusão só, dita uma vez:** `onBoard()` em `note-selectors.ts` (fora da
+  lixeira e fora dos modelos) governa quadro, arquivo, marcadores, lembretes, busca, alvos de `[[`
+  e backlinks — e o `view=templates` do `/api/notes` mais o `EXISTS` do `/api/search` repetem o
+  mesmo corte do lado de lá, senão o MCP veria modelos onde o navegador não vê. A **lixeira vence a
+  prateleira**: modelo jogado fora aparece na lixeira (e volta para a prateleira ao ser restaurado),
+  porque jogar fora tem de continuar reversível. `archived` e `is_template` são independentes —
+  tirar da prateleira devolve a nota ao arquivo de onde ela veio.
+  **O que aparece só depois do primeiro modelo:** a linha "Modelos" no sidebar, o botão no composer
+  e o item no FAB, pela mesma regra que já vale para marcadores e buscas salvas — quem nunca faz um
+  modelo nunca vê a feature. O seletor é diálogo, não popover, porque os dois pontos de entrada
+  (barra do composer no desktop, folha do FAB no mobile) não têm como compartilhar uma âncora.
+  O MCP ganhou `view=templates` no `list_notes` e nada mais: salvar como modelo é decisão visual,
+  como cor de marcador.
 
 - [x] **Anexar qualquer arquivo (PDF etc.)** *(impacto médio · esforço M)* — feito em 2026-07-31
   **O quê:** hoje só imagem/áudio/desenho; self-host pede PDF, docs, zip.
@@ -916,6 +939,13 @@ que o item obrigou a decidir foi o allowlist — assinatura não distingue `.doc
 resposta virou DECISIONS #31. Isso muda a fila? Não: **sub-labels/pastas** segue sendo o nº 1, e
 preview de PDF fica adiado (iframe same-origin é o oposto do `Content-Disposition: attachment` que
 esta entrega escolheu — quando vier, será decisão nova, não continuação desta).
+
+**Modelos de nota** saíram em 2026-08-01, também fora da fila dos três e pelo mesmo motivo dos dois
+anteriores: quase tudo já existia. A cópia de nota, o `PATCH /state` e o corpus filtrado no cliente
+já eram exatamente as três peças da feature, então o que sobrou foi uma coluna e uma exclusão dita
+num lugar só (`onBoard()`). Isso muda a fila? Não — e vale registrar o que o item **não** decidiu:
+a prateleira é plana, então ela não é um ensaio de **sub-labels/pastas**, que continua sendo o nº 1
+e continua precisando de `parent_id` e árvore no sidebar.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

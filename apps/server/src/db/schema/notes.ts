@@ -96,6 +96,8 @@ export const noteMembers = pgTable(
     role: text().notNull().default('owner'),
     pinned: boolean().notNull().default(false),
     archived: boolean().notNull().default(false),
+    /** A template is a bucket of my board, like the archive — never shared state. */
+    isTemplate: boolean().notNull().default(false),
     color: text().notNull().default('default'),
     background: text().notNull().default('none'),
     position: positionText().notNull(),

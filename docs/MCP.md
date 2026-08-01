@@ -87,7 +87,7 @@ The process probes the connection at startup and fails fast on stderr with an ac
 
 | Area | Tools |
 |---|---|
-| Notes | `list_notes`, `get_note`, `create_note` (composite: content + labels + reminder + state in one call), `update_note`, `set_note_state`, `trash_note`, `restore_note`, `delete_note_forever`, `empty_trash`, `copy_note`, `convert_note` |
+| Notes | `list_notes` (`view`: `active`, `archived`, `trash`, `templates`), `get_note`, `create_note` (composite: content + labels + reminder + state in one call), `update_note`, `set_note_state` (incl. `is_template`), `trash_note`, `restore_note`, `delete_note_forever`, `empty_trash`, `copy_note` (a copy is never a template), `convert_note` |
 | Checklists | `add_checklist_items` (batch), `update_checklist_item`, `delete_checklist_item`, `uncheck_all_items`, `delete_checked_items` |
 | Labels | `list_labels`, `create_label`, `rename_label`, `delete_label`, `add_label_to_note` (by name, creates when missing), `remove_label_from_note` |
 | Reminders | `set_reminder` (RFC 5545 RRULE + IANA timezone, defaulting to the account setting), `remove_reminder`, `snooze_reminder`, `dismiss_reminder` |

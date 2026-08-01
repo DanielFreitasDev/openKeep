@@ -28,6 +28,7 @@ function note(over: Partial<FullNote>): FullNote {
     role: 'owner',
     pinned: false,
     archived: false,
+    isTemplate: false,
     color: 'default',
     background: 'none',
     position: `a${seq}`,
@@ -91,6 +92,12 @@ describe('selectSearch', () => {
     expect(r.active.map((n) => n.title)).not.toContain('Trashed match');
     expect(r.archived.map((n) => n.title)).toEqual(['Archived match']);
     expect(r.active.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('excludes templates, the way it excludes the trash', () => {
+    const shape = note({ title: 'hello shape', isTemplate: true });
+    const r = selectSearch([...corpus, shape], { q: 'hello' });
+    expect([...r.active, ...r.archived].map((n) => n.title)).not.toContain('hello shape');
   });
 
   it('applies type, color and label filters (combinable with text)', () => {

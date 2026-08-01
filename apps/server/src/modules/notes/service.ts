@@ -96,6 +96,7 @@ function toFullNote(
     role: member.role as FullNote['role'],
     pinned: member.pinned,
     archived: member.archived,
+    isTemplate: member.isTemplate,
     color: member.color as FullNote['color'],
     background: member.background as FullNote['background'],
     position: member.position,
@@ -258,11 +259,11 @@ export async function assembleFullNotes(
   );
 }
 
-/** The whole corpus (active + archived + trashed) — one batched select per table. */
+/** The whole corpus (active + archived + trashed + templates) — one batched select per table. */
 export async function listNotes(
   db: Db,
   userId: string,
-  view?: 'active' | 'archived' | 'trash',
+  view?: 'active' | 'archived' | 'trash' | 'templates',
   label?: string,
 ): Promise<FullNote[]> {
   const conditions = [eq(noteMembers.userId, userId)];
@@ -293,9 +294,12 @@ export async function listNotes(
     const trashed = note.trashedAt !== null;
     // Keep parity: only the owner sees a trashed shared note (in their trash).
     if (trashed && member.role !== 'owner') return false;
+    // A template is a bucket of its own: it leaves the board (and the archive)
+    // the moment it becomes one, and the trash still wins over both.
     if (view === 'trash') return trashed;
-    if (view === 'archived') return !trashed && member.archived;
-    if (view === 'active') return !trashed && !member.archived;
+    if (view === 'templates') return !trashed && member.isTemplate;
+    if (view === 'archived') return !trashed && !member.isTemplate && member.archived;
+    if (view === 'active') return !trashed && !member.isTemplate && !member.archived;
     return true;
   });
 
@@ -545,6 +549,7 @@ export async function patchNoteState(
     id: noteId,
     pinned: m.pinned,
     archived: m.archived,
+    isTemplate: m.isTemplate,
     color: m.color as NoteStateResult['color'],
     background: m.background as NoteStateResult['background'],
     position: m.position,

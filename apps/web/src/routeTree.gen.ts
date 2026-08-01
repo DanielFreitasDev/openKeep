@@ -17,6 +17,7 @@ import { Route as ShellArchiveRouteImport } from './routes/_shell/archive'
 import { Route as ShellRemindersRouteImport } from './routes/_shell/reminders'
 import { Route as ShellSearchRouteImport } from './routes/_shell/search'
 import { Route as ShellShareRouteImport } from './routes/_shell/share'
+import { Route as ShellTemplatesRouteImport } from './routes/_shell/templates'
 import { Route as ShellTrashRouteImport } from './routes/_shell/trash'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as ShellLabelLabelNameRouteImport } from './routes/_shell/label.$labelName'
@@ -60,6 +61,11 @@ const ShellShareRoute = ShellShareRouteImport.update({
   path: '/share',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellTemplatesRoute = ShellTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellTrashRoute = ShellTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/reminders': typeof ShellRemindersRoute
   '/search': typeof ShellSearchRoute
   '/share': typeof ShellShareRoute
+  '/templates': typeof ShellTemplatesRoute
   '/trash': typeof ShellTrashRoute
   '/s/$token': typeof STokenRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/reminders': typeof ShellRemindersRoute
   '/search': typeof ShellSearchRoute
   '/share': typeof ShellShareRoute
+  '/templates': typeof ShellTemplatesRoute
   '/trash': typeof ShellTrashRoute
   '/s/$token': typeof STokenRoute
   '/': typeof ShellIndexRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_shell/reminders': typeof ShellRemindersRoute
   '/_shell/search': typeof ShellSearchRoute
   '/_shell/share': typeof ShellShareRoute
+  '/_shell/templates': typeof ShellTemplatesRoute
   '/_shell/trash': typeof ShellTrashRoute
   '/s/$token': typeof STokenRoute
   '/_shell/': typeof ShellIndexRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/reminders'
     | '/search'
     | '/share'
+    | '/templates'
     | '/trash'
     | '/s/$token'
     | '/label/$labelName'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/reminders'
     | '/search'
     | '/share'
+    | '/templates'
     | '/trash'
     | '/s/$token'
     | '/'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/_shell/reminders'
     | '/_shell/search'
     | '/_shell/share'
+    | '/_shell/templates'
     | '/_shell/trash'
     | '/s/$token'
     | '/_shell/'
@@ -219,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellShareRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/templates': {
+      id: '/_shell/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof ShellTemplatesRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/trash': {
       id: '/_shell/trash'
       path: '/trash'
@@ -248,6 +267,7 @@ interface ShellRouteChildren {
   ShellRemindersRoute: typeof ShellRemindersRoute
   ShellSearchRoute: typeof ShellSearchRoute
   ShellShareRoute: typeof ShellShareRoute
+  ShellTemplatesRoute: typeof ShellTemplatesRoute
   ShellTrashRoute: typeof ShellTrashRoute
   ShellIndexRoute: typeof ShellIndexRoute
   ShellLabelLabelNameRoute: typeof ShellLabelLabelNameRoute
@@ -258,6 +278,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellRemindersRoute: ShellRemindersRoute,
   ShellSearchRoute: ShellSearchRoute,
   ShellShareRoute: ShellShareRoute,
+  ShellTemplatesRoute: ShellTemplatesRoute,
   ShellTrashRoute: ShellTrashRoute,
   ShellIndexRoute: ShellIndexRoute,
   ShellLabelLabelNameRoute: ShellLabelLabelNameRoute,

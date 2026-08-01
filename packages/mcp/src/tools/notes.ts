@@ -54,10 +54,10 @@ function bodyHtmlFrom(args: {
 export const listNotes = defineTool({
   name: 'list_notes',
   description:
-    'List notes as compact cards (id, title, snippet, labels, state). Default view is "active"; use view=archived or view=trash for the other sections. Use get_note for full content.',
+    'List notes as compact cards (id, title, snippet, labels, state). Default view is "active"; use view=archived, view=trash or view=templates for the other sections. Use get_note for full content.',
   inputSchema: z.object({
     view: z
-      .enum(['active', 'archived', 'trash'])
+      .enum(['active', 'archived', 'trash', 'templates'])
       .optional()
       .describe('Which section to list (default active)'),
     label: z.string().optional().describe('Only notes carrying this label (case-insensitive name)'),
@@ -211,18 +211,26 @@ export const updateNote = defineTool({
 
 export const setNoteState = defineTool({
   name: 'set_note_state',
-  description: 'Pin/unpin, archive/unarchive, or change the color/background of a note.',
+  description:
+    'Pin/unpin, archive/unarchive, save as (or unsave from) a template, or change the color/background of a note.',
   inputSchema: z.object({
     note_id: zNoteId,
     pinned: z.boolean().optional(),
     archived: z.boolean().optional(),
+    is_template: z
+      .boolean()
+      .optional()
+      .describe('Move the note onto (or off) the templates shelf — it leaves every other view'),
     color: zNoteColor.optional(),
     background: zNoteBackground.optional(),
   }),
   handler: async (client, args) => {
-    const { note_id, ...patch } = args;
+    const { note_id, is_template, ...rest } = args;
+    const patch = { ...rest, ...(is_template === undefined ? {} : { isTemplate: is_template }) };
     if (Object.keys(patch).length === 0) {
-      throw new Error('Nothing to change — pass pinned, archived, color or background.');
+      throw new Error(
+        'Nothing to change — pass pinned, archived, is_template, color or background.',
+      );
     }
     return client.patchNoteState(note_id, patch);
   },

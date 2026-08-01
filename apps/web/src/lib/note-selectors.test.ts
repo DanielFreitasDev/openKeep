@@ -6,8 +6,10 @@ import {
   selectArchived,
   selectBacklinks,
   selectBulkLabels,
+  selectHasTemplates,
   selectLinkTargets,
   selectMain,
+  selectTemplates,
   selectTrashed,
   upsertNote,
 } from './note-selectors.js';
@@ -29,6 +31,7 @@ function note(over: Partial<FullNote>): FullNote {
     role: 'owner',
     pinned: false,
     archived: false,
+    isTemplate: false,
     color: 'default',
     background: 'none',
     position: `a${seq}`,
@@ -171,6 +174,40 @@ describe('note selectors', () => {
     expect(checked).toEqual([]);
     expect(mixed).toEqual(['work']);
     expect(selectBulkLabels([])).toEqual({ checked: [], mixed: [] });
+  });
+});
+
+describe('templates', () => {
+  const tpl = (over: Partial<FullNote> = {}) => note({ isTemplate: true, ...over });
+
+  it('takes templates out of every view but their own', () => {
+    const shape = tpl({ title: 'shape' });
+    const archivedShape = tpl({ title: 'archived shape', archived: true });
+    const plain = note({ title: 'plain' });
+
+    const notes = [shape, archivedShape, plain];
+    expect(selectMain(notes).others.map((n) => n.title)).toEqual(['plain']);
+    expect(selectArchived(notes)).toEqual([]);
+    expect(
+      selectTemplates(notes)
+        .map((n) => n.title)
+        .sort(),
+    ).toEqual(['archived shape', 'shape']);
+    expect(selectHasTemplates(notes)).toBe(true);
+    expect(selectHasTemplates([plain])).toBe(false);
+  });
+
+  it('lets the trash outrank the shelf', () => {
+    const trashedShape = tpl({ title: 'trashed shape', trashedAt: '2026-07-25T00:00:00.000Z' });
+    expect(selectTemplates([trashedShape])).toEqual([]);
+    expect(selectTrashed([trashedShape]).map((n) => n.title)).toEqual(['trashed shape']);
+    expect(selectHasTemplates([trashedShape])).toBe(false);
+  });
+
+  it('never offers a template as a link target', () => {
+    const shape = tpl({ title: 'shape' });
+    const plain = note({ title: 'plain' });
+    expect(selectLinkTargets([shape, plain], null, '').map((n) => n.title)).toEqual(['plain']);
   });
 });
 

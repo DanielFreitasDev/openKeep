@@ -675,7 +675,8 @@
               "enum": [
                 "active",
                 "archived",
-                "trash"
+                "trash",
+                "templates"
               ]
             },
             "in": "query",
@@ -925,6 +926,9 @@
                       "archived": {
                         "type": "boolean"
                       },
+                      "isTemplate": {
+                        "type": "boolean"
+                      },
                       "color": {
                         "type": "string",
                         "enum": [
@@ -991,6 +995,7 @@
                       "role",
                       "pinned",
                       "archived",
+                      "isTemplate",
                       "color",
                       "background",
                       "position",
@@ -1352,6 +1357,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -1418,6 +1426,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -1681,6 +1690,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -1747,6 +1759,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -1891,6 +1904,9 @@
                   "archived": {
                     "type": "boolean"
                   },
+                  "isTemplate": {
+                    "type": "boolean"
+                  },
                   "color": {
                     "type": "string",
                     "enum": [
@@ -1963,6 +1979,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -2003,6 +2022,7 @@
                     "id",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position"
@@ -2263,6 +2283,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -2329,6 +2352,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -2592,6 +2616,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -2658,6 +2685,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -2949,6 +2977,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -3015,6 +3046,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -3300,6 +3332,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -3366,6 +3401,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -3699,6 +3735,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -3765,6 +3804,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -4128,6 +4168,9 @@
                     "archived": {
                       "type": "boolean"
                     },
+                    "isTemplate": {
+                      "type": "boolean"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -4194,6 +4237,7 @@
                     "role",
                     "pinned",
                     "archived",
+                    "isTemplate",
                     "color",
                     "background",
                     "position",
@@ -5419,6 +5463,9 @@
                       "archived": {
                         "type": "boolean"
                       },
+                      "isTemplate": {
+                        "type": "boolean"
+                      },
                       "color": {
                         "type": "string",
                         "enum": [
@@ -5489,6 +5536,7 @@
                       "role",
                       "pinned",
                       "archived",
+                      "isTemplate",
                       "color",
                       "background",
                       "position",

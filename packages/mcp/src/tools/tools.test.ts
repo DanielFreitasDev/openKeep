@@ -5,7 +5,7 @@ import { addChecklistItems } from './checklist.js';
 import { addCollaborator, listCollaborators, setCollaboratorRole } from './collaborators.js';
 import { FakeOpenKeepClient } from './fake-client.js';
 import { addLabelToNote, removeLabelFromNote, renameLabel } from './labels.js';
-import { createNote, getNote, updateNote } from './notes.js';
+import { createNote, getNote, listNotes, setNoteState, updateNote } from './notes.js';
 import { setReminder } from './reminders.js';
 import { ImageOutput } from './types.js';
 
@@ -114,6 +114,42 @@ describe('update_note / get_note body surface', () => {
 
     await expect(updateNote.handler(client, { note_id: note.id }, caps)).rejects.toThrow(
       'Nothing to update',
+    );
+  });
+});
+
+describe('templates', () => {
+  /**
+   * The tool surface is snake_case and the API is camelCase, so this crossing
+   * is the one place the flag can be silently dropped: a patch that carried
+   * `is_template` through untranslated would be accepted and ignored.
+   */
+  it('moves a note onto the shelf and out of the active listing', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({ title: 'Weekly review' });
+
+    expect(
+      ((await listNotes.handler(client, {}, caps)) as { notes: { id: string }[] }).notes.map(
+        (n) => n.id,
+      ),
+    ).toContain(note.id);
+
+    await setNoteState.handler(client, { note_id: note.id, is_template: true }, caps);
+    expect(client.notes.get(note.id)?.isTemplate).toBe(true);
+
+    const active = (await listNotes.handler(client, {}, caps)) as { notes: { id: string }[] };
+    expect(active.notes.map((n) => n.id)).not.toContain(note.id);
+    const shelf = (await listNotes.handler(client, { view: 'templates' }, caps)) as {
+      notes: { id: string }[];
+    };
+    expect(shelf.notes.map((n) => n.id)).toEqual([note.id]);
+  });
+
+  it('still refuses an empty patch', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    await expect(setNoteState.handler(client, { note_id: note.id }, caps)).rejects.toThrow(
+      /Nothing to change/,
     );
   });
 });

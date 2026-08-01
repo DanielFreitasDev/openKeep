@@ -53,6 +53,7 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
     mergeIfKnown(qc, p.id, {
       pinned: p.pinned,
       archived: p.archived,
+      isTemplate: p.isTemplate,
       color: p.color,
       background: p.background,
       position: p.position,

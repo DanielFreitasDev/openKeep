@@ -30,7 +30,11 @@ export function TopBar() {
   const onSearchRoute = pathname === '/search';
   /** Trash and Reminders carry their own order, so the picker stays out of them. */
   const sortable =
-    pathname === '/' || pathname === '/archive' || onSearchRoute || pathname.startsWith('/label/');
+    pathname === '/' ||
+    pathname === '/archive' ||
+    pathname === '/templates' ||
+    onSearchRoute ||
+    pathname.startsWith('/label/');
   const searchValue = onSearchRoute ? (urlSearch.q ?? '') : '';
 
   const goSearch = (q: string) =>

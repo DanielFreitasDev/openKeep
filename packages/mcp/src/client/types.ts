@@ -26,7 +26,7 @@ import type { z } from 'zod';
 export type CreateNoteInput = z.input<typeof zCreateNote>;
 export type CreateItemInput = z.input<typeof zCreateItemInput>;
 
-export type NoteView = 'active' | 'archived' | 'trash';
+export type NoteView = 'active' | 'archived' | 'trash' | 'templates';
 export type SearchType = 'list' | 'url' | 'image' | 'audio' | 'drawing' | 'file' | 'reminder';
 
 export interface SearchQuery {

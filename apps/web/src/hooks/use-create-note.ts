@@ -17,6 +17,37 @@ interface CreateOpts {
 }
 
 /**
+ * Start a note from a template.
+ *
+ * It is the copy the app already makes from any note — the flag lives on the
+ * membership and a copy gets a fresh one, so the new note is an ordinary note
+ * by construction and nothing has to be un-templated afterwards. The landing
+ * is always the board: the note that was just made is not on the shelf the
+ * click came from, and closing the editor should show it where it now lives.
+ *
+ * The id comes from the server (a copy is one round trip, not an optimistic
+ * insert), so the editor opens when the copy lands rather than right away.
+ */
+export function useNoteFromTemplate() {
+  const navigate = useNavigate();
+  const m = useNoteMutations();
+
+  return useCallback(
+    (templateId: string) => {
+      m.copy.mutate(templateId, {
+        onSuccess: (note) =>
+          void navigate({
+            to: '/',
+            search: (old: Record<string, unknown>) => ({ ...old, note: note.id, new: undefined }),
+            resetScroll: false,
+          }),
+      });
+    },
+    [navigate, m],
+  );
+}
+
+/**
  * Create a note optimistically and open it in the full-screen editor.
  * Shared by the mobile FAB, the app shortcuts (`?compose=`) and the share
  * target (`/share`) so every entry point produces exactly the same note.

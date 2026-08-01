@@ -98,6 +98,7 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       role: 'owner',
       pinned: false,
       archived: false,
+      isTemplate: false,
       color: 'default',
       background: 'none',
       position: `a${this.notes.size}`,
@@ -117,8 +118,9 @@ export class FakeOpenKeepClient implements OpenKeepClient {
     let notes = [...this.notes.values()].filter((n) => {
       const trashed = n.trashedAt !== null;
       if (view === 'trash') return trashed;
-      if (view === 'archived') return !trashed && n.archived;
-      return !trashed && !n.archived;
+      if (view === 'templates') return !trashed && n.isTemplate;
+      if (view === 'archived') return !trashed && !n.isTemplate && n.archived;
+      return !trashed && !n.isTemplate && !n.archived;
     });
     if (query?.label) {
       const label = [...this.labels.values()].find(
@@ -178,6 +180,7 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       id,
       pinned: note.pinned,
       archived: note.archived,
+      isTemplate: note.isTemplate,
       color: note.color,
       background: note.background,
       position: note.position,

@@ -35,6 +35,8 @@ export const zFullNote = z.object({
   role: zNoteRole,
   pinned: z.boolean(),
   archived: z.boolean(),
+  /** Kept as a starting shape rather than a note: out of every other view. */
+  isTemplate: z.boolean(),
   color: zNoteColor,
   background: zNoteBackground,
   position: z.string(),
@@ -85,6 +87,7 @@ export const zPatchNoteState = z
   .object({
     pinned: z.boolean(),
     archived: z.boolean(),
+    isTemplate: z.boolean(),
     color: zNoteColor,
     background: zNoteBackground,
     position: z.string().max(256),
@@ -96,6 +99,7 @@ export const zNoteStateResult = z.object({
   id: zId,
   pinned: z.boolean(),
   archived: z.boolean(),
+  isTemplate: z.boolean(),
   color: zNoteColor,
   background: zNoteBackground,
   position: z.string(),
@@ -125,7 +129,7 @@ export const zNoteVersionMeta = z.object({
 export type NoteVersionMeta = z.infer<typeof zNoteVersionMeta>;
 
 export const zListNotesQuery = z.object({
-  view: z.enum(['active', 'archived', 'trash']).optional(),
+  view: z.enum(['active', 'archived', 'trash', 'templates']).optional(),
   /** Filter by label name (case-insensitive), matching the /label/:name routes. */
   label: z.string().max(LIMITS.labelNameMax).optional(),
 });

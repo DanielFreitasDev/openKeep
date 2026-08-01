@@ -19,6 +19,7 @@ function note(over: Partial<FullNote>): FullNote {
     role: 'owner',
     pinned: false,
     archived: false,
+    isTemplate: false,
     color: 'default',
     background: 'none',
     position: `a${seq}`,

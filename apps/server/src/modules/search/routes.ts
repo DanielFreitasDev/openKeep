@@ -36,7 +36,8 @@ const zSearchQuery = z.object({
 
 /**
  * Server-side FTS escape hatch (the primary v1 search UX is client-side over
- * the corpus). Archived included, trashed excluded, ranked, limit 100.
+ * the corpus). Archived included, trashed and templates excluded, ranked,
+ * limit 100.
  */
 export function registerSearchRoutes(app: App, db: Db): void {
   app.get(
@@ -59,7 +60,13 @@ export function registerSearchRoutes(app: App, db: Db): void {
       // agent and a person typing the same string get the same notes.
       const query = parseSearchQuery(q);
 
-      const conditions = [eq(noteMembers.userId, userId), isNull(notes.trashedAt)];
+      // Templates are excluded like the trash is: they are starting shapes
+      // kept out of the board, not notes one expects to find by searching.
+      const conditions = [
+        eq(noteMembers.userId, userId),
+        isNull(notes.trashedAt),
+        eq(noteMembers.isTemplate, false),
+      ];
 
       /** Note-or-item text match, which is what "the note contains it" means. */
       const textMatches = (tsquery: string) =>

@@ -30,6 +30,7 @@ The v1.0 scope: full parity with the Google Keep **web** app as researched in Ju
 - **Pin**: PINNED / OTHERS uppercase section headers; pinned notes never mix with others.
 - **Archive**: hides from main view; searchable; keeps labels and reminders; `e` shortcut.
 - **Trash**: 7-day retention banner, read-only notes while trashed, Restore / Delete forever / Empty trash; only the owner deletes for everyone.
+- **Templates** *(divergence — Keep has none)*: "Save as template" in the note and card menus moves a note onto a Templates shelf, out of the board, the archive, search, reminders and the `[[` picker; the same menu item moves it back, and the trash still outranks the shelf. "Use template" makes an ordinary copy and opens it — from the composer, the mobile FAB or the template itself. The sidebar row and both entry points appear only once a template exists.
 - Manual drag reorder within sections — per-user, synced across devices (`Shift+J/K` keyboard equivalent).
 - Grid ↔ list view toggle (`Ctrl+G`), persisted per user.
 - **Colors**: 12 swatches — Default, Coral, Peach, Sand, Mint, Sage, Fog, Storm, Dusk, Blossom, Clay, Chalk — with distinct light and dark palettes (see `packages/shared/src/constants/colors.ts`).

@@ -10,6 +10,7 @@ import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
+import noteStackSvg from '@material-symbols/svg-700/outlined/note_stack.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
@@ -28,6 +29,8 @@ import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
 import type { DraftInvite } from '../../lib/drafts.js';
 import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
+import { selectHasTemplates } from '../../lib/note-selectors.js';
+import { notesQuery } from '../../lib/notes-api.js';
 import { sessionQuery } from '../../lib/queries.js';
 import { NOTE_INPUT_RULES, noteExtensions } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
@@ -41,6 +44,7 @@ import { NotePicker, pickNoteLink } from './NotePicker.js';
 import { ReminderChip } from './ReminderChip.js';
 import { ReminderPicker } from './ReminderPicker.js';
 import { ShareDialog } from './ShareDialog.js';
+import { TemplatePickerDialog } from './TemplatePickerDialog.js';
 
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
@@ -90,6 +94,8 @@ export function Composer() {
     seed: '',
   });
   const [notePicker, setNotePicker] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const { data: hasTemplates } = useQuery({ ...notesQuery, select: selectHasTemplates });
 
   // While composing, block grid/base shortcuts entirely (same as the editor
   // modal) — an open composer is an editing surface, not the board.
@@ -427,6 +433,14 @@ export function Composer() {
               className="text-on-surface-variant"
               onClick={() => newNoteImageRef.current?.click()}
             />
+            {hasTemplates && (
+              <IconButton
+                svg={noteStackSvg}
+                label={t('newFromTemplate')}
+                className="text-on-surface-variant"
+                onClick={() => setShowTemplates(true)}
+              />
+            )}
             <input
               ref={newNoteImageRef}
               type="file"
@@ -784,6 +798,7 @@ export function Composer() {
           </div>
         )}
       </div>
+      <TemplatePickerDialog open={showTemplates} onOpenChange={setShowTemplates} />
     </div>
   );
 }
