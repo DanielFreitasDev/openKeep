@@ -13,15 +13,15 @@ export const searchNotes = defineTool({
       .optional()
       .describe(
         'Search terms (prefix matching). Operators may be mixed in: label:name, color:blue, ' +
-          'has:image|audio|drawing|link|list|reminder, is:pinned|unpinned|archived|unarchived, ' +
+          'has:image|audio|drawing|file|link|list|reminder, is:pinned|unpinned|archived|unarchived, ' +
           'before:/after:YYYY-MM-DD (edited date, UTC), and - to exclude (-word, -label:work). ' +
           'Quote values containing spaces: label:"to do".',
       ),
     type: z
-      .enum(['list', 'url', 'image', 'audio', 'drawing', 'reminder'])
+      .enum(['list', 'url', 'image', 'audio', 'drawing', 'file', 'reminder'])
       .optional()
       .describe(
-        'Only notes of a kind: checklists, with links, with images/audio/drawings, with reminders',
+        'Only notes of a kind: checklists, with links, with images/audio/drawings/files, with reminders',
       ),
     label: z.string().optional().describe('Only notes carrying this label (name)'),
     color: z.string().optional().describe('Only notes with this color'),

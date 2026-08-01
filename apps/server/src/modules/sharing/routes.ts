@@ -14,6 +14,7 @@ import { errors } from '../../lib/errors.js';
 import type { Storage } from '../../lib/storage.js';
 import type { Realtime } from '../../realtime/registry.js';
 import { memberIds } from '../../realtime/registry.js';
+import { attachmentDisposition } from '../attachments/service.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
@@ -231,7 +232,7 @@ export function registerSharingRoutes(
       config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
       schema: {
         tags: ['sharing'],
-        description: 'Image, drawing or audio bytes of a publicly linked note.',
+        description: 'Image, drawing, audio or file bytes of a publicly linked note.',
         params: z.object({
           token: zShareToken,
           attachmentId: zId,
@@ -240,19 +241,21 @@ export function registerSharingRoutes(
       },
     },
     async (req, reply) => {
-      const { stream, mime } = await svc.openPublicAttachment(
+      const { stream, mime, download } = await svc.openPublicAttachment(
         db,
         storage,
         req.params.token,
         req.params.attachmentId,
         req.params.variant,
       );
-      return reply
+      reply
         .header('content-type', mime)
         .header('cache-control', 'private, max-age=31536000, immutable')
         .header('x-content-type-options', 'nosniff')
-        .header('x-robots-tag', 'noindex, nofollow')
-        .send(stream);
+        .header('x-robots-tag', 'noindex, nofollow');
+      // Same rule as the private route: a file downloads, it does not render.
+      if (download) reply.header('content-disposition', attachmentDisposition(download));
+      return reply.send(stream);
     },
   );
 }

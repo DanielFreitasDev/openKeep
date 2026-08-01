@@ -48,6 +48,7 @@
   "takePhoto": "Take photo",
   "addDrawing": "Add drawing",
   "recordAudio": "Record audio",
+  "attachFile": "Attach file",
   "recordingStarting": "Starting…",
   "recording": "Recording…",
   "recordingTimeLeft": "{{time}} left",

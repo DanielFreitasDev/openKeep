@@ -9,6 +9,7 @@
   "type_image": "Images",
   "type_audio": "Audio",
   "type_drawing": "Drawings",
+  "type_file": "Files",
   "type_reminder": "Reminders",
   "op_label": "Only notes carrying that label",
   "op_color": "Only notes in that color",

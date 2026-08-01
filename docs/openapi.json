@@ -793,7 +793,8 @@
                               "enum": [
                                 "image",
                                 "audio",
-                                "drawing"
+                                "drawing",
+                                "file"
                               ]
                             },
                             "mime": {
@@ -810,6 +811,10 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "filename": {
+                              "nullable": true,
+                              "type": "string"
                             },
                             "hasThumb": {
                               "type": "boolean"
@@ -831,6 +836,7 @@
                             "mime",
                             "width",
                             "height",
+                            "filename",
                             "hasThumb",
                             "createdAt",
                             "updatedAt"
@@ -1214,7 +1220,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -1231,6 +1238,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -1252,6 +1263,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -1537,7 +1549,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -1554,6 +1567,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -1575,6 +1592,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -2113,7 +2131,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -2130,6 +2149,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -2151,6 +2174,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -2436,7 +2460,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -2453,6 +2478,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -2474,6 +2503,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -2787,7 +2817,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -2804,6 +2835,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -2825,6 +2860,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -3132,7 +3168,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -3149,6 +3186,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -3170,6 +3211,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -3525,7 +3567,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -3542,6 +3585,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -3563,6 +3610,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -3948,7 +3996,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -3965,6 +4014,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -3986,6 +4039,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -5096,6 +5150,7 @@
                 "image",
                 "audio",
                 "drawing",
+                "file",
                 "reminder"
               ]
             },
@@ -5232,7 +5287,8 @@
                               "enum": [
                                 "image",
                                 "audio",
-                                "drawing"
+                                "drawing",
+                                "file"
                               ]
                             },
                             "mime": {
@@ -5249,6 +5305,10 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "filename": {
+                              "nullable": true,
+                              "type": "string"
                             },
                             "hasThumb": {
                               "type": "boolean"
@@ -5270,6 +5330,7 @@
                             "mime",
                             "width",
                             "height",
+                            "filename",
                             "hasThumb",
                             "createdAt",
                             "updatedAt"
@@ -5480,7 +5541,8 @@
                       "enum": [
                         "image",
                         "audio",
-                        "drawing"
+                        "drawing",
+                        "file"
                       ]
                     },
                     "mime": {
@@ -5497,6 +5559,10 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "filename": {
+                      "nullable": true,
+                      "type": "string"
                     },
                     "hasThumb": {
                       "type": "boolean"
@@ -5518,6 +5584,7 @@
                     "mime",
                     "width",
                     "height",
+                    "filename",
                     "hasThumb",
                     "createdAt",
                     "updatedAt"
@@ -5565,7 +5632,8 @@
                       "enum": [
                         "image",
                         "audio",
-                        "drawing"
+                        "drawing",
+                        "file"
                       ]
                     },
                     "mime": {
@@ -5582,6 +5650,10 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "filename": {
+                      "nullable": true,
+                      "type": "string"
                     },
                     "hasThumb": {
                       "type": "boolean"
@@ -5603,6 +5675,99 @@
                     "mime",
                     "width",
                     "height",
+                    "filename",
+                    "hasThumb",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notes/{id}/files": {
+      "post": {
+        "tags": [
+          "attachments"
+        ],
+        "description": "Attach an arbitrary file (PDF, office document, archive, text). Magic bytes decide the container and the extension names the format.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "audio",
+                        "drawing",
+                        "file"
+                      ]
+                    },
+                    "mime": {
+                      "type": "string"
+                    },
+                    "width": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "height": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "filename": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "hasThumb": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "mime",
+                    "width",
+                    "height",
+                    "filename",
                     "hasThumb",
                     "createdAt",
                     "updatedAt"
@@ -5650,7 +5815,8 @@
                       "enum": [
                         "image",
                         "audio",
-                        "drawing"
+                        "drawing",
+                        "file"
                       ]
                     },
                     "mime": {
@@ -5667,6 +5833,10 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "filename": {
+                      "nullable": true,
+                      "type": "string"
                     },
                     "hasThumb": {
                       "type": "boolean"
@@ -5688,6 +5858,7 @@
                     "mime",
                     "width",
                     "height",
+                    "filename",
                     "hasThumb",
                     "createdAt",
                     "updatedAt"
@@ -5735,7 +5906,8 @@
                       "enum": [
                         "image",
                         "audio",
-                        "drawing"
+                        "drawing",
+                        "file"
                       ]
                     },
                     "mime": {
@@ -5752,6 +5924,10 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "filename": {
+                      "nullable": true,
+                      "type": "string"
                     },
                     "hasThumb": {
                       "type": "boolean"
@@ -5773,6 +5949,7 @@
                     "mime",
                     "width",
                     "height",
+                    "filename",
                     "hasThumb",
                     "createdAt",
                     "updatedAt"
@@ -7040,7 +7217,8 @@
                             "enum": [
                               "image",
                               "audio",
-                              "drawing"
+                              "drawing",
+                              "file"
                             ]
                           },
                           "mime": {
@@ -7057,6 +7235,10 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "filename": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "hasThumb": {
                             "type": "boolean"
@@ -7078,6 +7260,7 @@
                           "mime",
                           "width",
                           "height",
+                          "filename",
                           "hasThumb",
                           "createdAt",
                           "updatedAt"
@@ -7136,7 +7319,7 @@
         "tags": [
           "sharing"
         ],
-        "description": "Image, drawing or audio bytes of a publicly linked note.",
+        "description": "Image, drawing, audio or file bytes of a publicly linked note.",
         "parameters": [
           {
             "schema": {

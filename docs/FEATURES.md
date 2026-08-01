@@ -76,6 +76,7 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 
 - Multiple images per note, stacked above the title; upload validation (magic bytes; ~10 MB, 25 MP caps); server thumbnails; delete on hover.
 - Audio attachments: playback, plus in-browser recording *(divergence — Keep records only on Android)* from the editor toolbar, the mobile "Add to note" sheet and the FAB, with a Stop/Discard bar and a 10-minute ceiling per take.
+- Any other file *(divergence — Keep carries images and audio only)*: PDF, Word/Excel/PowerPoint (both the OOXML and the legacy formats), OpenDocument, epub, zip and text files, up to 25 MB and 25 attachments per note. Attach from the editor toolbar or the mobile "Add to note" sheet; the note shows a download chip next to the link previews, and files ride along to the public link page and the export archive. The type is decided by the bytes (the extension only names which format inside the container), and downloads are always downloads — nothing is rendered on the app's own origin.
 
 ## Drawings
 

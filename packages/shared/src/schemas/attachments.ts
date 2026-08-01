@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { LIMITS } from '../constants/limits.js';
 import { zId } from './common.js';
 
-export const zAttachmentKind = z.enum(['image', 'audio', 'drawing']);
+export const zAttachmentKind = z.enum(['image', 'audio', 'drawing', 'file']);
 
 export const zAttachment = z.object({
   id: zId,
@@ -10,6 +10,8 @@ export const zAttachment = z.object({
   mime: z.string(),
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
+  /** The name a `kind='file'` attachment is shown and downloaded under; null otherwise. */
+  filename: z.string().nullable(),
   hasThumb: z.boolean(),
   createdAt: z.iso.datetime(),
   /** Bumped when a drawing is re-saved — clients cache-bust file/thumb URLs with it. */

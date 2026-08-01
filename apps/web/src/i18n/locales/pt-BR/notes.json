@@ -54,6 +54,7 @@
   "addImage": "Adicionar imagem",
   "removeImage": "Remover imagem",
   "removeAudio": "Remover áudio",
+  "removeFile": "Remover arquivo",
   "uploadFailed": "Não foi possível enviar a imagem",
   "selectNote": "Selecionar nota",
   "deselectNote": "Desmarcar nota",

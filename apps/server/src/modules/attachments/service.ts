@@ -1,5 +1,10 @@
-import type { Attachment, DrawingData } from '@openkeep/shared';
-import { LIMITS } from '@openkeep/shared';
+import type { Attachment, DrawingData, FileFamily } from '@openkeep/shared';
+import {
+  FILE_EXTENSIONS_LABEL,
+  fileTypeOf,
+  LIMITS,
+  sanitizeAttachmentFilename,
+} from '@openkeep/shared';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import sharp, { type FormatEnum, type Metadata } from 'sharp';
 import type { Db } from '../../db/client.js';
@@ -18,6 +23,7 @@ export function toAttachmentDto(row: AttachmentRow): Attachment {
     mime: row.mime,
     width: row.width,
     height: row.height,
+    filename: row.filename,
     hasThumb: row.thumbKey !== null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -114,6 +120,104 @@ export function sniffAudio(data: Buffer): { mime: string; ext: string } | null {
   if (data.length < 12) return null;
   const found = AUDIO_MAGIC.find((m) => m.match(data));
   return found ? { mime: found.mime, ext: found.ext } : null;
+}
+
+const OLE2_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
+/** Container signatures, one per family (see FILE_TYPES in shared). */
+const FILE_MAGIC: { family: FileFamily; match: (b: Buffer) => boolean }[] = [
+  { family: 'pdf', match: (b) => b.subarray(0, 5).toString('latin1') === '%PDF-' },
+  {
+    family: 'zip',
+    // 'PK' + a local file header (03 04) or the end record of an empty one (05 06).
+    match: (b) =>
+      b.subarray(0, 2).toString('latin1') === 'PK' &&
+      ((b[2] === 0x03 && b[3] === 0x04) || (b[2] === 0x05 && b[3] === 0x06)),
+  },
+  { family: 'ole2', match: (b) => b.subarray(0, 8).equals(OLE2_MAGIC) },
+];
+
+/**
+ * Plain text has no signature, so the family is decided by the content: it must
+ * decode as UTF-8 (round-tripping proves it) and carry no NUL or stray control
+ * bytes. That refuses binaries renamed to `.txt` without pretending to guess a
+ * charset — a legacy Latin-1 file is asked for as UTF-8 instead of stored as a
+ * text attachment whose bytes lie about their encoding.
+ */
+export function looksLikeText(data: Buffer): boolean {
+  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(data);
+  if (decoded.includes('�')) return false;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: the point is to find them
+  return !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(decoded);
+}
+
+/**
+ * The type of an arbitrary file attachment: the bytes prove the container, the
+ * extension names which member of that container's family it is (DECISIONS #31).
+ * The browser's declared mime never takes part — a `.docx` whose bytes are not a
+ * zip is refused, and so is a zip called `.exe`.
+ */
+export function sniffFile(data: Buffer, filename: string): { mime: string; ext: string } | null {
+  const type = fileTypeOf(filename);
+  if (!type) return null;
+  if (type.family === 'text')
+    return looksLikeText(data) ? { mime: type.mime, ext: type.ext } : null;
+  if (data.length < 8) return null;
+  const magic = FILE_MAGIC.find((m) => m.match(data));
+  return magic?.family === type.family ? { mime: type.mime, ext: type.ext } : null;
+}
+
+/**
+ * Any other file on a note (PDF, office document, archive, text). Stored byte
+ * for byte with no thumbnail: nothing here is an image, so there is nothing to
+ * re-encode or resize, and the only thing added is the name it came with.
+ */
+export async function uploadFile(
+  db: Db,
+  storage: Storage,
+  userId: string,
+  noteId: string,
+  data: Buffer,
+  rawFilename: string,
+): Promise<Attachment> {
+  const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
+  assertNotTrashed(note);
+
+  if (data.length > LIMITS.fileMaxBytes) {
+    throw errors.payloadTooLarge(`Files can be at most ${LIMITS.fileMaxBytes / 1024 / 1024} MB`);
+  }
+  const filename = sanitizeAttachmentFilename(rawFilename, LIMITS.attachmentFilenameMax);
+  const magic = sniffFile(data, filename);
+  if (!magic) {
+    throw errors.unsupportedMediaType(
+      `Unsupported file type — accepted: ${FILE_EXTENSIONS_LABEL}. Images and audio have their own upload.`,
+    );
+  }
+
+  const [row] = await db
+    .select({ n: count() })
+    .from(attachments)
+    .where(eq(attachments.noteId, noteId));
+  if ((row?.n ?? 0) >= LIMITS.attachmentsPerNoteMax) {
+    throw new AppError(400, 'attachment_limit_reached', 'Attachment limit reached');
+  }
+
+  const storageKey = storage.newKey(magic.ext);
+  await storage.write('attachments', storageKey, data);
+
+  const [created] = await db
+    .insert(attachments)
+    .values({
+      noteId,
+      kind: 'file',
+      storageKey,
+      mime: magic.mime,
+      size: data.length,
+      filename,
+    })
+    .returning();
+  await db.update(notes).set({ lastEditedBy: userId }).where(eq(notes.id, noteId));
+  return toAttachmentDto(created!);
 }
 
 /**
@@ -426,6 +530,23 @@ export async function importMediaAttachment(
 export interface AttachmentFile {
   stream: NodeJS.ReadableStream;
   mime: string;
+  /**
+   * The name a download should carry, set only for `kind='file'`. It doubles as
+   * the signal to serve the bytes as an attachment rather than inline: images
+   * and audio are meant to render in the page, whereas an arbitrary file has no
+   * business being opened by the browser on our own origin.
+   */
+  download: string | null;
+}
+
+/**
+ * `Content-Disposition` for a downloaded file: the ASCII fallback for old
+ * clients plus the RFC 5987 form that carries the real name, since a note's
+ * attachment is as likely to be called `orçamento.pdf` as anything else.
+ */
+export function attachmentDisposition(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 async function findForUser(db: Db, userId: string, attachmentId: string): Promise<AttachmentRow> {
@@ -456,6 +577,7 @@ export async function streamAttachment(
   return {
     stream: storage.createReadStream(variant === 'thumb' ? 'thumbs' : 'attachments', key),
     mime: variant === 'thumb' ? 'image/webp' : att.mime,
+    download: variant === 'file' && att.kind === 'file' ? (att.filename ?? 'file') : null,
   };
 }
 
@@ -556,6 +678,8 @@ export async function copyAttachments(
       height: row.height,
       // Copied drawings stay editable in the copy.
       drawingData: row.drawingData,
+      // A file's name is its identity; the copy is not called something else.
+      filename: row.filename,
     });
   }
 }

@@ -48,6 +48,7 @@
   "takePhoto": "Tirar foto",
   "addDrawing": "Adicionar desenho",
   "recordAudio": "Gravar áudio",
+  "attachFile": "Anexar arquivo",
   "recordingStarting": "Iniciando…",
   "recording": "Gravando…",
   "recordingTimeLeft": "resta {{time}}",

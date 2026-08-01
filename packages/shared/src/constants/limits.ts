@@ -33,6 +33,14 @@ export const LIMITS = {
    * that actually matters is a tab left recording by accident.
    */
   audioRecordingMaxSeconds: 600,
+  /**
+   * Any other file (PDF, office document, archive, text). Higher than an image
+   * because a scanned PDF is routinely tens of megabytes, and the ceiling is
+   * about a self-hosted disk rather than about what the pipeline can chew.
+   */
+  fileMaxBytes: 25 * 1024 * 1024,
+  /** Displayed filename cap (chip label and Content-Disposition). */
+  attachmentFilenameMax: 200,
   /** Takeout archives carry full-size photos — far beyond the image cap. */
   importZipMaxBytes: 512 * 1024 * 1024,
   /** Drawings: stroke/point caps keep the vector JSON bounded (~1 MB). */

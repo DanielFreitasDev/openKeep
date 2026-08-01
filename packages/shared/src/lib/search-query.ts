@@ -21,7 +21,15 @@
 import { NOTE_COLORS, type NoteColor, TAKEOUT_COLOR_MAP } from '../constants/colors.js';
 
 /** Content kinds a note can be filtered by — the `type=` param's vocabulary. */
-export const SEARCH_TYPES = ['list', 'url', 'image', 'audio', 'drawing', 'reminder'] as const;
+export const SEARCH_TYPES = [
+  'list',
+  'url',
+  'image',
+  'audio',
+  'drawing',
+  'file',
+  'reminder',
+] as const;
 export type SearchType = (typeof SEARCH_TYPES)[number];
 
 export const SEARCH_OPERATORS = ['label', 'color', 'has', 'is', 'before', 'after'] as const;
@@ -83,6 +91,11 @@ const HAS_ALIASES: Record<string, SearchType> = {
   recording: 'audio',
   drawing: 'drawing',
   drawings: 'drawing',
+  file: 'file',
+  files: 'file',
+  document: 'file',
+  documents: 'file',
+  pdf: 'file',
   reminder: 'reminder',
   reminders: 'reminder',
 };

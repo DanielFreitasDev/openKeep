@@ -30,12 +30,19 @@ export const attachments = pgTable(
     height: integer(),
     /** Stroke vectors for kind='drawing' (the file is its PNG render); null otherwise. */
     drawingData: jsonb(),
+    /**
+     * Display name of a kind='file' attachment — what the chip shows and what
+     * the download is named. Never a storage key: those stay opaque uuids.
+     */
+    filename: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     /** Bumped when a drawing is re-saved — clients cache-bust file/thumb URLs with it. */
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check('attachments_kind_check', sql`${t.kind} in ('image', 'audio', 'drawing')`),
+    check('attachments_kind_check', sql`${t.kind} in ('image', 'audio', 'drawing', 'file')`),
+    // A file is the only kind whose name is content: nothing else identifies it.
+    check('attachments_filename_check', sql`(${t.kind} <> 'file') = (${t.filename} is null)`),
     index('attachments_note_idx').on(t.noteId, t.createdAt),
   ],
 );

@@ -36,6 +36,7 @@ import { ConfirmDialog } from './ConfirmDialog.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteBody } from './NoteBody.js';
+import { NoteFileChips } from './NoteFileChips.js';
 import { NoteImages } from './NoteImages.js';
 import { NoteReminderChip } from './ReminderChip.js';
 import { NoteReminderPicker } from './ReminderPicker.js';
@@ -255,6 +256,7 @@ export const NoteCard = memo(function NoteCard({
         </div>
       </div>
 
+      <NoteFileChips note={note} />
       <LinkPreviewChips note={note} />
       <NoteReminderChip note={note} />
       <NoteLabelChips note={note} />

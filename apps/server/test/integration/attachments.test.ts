@@ -1,4 +1,5 @@
 import type { Attachment, FullNote } from '@openkeep/shared';
+import { LIMITS } from '@openkeep/shared';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getOrQueue, storeFetched } from '../../src/modules/link-preview/service.js';
@@ -217,6 +218,113 @@ describe('attachments', () => {
       payload,
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  const PDF_BYTES = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(64, 0x20)]);
+  const ZIP_BYTES = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64)]);
+
+  const uploadFile = async (buf: Buffer, filename: string, ctype = 'application/octet-stream') => {
+    const { payload, headers } = multipartBody(buf, filename, ctype);
+    return t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/files`,
+      headers: { ...headers, cookie },
+      payload,
+    });
+  };
+
+  it('attaches a PDF, stored as-is and downloaded under its own name', async () => {
+    const res = await uploadFile(PDF_BYTES, 'Orçamento final.pdf');
+    expect(res.statusCode).toBe(201);
+    const att = res.json() as Attachment;
+    expect(att.kind).toBe('file');
+    expect(att.mime).toBe('application/pdf');
+    expect(att.filename).toBe('Orçamento final.pdf');
+    expect(att.hasThumb).toBe(false);
+
+    const file = await t.app.inject({
+      method: 'GET',
+      url: `/api/attachments/${att.id}/file`,
+      headers: { cookie },
+    });
+    expect(file.statusCode).toBe(200);
+    expect(file.headers['content-type']).toBe('application/pdf');
+    // Downloaded, never rendered on our own origin — and the accented name
+    // survives in the RFC 5987 form while the fallback stays ASCII.
+    expect(file.headers['content-disposition']).toBe(
+      `attachment; filename="Or_amento final.pdf"; filename*=UTF-8''Or%C3%A7amento%20final.pdf`,
+    );
+    expect(file.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+
+    const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
+    const note = (list.json() as FullNote[]).find((n) => n.id === noteId);
+    expect(note?.attachments.find((a) => a.id === att.id)?.filename).toBe('Orçamento final.pdf');
+  });
+
+  it('an image download is still served inline', async () => {
+    const png = await upload(await makePng());
+    const file = await t.app.inject({
+      method: 'GET',
+      url: `/api/attachments/${(png.json() as Attachment).id}/file`,
+      headers: { cookie },
+    });
+    expect(file.headers['content-disposition']).toBeUndefined();
+  });
+
+  it('the extension names the format inside the container', async () => {
+    const docx = await uploadFile(ZIP_BYTES, 'contract.docx');
+    expect(docx.statusCode).toBe(201);
+    expect((docx.json() as Attachment).mime).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+  });
+
+  it('refuses what the bytes contradict and what the allowlist omits', async () => {
+    const renamed = await uploadFile(PDF_BYTES, 'contract.docx');
+    expect(renamed.statusCode).toBe(415);
+    expect(renamed.json().code).toBe('unsupported_media_type');
+
+    const exe = await uploadFile(PDF_BYTES, 'invoice.pdf.exe');
+    expect(exe.statusCode).toBe(415);
+
+    // A name that is only a path traversal attempt keeps nothing to match on.
+    const traversal = await uploadFile(PDF_BYTES, '../../etc/passwd');
+    expect(traversal.statusCode).toBe(415);
+  });
+
+  it('rejects a file past the byte cap', async () => {
+    const big = Buffer.concat([PDF_BYTES, Buffer.alloc(LIMITS.fileMaxBytes, 0x20)]);
+    const res = await uploadFile(big, 'huge.pdf');
+    expect(res.statusCode).toBe(413);
+  });
+
+  it('a viewer cannot attach a file', async () => {
+    const viewerCookie = await t.signUp('viewer-file@example.com', 'V');
+    await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/collaborators`,
+      headers: { cookie },
+      payload: { email: 'viewer-file@example.com', role: 'viewer' },
+    });
+    const { payload, headers } = multipartBody(PDF_BYTES, 'x.pdf', 'application/pdf');
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/files`,
+      headers: { ...headers, cookie: viewerCookie },
+      payload,
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe('note_read_only');
+  });
+
+  it('search has:file matches the note that got the document', async () => {
+    const res = await t.app.inject({
+      method: 'GET',
+      url: '/api/search?q=has%3Afile',
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as FullNote[]).some((n) => n.id === noteId)).toBe(true);
   });
 
   it('search type=audio matches the note that got the recording', async () => {

@@ -507,6 +507,7 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       mime: 'image/png',
       width: 1,
       height: 1,
+      filename: null,
       hasThumb: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

@@ -5,6 +5,7 @@ import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
 import addBoxSvg from '@material-symbols/svg-700/outlined/add_box.svg?raw';
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
 import arrowBackSvg from '@material-symbols/svg-700/outlined/arrow_back.svg?raw';
+import attachFileSvg from '@material-symbols/svg-700/outlined/attach_file.svg?raw';
 import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import checkboxBlankSvg from '@material-symbols/svg-700/outlined/check_box_outline_blank.svg?raw';
@@ -28,7 +29,13 @@ import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
 import shareSvg from '@material-symbols/svg-700/outlined/share.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
-import { type FullNote, htmlToPlainText, LIMITS, parseNoteLinkHref } from '@openkeep/shared';
+import {
+  FILE_ACCEPT,
+  type FullNote,
+  htmlToPlainText,
+  LIMITS,
+  parseNoteLinkHref,
+} from '@openkeep/shared';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
@@ -68,6 +75,7 @@ import { FormatBar } from './FormatBar.js';
 import { LinkPreviewChips } from './LinkPreviewChips.js';
 import { NoteBackgroundArt } from './NoteBackground.js';
 import { NoteBacklinks } from './NoteBacklinks.js';
+import { NoteFileChips } from './NoteFileChips.js';
 import { NoteImages } from './NoteImages.js';
 import { NotePicker, pickNoteLink } from './NotePicker.js';
 import { NoteReminderChip } from './ReminderChip.js';
@@ -334,6 +342,7 @@ function EditorBody({
   const checklistRef = useRef<ChecklistHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const docInputRef = useRef<HTMLInputElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef(false);
@@ -897,6 +906,7 @@ function EditorBody({
             )}
           </div>
 
+          <NoteFileChips note={note} editable={canEdit && !trashed} />
           <LinkPreviewChips note={note} />
           <NoteBacklinks note={note} onOpen={openNote} />
           <NoteReminderChip note={note} />
@@ -1015,6 +1025,16 @@ function EditorBody({
                     iconSize={19}
                     className="text-on-surface-variant"
                     onClick={() => fileInputRef.current?.click()}
+                  />
+                )}
+                {canEdit && (
+                  <IconButton
+                    svg={attachFileSvg}
+                    label={t('attachFile')}
+                    size={38}
+                    iconSize={19}
+                    className="text-on-surface-variant"
+                    onClick={() => docInputRef.current?.click()}
                   />
                 )}
                 {canRecord && (
@@ -1220,6 +1240,18 @@ function EditorBody({
             }}
           />
           <input
+            ref={docInputRef}
+            type="file"
+            accept={FILE_ACCEPT}
+            className="hidden"
+            data-testid="file-input"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) attachmentM.uploadFile.mutate({ noteId: note.id, file });
+              e.target.value = '';
+            }}
+          />
+          <input
             ref={cameraInputRef}
             type="file"
             accept="image/*"
@@ -1252,6 +1284,14 @@ function EditorBody({
               onClick={() => {
                 setSheet(null);
                 fileInputRef.current?.click();
+              }}
+            />
+            <SheetItem
+              svg={attachFileSvg}
+              label={t('attachFile')}
+              onClick={() => {
+                setSheet(null);
+                docInputRef.current?.click();
               }}
             />
             {canRecord && (

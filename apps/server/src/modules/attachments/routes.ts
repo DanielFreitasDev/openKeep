@@ -103,6 +103,44 @@ export async function registerAttachmentRoutes(
   );
 
   app.post(
+    '/api/notes/:id/files',
+    {
+      preHandler: [app.requireAuth],
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['attachments'],
+        description:
+          'Attach an arbitrary file (PDF, office document, archive, text). Magic bytes decide the container and the extension names the format.',
+        params: zNoteParams,
+        response: { 201: zAttachment },
+      },
+    },
+    async (req, reply) => {
+      // Like audio, files carry their own byte cap, and busboy has to be told
+      // per request — otherwise it truncates and the sniffer then rejects a
+      // file whose only problem was being cut short.
+      const file = await req.file({ limits: { fileSize: LIMITS.fileMaxBytes } });
+      if (!file) throw errors.badRequest('Expected a multipart file field');
+      const data = await file.toBuffer();
+      // The name arrives with the part; there is no separate field to trust.
+      const attachment = await svc.uploadFile(
+        db,
+        storage,
+        req.user.id,
+        req.params.id,
+        data,
+        file.filename ?? '',
+      );
+      realtime.publishToUsers(
+        await memberIds(db, req.params.id),
+        { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
+        originOf(req),
+      );
+      return reply.status(201).send(attachment);
+    },
+  );
+
+  app.post(
     '/api/notes/:id/drawings',
     {
       preHandler: [app.requireAuth],
@@ -167,18 +205,20 @@ export async function registerAttachmentRoutes(
     '/api/attachments/:id/file',
     { preHandler: [app.requireAuth], schema: { tags: ['attachments'], params: zAttachmentParams } },
     async (req, reply) => {
-      const { stream, mime } = await svc.openAttachment(
+      const { stream, mime, download } = await svc.openAttachment(
         db,
         storage,
         req.user.id,
         req.params.id,
         'file',
       );
-      return reply
+      reply
         .header('content-type', mime)
         .header('cache-control', 'private, max-age=31536000, immutable')
-        .header('x-content-type-options', 'nosniff')
-        .send(stream);
+        .header('x-content-type-options', 'nosniff');
+      // A file is downloaded, never rendered on our origin (DECISIONS #31).
+      if (download) reply.header('content-disposition', svc.attachmentDisposition(download));
+      return reply.send(stream);
     },
   );
 

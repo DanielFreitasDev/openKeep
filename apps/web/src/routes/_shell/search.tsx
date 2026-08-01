@@ -1,3 +1,4 @@
+import attachFileSvg from '@material-symbols/svg-700/outlined/attach_file.svg?raw';
 import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
@@ -239,6 +240,11 @@ function SearchView() {
               svg={brushSvg}
               label={t('type_drawing')}
               onClick={() => setParam({ type: 'drawing' })}
+            />
+            <TypeTile
+              svg={attachFileSvg}
+              label={t('type_file')}
+              onClick={() => setParam({ type: 'file' })}
             />
             <TypeTile
               svg={notificationsSvg}

@@ -1,4 +1,5 @@
 export * from './constants/app.js';
+export * from './constants/attachment-files.js';
 export * from './constants/backgrounds.js';
 export * from './constants/colors.js';
 export * from './constants/limits.js';

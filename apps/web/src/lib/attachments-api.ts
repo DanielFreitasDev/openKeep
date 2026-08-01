@@ -46,6 +46,13 @@ export function uploadAudioApi(noteId: string, file: File): Promise<Attachment> 
   return postMultipart(`/api/notes/${noteId}/audio`, 'POST', fd);
 }
 
+/** Any other file: its own route (own byte cap, no image pipeline). */
+export function uploadFileApi(noteId: string, file: File): Promise<Attachment> {
+  const fd = new FormData();
+  fd.append('file', file);
+  return postMultipart(`/api/notes/${noteId}/files`, 'POST', fd);
+}
+
 function drawingFormData(file: File, drawing: DrawingData): FormData {
   const fd = new FormData();
   // The JSON field goes before the file: the server reads buffered fields

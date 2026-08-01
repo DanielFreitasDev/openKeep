@@ -7,6 +7,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { EmptyView } from '../components/EmptyView.js';
 import { Icon } from '../components/Icon.js';
+import { FileChip } from '../components/notes/NoteFileChips.js';
 import { formatEdited } from '../lib/dates.js';
 import { publicAttachmentUrl, publicNoteQuery } from '../lib/share-link-api.js';
 
@@ -57,6 +58,7 @@ function PublicNoteCard({ note, token, lang }: { note: PublicNote; token: string
   const { t } = useTranslation('sharing');
   const images = note.attachments.filter((a) => a.kind === 'image' || a.kind === 'drawing');
   const audios = note.attachments.filter((a) => a.kind === 'audio');
+  const files = note.attachments.filter((a) => a.kind === 'file');
 
   return (
     <article
@@ -103,6 +105,18 @@ function PublicNoteCard({ note, token, lang }: { note: PublicNote; token: string
             className="my-2 w-full"
           />
         ))}
+
+        {files.length > 0 && (
+          <div className="flex flex-col gap-1 pt-2">
+            {files.map((att) => (
+              <FileChip
+                key={att.id}
+                href={publicAttachmentUrl(token, att.id, 'file')}
+                attachment={att}
+              />
+            ))}
+          </div>
+        )}
 
         <p className="pt-4 text-on-surface-variant text-xs">
           {t('editor:edited', { time: formatEdited(note.updatedAt, lang) })}

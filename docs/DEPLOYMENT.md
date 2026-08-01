@@ -94,7 +94,7 @@ Point `BACKUP_DIR` at a mounted volume — inside the container the rootfs is re
 **Restoring:**
 
 - **The whole instance** — restore the `pg_dump` and the storage volume, then start the app. This is the only route that brings back accounts, sessions, sharing and attachments exactly as they were.
-- **One account's notes** — sign in as that user and use Settings → Import with the archive. The importer reads the `markdown/` folder, so notes, labels, colour, pinned/archived state and the original timestamps come back; trashed notes come back as notes. Two things do **not**: attachments (images, audio and drawings are in the zip but the importer does not re-attach them) and collaborators (imported notes are never re-shared). Re-importing an unchanged archive is a no-op — files are fingerprinted by name and bytes — so it is safe to run twice.
+- **One account's notes** — sign in as that user and use Settings → Import with the archive. The importer reads the `markdown/` folder, so notes, labels, colour, pinned/archived state and the original timestamps come back; trashed notes come back as notes. Two things do **not**: attachments (images, audio, drawings and files are in the zip but the importer does not re-attach them) and collaborators (imported notes are never re-shared). Re-importing an unchanged archive is a no-op — files are fingerprinted by name and bytes — so it is safe to run twice.
 
 ## Security posture
 

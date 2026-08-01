@@ -54,9 +54,16 @@ describe('parseSearchQuery', () => {
     // An unknown key, an invalid value, a url and a bare colon are all words.
     expect(parseSearchQuery('foo:bar').text).toEqual(['foo:bar']);
     expect(parseSearchQuery('color:banana').text).toEqual(['color:banana']);
-    expect(parseSearchQuery('has:pdf').text).toEqual(['has:pdf']);
+    expect(parseSearchQuery('has:spreadsheet').text).toEqual(['has:spreadsheet']);
     expect(parseSearchQuery('https://example.com/x').text).toEqual(['https://example.com/x']);
     expect(parseSearchQuery('label:').text).toEqual(['label:']);
+  });
+
+  it('takes the everyday word for a content kind', () => {
+    // `has:` accepts the plural and the word people reach for first.
+    expect(parseSearchQuery('has:photos').has).toEqual(['image']);
+    expect(parseSearchQuery('has:pdf').has).toEqual(['file']);
+    expect(parseSearchQuery('has:document has:file').has).toEqual(['file', 'file']);
   });
 
   it('rejects dates that are not days, and negated dates', () => {

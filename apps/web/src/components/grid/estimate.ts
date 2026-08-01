@@ -104,6 +104,8 @@ function imagesHeight(note: FullNote, cardW: number): number {
       h += Math.round(cardW * ratio);
     } else if (att.kind === 'audio') {
       h += 54; // the <audio> player
+    } else if (att.kind === 'file') {
+      h += 38; // the download chip (name + extension), plus its gap
     }
   }
   return h;

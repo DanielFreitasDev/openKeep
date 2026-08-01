@@ -4,7 +4,8 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-07-31** (compartilhar por link público somente leitura;
+> Última atualização: **2026-07-31** (anexar qualquer arquivo — PDF, documentos, zip;
+> compartilhar por link público somente leitura;
 > vincular notas com `[[` e backlinks;
 > gravação de áudio no navegador;
 > permissão somente-leitura no compartilhamento;
@@ -418,10 +419,36 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   **Como:** flag `is_template` no membership ou tabela própria; criar = clonar conteúdo
   (reaproveitar o "Make a copy", que já copia cor/labels/imagens).
 
-- [ ] **Anexar qualquer arquivo (PDF etc.)** *(impacto médio · esforço M)*
+- [x] **Anexar qualquer arquivo (PDF etc.)** *(impacto médio · esforço M)* — feito em 2026-07-31
   **O quê:** hoje só imagem/áudio/desenho; self-host pede PDF, docs, zip.
   **Como:** novo `kind='file'` em `attachments` com allowlist de extensão+magic bytes e teto de
   tamanho; chip de download no card/editor. PDF ganha preview depois (iframe same-origin).
+  **Entregue:** `kind='file'` ao lado de image/audio/drawing e uma rota, `POST /api/notes/:id/files`,
+  no molde da de áudio (teto próprio de 25 MB dito ao busboy por requisição, nenhuma passagem pelo
+  sharp, bytes guardados como vieram). A coluna nova é uma só, `filename` — e ela é obrigatória
+  exatamente quando o anexo é arquivo (`check` no banco), porque um documento é o único anexo cujo
+  **nome é conteúdo**: sem ele não há o que mostrar num chip nem como nomear o download.
+  **A regra que decide o allowlist: os bytes provam o contêiner, a extensão nomeia qual formato é.**
+  Um PDF tem assinatura própria, mas `.docx`, `.odt`, `.epub` e `.zip` são o mesmo zip byte a byte
+  (e `.doc`/`.xls` o mesmo OLE2), então assinatura sozinha não distingue e mime declarado continua
+  não valendo nada: a extensão escolhe **entre as entradas da família em que os bytes caíram**, e
+  extensão fora da tabela é 415. Texto é a única família sem assinatura — lá a prova é o conteúdo
+  (decodifica como UTF-8, sem NUL nem controle solto), o que recusa binário renomeado para `.txt` sem
+  fingir adivinhar charset. A tabela (`FILE_TYPES` no shared) é lida pelos dois lados: o servidor
+  decide, o cliente monta o `accept` do seletor.
+  **O download é sempre download.** `Content-Disposition: attachment` (com o par ASCII + RFC 5987,
+  senão `orçamento.pdf` chega mutilado) sai só para `kind='file'`: imagem e áudio existem para
+  renderizar na página, mas abrir arquivo arbitrário na **nossa própria origem** é oferecer a origem
+  de graça — e é por isso que html não está no allowlist e nem por isso passa a ser servido inline.
+  A mesma regra vale na rota pública, que já servia bytes pelo token.
+  **Onde o chip ficou:** ao lado dos chips de link preview, no rodapé do card e do editor — não na
+  pilha de imagens acima do título. Um documento é algo para onde a nota aponta, não algo que ela
+  mostra; como o servidor já força o download, o chip é uma âncora e nada mais. Entradas: clipe na
+  barra do editor e item na folha "Adicionar à nota" do mobile. O composer segue só com imagem: ele
+  segura arquivos em memória antes de a nota existir, e isso é o item "mídia offline".
+  **De carona:** `has:file` (com `has:pdf`/`has:document` como sinônimos) e o tile "Arquivos" na
+  busca — o filtro por tipo já era genérico sobre `attachments.kind` nos dois executores, então
+  nenhuma linha de SQL nova. Preview de PDF continua adiado, como previsto aqui.
 
 - [ ] **Tabelas simples** *(impacto baixo · esforço G)*
   Pedido clássico, mas pesado: extensão de tabela do TipTap + sanitizador + render no card +
@@ -881,6 +908,14 @@ o justificava: o link cabe numa âncora com o deep link que já existia, então 
 coluna, atributo ou rota nasceu — o servidor só aprendeu a deixar passar uma forma de href
 relativo. Isso muda o custo do item 3.1 **texto e checklist na mesma nota**? Não: continua sendo
 o modelo de uma checklist por nota, não a falta de vocabulário no corpo.
+
+**Anexar qualquer arquivo** saiu em 2026-07-31. Não estava na fila dos três, e saiu justamente pelo
+motivo que a gravação de áudio tinha: quase tudo já existia (tabela de anexos, storage, sniffer de
+magic bytes, cópia, export, projeção pública), então a entrega foi uma coluna, uma rota e um chip. O
+que o item obrigou a decidir foi o allowlist — assinatura não distingue `.docx` de `.zip` —, e a
+resposta virou DECISIONS #31. Isso muda a fila? Não: **sub-labels/pastas** segue sendo o nº 1, e
+preview de PDF fica adiado (iframe same-origin é o oposto do `Content-Disposition: attachment` que
+esta entrega escolheu — quando vier, será decisão nova, não continuação desta).
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

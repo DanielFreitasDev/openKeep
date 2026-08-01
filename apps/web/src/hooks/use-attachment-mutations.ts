@@ -8,6 +8,7 @@ import {
   uploadAttachment,
   uploadAudioApi,
   uploadDrawingApi,
+  uploadFileApi,
 } from '../lib/attachments-api.js';
 import { mergeNote } from '../lib/note-selectors.js';
 import { notesQuery } from '../lib/notes-api.js';
@@ -62,6 +63,15 @@ export function useAttachmentMutations() {
     onError: (err) => uploadFailedToast(err),
   });
 
+  // Declared here for the same reason as the recording above: closing the note
+  // must not cancel a document that is already on its way up.
+  const uploadFile = useMutation({
+    mutationFn: ({ noteId, file }: { noteId: string; file: File }) => uploadFileApi(noteId, file),
+    onSuccess: (attachment, { noteId }) =>
+      setNote(noteId, (n) => ({ attachments: [...n.attachments, attachment] })),
+    onError: (err) => uploadFailedToast(err),
+  });
+
   const uploadDrawing = useMutation({
     mutationFn: ({ noteId, file, drawing }: { noteId: string; file: File; drawing: DrawingData }) =>
       uploadDrawingApi(noteId, file, drawing),
@@ -88,5 +98,5 @@ export function useAttachmentMutations() {
     onError: uploadFailedToast,
   });
 
-  return { upload, uploadAudio, remove, uploadDrawing, updateDrawing };
+  return { upload, uploadAudio, uploadFile, remove, uploadDrawing, updateDrawing };
 }

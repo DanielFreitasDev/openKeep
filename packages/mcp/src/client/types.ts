@@ -27,7 +27,7 @@ export type CreateNoteInput = z.input<typeof zCreateNote>;
 export type CreateItemInput = z.input<typeof zCreateItemInput>;
 
 export type NoteView = 'active' | 'archived' | 'trash';
-export type SearchType = 'list' | 'url' | 'image' | 'audio' | 'drawing' | 'reminder';
+export type SearchType = 'list' | 'url' | 'image' | 'audio' | 'drawing' | 'file' | 'reminder';
 
 export interface SearchQuery {
   q?: string;
