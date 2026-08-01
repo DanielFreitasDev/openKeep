@@ -69,6 +69,10 @@ export function AdminDialog() {
   const dateLocale = i18n.language.startsWith('pt') ? ptBR : enUS;
   const bytes = (n: number) => formatBytes(n, i18n.language);
   const totals = overview.data?.totals;
+  // Env, not a switch: the panel reports the ceiling the way it reports the
+  // version, and flags the accounts already past it (lowering a live quota is
+  // exactly how an account ends up over one).
+  const quotaBytes = overview.data?.storageQuotaBytes ?? null;
   const armed = pending !== null && typed.trim().toLowerCase() === pending.email.toLowerCase();
 
   return (
@@ -87,6 +91,11 @@ export function AdminDialog() {
             <Stat label={t('statAttachments')} value={String(totals?.attachments ?? '—')} />
             <Stat label={t('statStorage')} value={totals ? bytes(totals.storageBytes) : '—'} />
           </section>
+          {overview.data && (
+            <p className="mt-2 text-on-surface-variant text-xs">
+              {quotaBytes === null ? t('quotaNone') : t('quotaLine', { quota: bytes(quotaBytes) })}
+            </p>
+          )}
 
           <section className="mt-5">
             <h3 className="font-medium text-on-surface-variant text-xs uppercase tracking-wide">
@@ -151,6 +160,11 @@ export function AdminDialog() {
                         size: bytes(u.storageBytes),
                         joined: format(new Date(u.createdAt), 'PP', { locale: dateLocale }),
                       })}
+                      {quotaBytes !== null && u.storageBytes > quotaBytes && (
+                        <span className="ml-2 text-red-600 dark:text-red-400">
+                          {t('quotaOver')}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <button

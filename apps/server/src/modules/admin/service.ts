@@ -48,7 +48,7 @@ function toBytes(value: string | number | null): number {
   return value === null ? 0 : Number(value);
 }
 
-export async function getOverview(db: Db): Promise<AdminOverview> {
+export async function getOverview(db: Db, config: Config): Promise<AdminOverview> {
   const [{ signupEnabled }, [users], [notesTotal], [files]] = await Promise.all([
     getInstanceSettings(db),
     db.select({ n: count() }).from(userTable),
@@ -58,6 +58,7 @@ export async function getOverview(db: Db): Promise<AdminOverview> {
   return {
     signupEnabled,
     version: APP_VERSION,
+    storageQuotaBytes: config.storageQuotaBytes,
     totals: {
       users: users?.n ?? 0,
       notes: notesTotal?.n ?? 0,

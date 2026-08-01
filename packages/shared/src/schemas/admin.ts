@@ -49,6 +49,12 @@ export type AdminUserPage = z.infer<typeof zAdminUserPage>;
 export const zAdminOverview = z.object({
   signupEnabled: z.boolean(),
   version: z.string(),
+  /**
+   * The per-account storage cap in bytes, or null when unset. Shown, never
+   * flipped: it is env (USER_STORAGE_QUOTA_MB), so the panel reports it the
+   * way it reports the version.
+   */
+  storageQuotaBytes: z.number().int().positive().nullable(),
   totals: z.object({
     users: z.number().int().nonnegative(),
     notes: z.number().int().nonnegative(),

@@ -83,6 +83,9 @@ async function buildTakeoutZip(
   await once(out, 'close');
 }
 
+/** These tests are about the importer, not the ceiling; quota has its own spec. */
+const NO_QUOTA = { quotaBytes: null };
+
 describe('takeout import & export', () => {
   let t: TestApp;
   let cookie: string;
@@ -146,7 +149,7 @@ describe('takeout import & export', () => {
     const { jobId } = upload.json();
 
     // Run the worker body directly (pg-boss isn't running in tests).
-    await runTakeoutImport(t.db, t.storage, jobId);
+    await runTakeoutImport(t.db, t.storage, jobId, NO_QUOTA);
 
     const job = await t.app.inject({
       method: 'GET',
@@ -187,7 +190,7 @@ describe('takeout import & export', () => {
     await t.storage.write('exports', secondKey, zipBuffer);
     const { createJob } = await import('../../src/modules/import-export/service.js');
     const rerun = await createJob(t.db, userId, 'import', secondKey);
-    await runTakeoutImport(t.db, t.storage, rerun.id);
+    await runTakeoutImport(t.db, t.storage, rerun.id, NO_QUOTA);
     const rerunJob = await t.app.inject({
       method: 'GET',
       url: `/api/jobs/${rerun.id}`,
@@ -252,7 +255,7 @@ describe('takeout import & export', () => {
     const { createJob } = await import('../../src/modules/import-export/service.js');
     const job = await createJob(t.db, userId, 'import', key);
 
-    await importTakeoutJob(t.db, t.storage, job.id, realtime);
+    await importTakeoutJob(t.db, t.storage, job.id, NO_QUOTA, realtime);
 
     const progress = events.filter((e) => e.event.type === 'job.progress');
     expect(progress.length).toBeGreaterThan(0);
@@ -350,7 +353,7 @@ describe('takeout import & export', () => {
     const key = t.storage.newKey('zip');
     await t.storage.write('exports', key, fs.readFileSync(zipPath));
     const job = await createJob(t.db, userId, 'import', key);
-    await runTakeoutImport(t.db, t.storage, job.id);
+    await runTakeoutImport(t.db, t.storage, job.id, NO_QUOTA);
 
     const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
     const notes = list.json() as FullNote[];
@@ -408,7 +411,7 @@ describe('takeout import & export', () => {
     const key = t.storage.newKey('zip');
     await t.storage.write('exports', key, fs.readFileSync(zipPath));
     const job = await createJob(t.db, userId, 'import', key);
-    await runTakeoutImport(t.db, t.storage, job.id);
+    await runTakeoutImport(t.db, t.storage, job.id, NO_QUOTA);
 
     const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
     const note = (list.json() as FullNote[]).find((n) => n.title === title);
@@ -455,7 +458,7 @@ describe('takeout import & export', () => {
     });
     expect(upload.statusCode).toBe(202);
 
-    await runTakeoutImport(t.db, t.storage, upload.json().jobId);
+    await runTakeoutImport(t.db, t.storage, upload.json().jobId, NO_QUOTA);
     const list = await t.app.inject({ method: 'GET', url: '/api/notes', headers: { cookie } });
     expect((list.json() as FullNote[]).some((n) => n.title === title)).toBe(true);
   });
@@ -580,7 +583,7 @@ describe('markdown import & export', () => {
       ]),
     });
     expect(upload.statusCode).toBe(202);
-    await runTakeoutImport(t.db, t.storage, upload.json().jobId);
+    await runTakeoutImport(t.db, t.storage, upload.json().jobId, NO_QUOTA);
 
     const notes = await notesOf();
     expect(notes.some((n) => n.title === 'Vault note')).toBe(true);

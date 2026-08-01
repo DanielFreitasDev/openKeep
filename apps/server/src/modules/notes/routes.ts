@@ -15,6 +15,7 @@ import {
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { z } from 'zod';
 import type { App } from '../../app.js';
+import type { Config } from '../../config.js';
 import type { Db } from '../../db/client.js';
 import { notes as notesTable } from '../../db/schema/notes.js';
 import type { Storage } from '../../lib/storage.js';
@@ -25,7 +26,16 @@ import * as svc from './service.js';
 const zNoteParams = z.object({ id: zId });
 const zVersionParams = z.object({ id: zId, versionId: zId });
 
-export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storage?: Storage): void {
+export function registerNotesRoutes(
+  app: App,
+  db: Db,
+  realtime: Realtime,
+  config: Config,
+  storage?: Storage,
+): void {
+  // Copies and merges duplicate attachment bytes, so they answer to the same
+  // per-account ceiling the upload routes do (DECISIONS #33).
+  const quota = { quotaBytes: config.storageQuotaBytes };
   const originOf = (req: { headers: Record<string, unknown> }) =>
     req.headers['x-client-id'] as string | undefined;
   const auth = { preHandler: [app.requireAuth] };
@@ -181,7 +191,7 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
     '/api/notes/:id/copy',
     { ...auth, schema: { tags: ['notes'], params: zNoteParams, response: { 201: zFullNote } } },
     async (req, reply) => {
-      const copy = await svc.copyNote(db, req.user.id, req.params.id, storage);
+      const copy = await svc.copyNote(db, req.user.id, req.params.id, quota, storage);
       realtime.publishToUsers(
         [req.user.id],
         { type: 'note.added', payload: { note: copy } },
@@ -283,7 +293,7 @@ export function registerNotesRoutes(app: App, db: Db, realtime: Realtime, storag
       const membersBySource = new Map<string, string[]>();
       for (const id of sourceIds) membersBySource.set(id, await memberIds(db, id));
 
-      const note = await svc.mergeNotes(db, req.user.id, req.body.noteIds, storage);
+      const note = await svc.mergeNotes(db, req.user.id, req.body.noteIds, quota, storage);
 
       realtime.publishToUsers(
         await memberIds(db, note.id),

@@ -131,14 +131,14 @@ export async function buildApp(config: Config, deps: AppDeps) {
     }),
   );
 
-  registerSettingsRoutes(app, deps.db, realtime);
+  registerSettingsRoutes(app, deps.db, realtime, config);
   registerApiTokenRoutes(app, deps.db);
   registerAdminRoutes(app, deps.db, config, deps.storage);
-  registerNotesRoutes(app, deps.db, realtime, deps.storage);
+  registerNotesRoutes(app, deps.db, realtime, config, deps.storage);
   registerItemRoutes(app, deps.db, realtime);
   registerLabelRoutes(app, deps.db, realtime);
   registerSearchRoutes(app, deps.db);
-  await registerAttachmentRoutes(app, deps.db, deps.storage, realtime);
+  await registerAttachmentRoutes(app, deps.db, deps.storage, realtime, config);
   registerLinkPreviewRoutes(app, deps.db, deps.enqueueLinkPreview ?? (async () => {}));
   registerReminderRoutes(app, deps.db, config, realtime);
   registerCalendarRoutes(app, deps.db, config);

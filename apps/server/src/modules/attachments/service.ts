@@ -5,7 +5,7 @@ import {
   LIMITS,
   sanitizeAttachmentFilename,
 } from '@openkeep/shared';
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, sum } from 'drizzle-orm';
 import sharp, { type FormatEnum, type Metadata } from 'sharp';
 import type { Db } from '../../db/client.js';
 import { attachments } from '../../db/schema/attachments.js';
@@ -28,6 +28,54 @@ export function toAttachmentDto(row: AttachmentRow): Attachment {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * The per-account storage ceiling, threaded from `config.storageQuotaBytes`.
+ * Every function that writes attachment bytes takes it in its options object
+ * rather than defaulting to "no cap": a new upload path must decide out loud,
+ * and the compiler asks the question.
+ */
+export interface QuotaOpts {
+  quotaBytes: number | null;
+}
+
+/**
+ * Bytes of attachments on the notes an account OWNS, trash included — the same
+ * sum the admin panel prints per account, so the ceiling and the reading of it
+ * can never disagree.
+ */
+export async function usedStorageBytes(db: Db, ownerId: string): Promise<number> {
+  const [row] = await db
+    .select({ bytes: sum(attachments.size) })
+    .from(attachments)
+    .innerJoin(notes, eq(notes.id, attachments.noteId))
+    .where(eq(notes.ownerId, ownerId));
+  // `sum()` is a bigint: null over an empty set, a string otherwise.
+  return row?.bytes == null ? 0 : Number(row.bytes);
+}
+
+/**
+ * Refuse bytes that would put an account past its allowance (DECISIONS #33).
+ *
+ * Charged to the note's OWNER, not to whoever is uploading: attribution has to
+ * match the accounting, and a shared note's files live on the owner's tab. The
+ * trash counts too — a trashed note's files are still on the disk until the
+ * purge takes them.
+ */
+export async function assertStorageQuota(
+  db: Db,
+  { quotaBytes }: QuotaOpts,
+  ownerId: string,
+  incomingBytes: number,
+): Promise<void> {
+  if (quotaBytes === null || incomingBytes <= 0) return;
+  const used = await usedStorageBytes(db, ownerId);
+  if (used + incomingBytes <= quotaBytes) return;
+  const mb = (n: number) => Math.round((n / 1024 / 1024) * 10) / 10;
+  throw errors.storageQuotaExceeded(
+    `This account's storage is full: ${mb(used)} MB of ${mb(quotaBytes)} MB used. Delete attachments or empty the trash to free space.`,
+  );
 }
 
 const MAGIC: { mime: string; ext: string; match: (b: Buffer) => boolean }[] = [
@@ -179,6 +227,7 @@ export async function uploadFile(
   noteId: string,
   data: Buffer,
   rawFilename: string,
+  quota: QuotaOpts,
 ): Promise<Attachment> {
   const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
   assertNotTrashed(note);
@@ -186,6 +235,7 @@ export async function uploadFile(
   if (data.length > LIMITS.fileMaxBytes) {
     throw errors.payloadTooLarge(`Files can be at most ${LIMITS.fileMaxBytes / 1024 / 1024} MB`);
   }
+  await assertStorageQuota(db, quota, note.ownerId, data.length);
   const filename = sanitizeAttachmentFilename(rawFilename, LIMITS.attachmentFilenameMax);
   const magic = sniffFile(data, filename);
   if (!magic) {
@@ -235,7 +285,7 @@ export async function uploadImage(
   userId: string,
   noteId: string,
   data: Buffer,
-  opts: { allowTrashed?: boolean; touchNote?: boolean } = {},
+  opts: QuotaOpts & { allowTrashed?: boolean; touchNote?: boolean },
 ): Promise<Attachment> {
   const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
   if (!opts.allowTrashed) assertNotTrashed(note);
@@ -243,6 +293,10 @@ export async function uploadImage(
   if (data.length > LIMITS.imageMaxBytes) {
     throw errors.payloadTooLarge(`Images can be at most ${LIMITS.imageMaxBytes / 1024 / 1024} MB`);
   }
+  // Judged on the arriving bytes, before the re-encode: the last upload that
+  // fits can land a few kilobytes either side of the ceiling, and refusing a
+  // file only after spending sharp on it would be the worse trade.
+  await assertStorageQuota(db, opts, note.ownerId, data.length);
   const magic = MAGIC.find((m) => m.match(data));
   if (!magic) {
     throw errors.unsupportedMediaType('Only JPEG, PNG, GIF and WebP images are supported');
@@ -349,9 +403,11 @@ export async function uploadDrawing(
   noteId: string,
   data: Buffer,
   drawing: DrawingData,
+  quota: QuotaOpts,
 ): Promise<Attachment> {
   const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
   assertNotTrashed(note);
+  await assertStorageQuota(db, quota, note.ownerId, data.length);
 
   const [row] = await db
     .select({ n: count() })
@@ -393,11 +449,15 @@ export async function updateDrawing(
   attachmentId: string,
   data: Buffer,
   drawing: DrawingData,
+  quota: QuotaOpts,
 ): Promise<{ attachment: Attachment; noteId: string }> {
   const att = await findForUser(db, userId, attachmentId);
   if (att.kind !== 'drawing') throw errors.notFound();
   const { note } = await assertNoteAccess(db, userId, att.noteId, 'editor');
   assertNotTrashed(note);
+  // A replacement pays only for what it adds: the row it overwrites is already
+  // in the sum, so re-saving a drawing that got simpler never trips the cap.
+  await assertStorageQuota(db, quota, note.ownerId, data.length - att.size);
 
   const { stored, thumb, width, height } = await processDrawingPng(data);
   const storageKey = storage.newKey('png');
@@ -449,11 +509,12 @@ async function ingestAudio(
   userId: string,
   noteId: string,
   data: Buffer,
-  opts: { touchNote?: boolean } = {},
+  opts: QuotaOpts & { ownerId: string; touchNote?: boolean },
 ): Promise<Attachment> {
   if (data.length > LIMITS.audioMaxBytes) {
     throw errors.payloadTooLarge(`Audio can be at most ${LIMITS.audioMaxBytes / 1024 / 1024} MB`);
   }
+  await assertStorageQuota(db, opts, opts.ownerId, data.length);
   const magic = sniffAudio(data);
   if (!magic) throw errors.unsupportedMediaType('Unrecognized audio format');
 
@@ -494,10 +555,11 @@ export async function uploadAudio(
   userId: string,
   noteId: string,
   data: Buffer,
+  quota: QuotaOpts,
 ): Promise<Attachment> {
   const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
   assertNotTrashed(note);
-  return ingestAudio(db, storage, userId, noteId, data);
+  return ingestAudio(db, storage, userId, noteId, data, { ...quota, ownerId: note.ownerId });
 }
 
 /**
@@ -513,16 +575,22 @@ export async function importMediaAttachment(
   userId: string,
   noteId: string,
   data: Buffer,
+  quota: QuotaOpts,
 ): Promise<Attachment> {
   if (MAGIC.some((m) => m.match(data))) {
     return uploadImage(db, storage, userId, noteId, data, {
+      ...quota,
       allowTrashed: true,
       touchNote: false,
     });
   }
   if (sniffAudio(data)) {
-    await assertNoteAccess(db, userId, noteId, 'editor');
-    return ingestAudio(db, storage, userId, noteId, data, { touchNote: false });
+    const { note } = await assertNoteAccess(db, userId, noteId, 'editor');
+    return ingestAudio(db, storage, userId, noteId, data, {
+      ...quota,
+      ownerId: note.ownerId,
+      touchNote: false,
+    });
   }
   throw errors.unsupportedMediaType('Unrecognized media format');
 }
@@ -640,18 +708,36 @@ export async function unlinkAttachmentFiles(
   }
 }
 
-/** Copy attachment rows + files from one note to another (Make a copy). */
+/**
+ * Copy attachment rows + files from one note to another (Make a copy, merge).
+ *
+ * The quota applies here too: duplicated bytes are new bytes on the disk, and
+ * a copy loop is otherwise the cheapest way around the ceiling. The owner is
+ * read from the destination note — in a merge that runs source by source, so
+ * each pass measures what the previous ones already added.
+ */
 export async function copyAttachments(
   db: Db,
   storage: Storage,
   fromNoteId: string,
   toNoteId: string,
+  quota: QuotaOpts,
 ): Promise<void> {
   const rows = await db
     .select()
     .from(attachments)
     .where(eq(attachments.noteId, fromNoteId))
     .orderBy(asc(attachments.createdAt));
+  if (rows.length > 0 && quota.quotaBytes !== null) {
+    const [target] = await db
+      .select({ ownerId: notes.ownerId })
+      .from(notes)
+      .where(eq(notes.id, toNoteId));
+    if (target) {
+      const incoming = rows.reduce((n, r) => n + r.size, 0);
+      await assertStorageQuota(db, quota, target.ownerId, incoming);
+    }
+  }
   for (const row of rows) {
     const newKey = storage.newKey(row.storageKey.split('.').pop() ?? 'bin');
     const buf = await readAll(storage.createReadStream('attachments', row.storageKey)).catch(

@@ -48,6 +48,11 @@ const EnvSchema = z.object({
    * bootstrap answer for an empty database, and no request can grant it.
    */
   ADMIN_EMAILS: z.string().optional(),
+  /**
+   * Megabytes of attachments one account may own. Unset means no ceiling —
+   * a single-user instance should not have to think about this at all.
+   */
+  USER_STORAGE_QUOTA_MB: z.coerce.number().int().min(1).max(10_000_000).optional(),
 });
 
 export type Config = z.infer<typeof EnvSchema> & {
@@ -58,6 +63,8 @@ export type Config = z.infer<typeof EnvSchema> & {
   backupDirAbs: string;
   /** ADMIN_EMAILS, split and lowercased once at boot. */
   adminEmails: string[];
+  /** USER_STORAGE_QUOTA_MB in bytes, or null when this instance has no cap. */
+  storageQuotaBytes: number | null;
 };
 
 /** Load `.env` from cwd or repo root without overriding real env vars. */
@@ -105,5 +112,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .split(',')
       .map((e) => e.trim().toLowerCase())
       .filter((e) => e.length > 0),
+    storageQuotaBytes:
+      cfg.USER_STORAGE_QUOTA_MB === undefined ? null : cfg.USER_STORAGE_QUOTA_MB * 1024 * 1024,
   };
 }

@@ -62,6 +62,12 @@ export const errors = {
     ),
   payloadTooLarge: (detail?: string) =>
     new AppError(413, 'payload_too_large', 'Payload Too Large', detail),
+  /**
+   * The account's storage allowance, not this request's byte cap — a distinct
+   * code because the answer is "delete something", never "send a smaller file".
+   */
+  storageQuotaExceeded: (detail: string) =>
+    new AppError(413, 'storage_quota_exceeded', 'Storage quota reached', detail),
   unsupportedMediaType: (detail?: string) =>
     new AppError(415, 'unsupported_media_type', 'Unsupported Media Type', detail),
   internal: (detail?: string) =>

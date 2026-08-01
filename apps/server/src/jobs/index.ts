@@ -7,6 +7,7 @@ import { userJobs } from '../db/schema/jobs.js';
 import type { Metrics } from '../lib/metrics.js';
 import { trackJob } from '../lib/metrics.js';
 import type { Storage } from '../lib/storage.js';
+import type { QuotaOpts } from '../modules/attachments/service.js';
 import { runScheduledBackup } from '../modules/backup/service.js';
 import {
   cleanupExpiredExports,
@@ -61,11 +62,12 @@ export async function importTakeoutJob(
   db: Db,
   storage: Storage,
   jobId: string,
+  quota: QuotaOpts,
   realtime?: Publisher,
 ): Promise<void> {
   const job = await jobRow(db, jobId);
   if (!job) return;
-  await runTakeoutImport(db, storage, jobId, (done, total) => {
+  await runTakeoutImport(db, storage, jobId, quota, (done, total) => {
     // The service already throttles this callback (every 5 notes + final).
     realtime?.publishToUsers([job.userId], {
       type: 'job.progress',
@@ -168,7 +170,15 @@ export async function startJobs(
     await boss.createQueue('import-takeout');
     await boss.work<{ jobId: string }>('import-takeout', async ([job]) => {
       if (!job) return;
-      await work('import-takeout', () => importTakeoutJob(db, storage, job.data.jobId, realtime));
+      await work('import-takeout', () =>
+        importTakeoutJob(
+          db,
+          storage,
+          job.data.jobId,
+          { quotaBytes: config.storageQuotaBytes },
+          realtime,
+        ),
+      );
     });
 
     await boss.createQueue('export-user-data');

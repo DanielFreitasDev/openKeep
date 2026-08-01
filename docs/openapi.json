@@ -176,6 +176,44 @@
         }
       }
     },
+    "/api/storage": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "usedBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "quotaBytes": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "usedBytes",
+                    "quotaBytes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings": {
       "get": {
         "tags": [
@@ -714,6 +752,13 @@
                     "version": {
                       "type": "string"
                     },
+                    "storageQuotaBytes": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
                     "totals": {
                       "type": "object",
                       "properties": {
@@ -750,6 +795,7 @@
                   "required": [
                     "signupEnabled",
                     "version",
+                    "storageQuotaBytes",
                     "totals"
                   ],
                   "additionalProperties": false
@@ -797,6 +843,13 @@
                     "version": {
                       "type": "string"
                     },
+                    "storageQuotaBytes": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
                     "totals": {
                       "type": "object",
                       "properties": {
@@ -833,6 +886,7 @@
                   "required": [
                     "signupEnabled",
                     "version",
+                    "storageQuotaBytes",
                     "totals"
                   ],
                   "additionalProperties": false

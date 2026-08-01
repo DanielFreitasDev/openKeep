@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-08-01** (painel de administração da instância;
-> antes: modelos de nota;
+> Última atualização: **2026-08-01** (cotas de armazenamento por conta;
+> antes: painel de administração da instância;
+> modelos de nota;
 > anexar qualquer arquivo — PDF, documentos, zip;
 > compartilhar por link público somente leitura;
 > vincular notas com `[[` e backlinks;
@@ -874,9 +875,33 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   A estrutura i18n é sólida (EN base + pt-BR completo + teste de paridade). Generalizar o teste
   de paridade para N locales e adicionar espanhol; abrir CONTRIBUTING para traduções.
 
-- [ ] **Cotas por usuário** *(impacto baixo · esforço M)*
+- [x] **Cotas por usuário** *(impacto baixo · esforço M)* — feito em 2026-08-01
   Para instância multiusuário: teto de armazenamento/anexos por conta (env), erro claro no
   upload. Junto do painel admin.
+  **Entregue:** `USER_STORAGE_QUOTA_MB` (sem ele, sem teto — que é a resposta certa para instância
+  de uma pessoa só) e **nenhuma tabela nova**: a soma que o painel admin já imprimia por conta virou
+  também a régua, num helper só (`assertStorageQuota`) que toda entrada de bytes atravessa. É isso
+  que fez a feature caber numa sessão.
+  **A conta é do dono da nota, não de quem envia.** Anexo que um colaborador põe na minha nota cai
+  no meu teto — porque a cobrança tem de usar a mesma atribuição da contabilidade, senão o painel e
+  o limite falariam de coisas diferentes e o dono leria um número que não é o dele. Pela mesma razão
+  a **lixeira conta**: o arquivo continua no volume até o purge levá-lo.
+  **Onde o teto é cobrado:** as quatro rotas de upload, o *replace* de desenho (que paga só a
+  diferença `novo − antigo`, então redesenhar mais simples nunca esbarra), e **cópia e mesclagem** —
+  bytes duplicados são bytes novos, e um laço de "fazer uma cópia" seria o caminho mais barato para
+  furar o limite. O import do Takeout é o único que engole a recusa: pula a mídia que não cabe do
+  mesmo jeito que já pulava a mídia corrompida, porque derrubar um cofre inteiro no byte que passou
+  da linha é o pior negócio.
+  **A recusa tem código próprio** (`storage_quota_exceeded`, 413) e não `payload_too_large`: para
+  quem chama, os dois dizem coisas opostas — "manda um arquivo menor" contra "apaga alguma coisa" —,
+  e é justamente por isso que o cliente re-diz **esse** no idioma de quem lê (o detail do servidor é
+  inglês, ele não tem locale). O teto vem do cache da própria consulta de uso, não de parsing da
+  frase.
+  **Antes de bater, o número aparece:** seção "Armazenamento" nas Configurações (`GET /api/storage`,
+  rota minúscula e própria — uso não é *setting*, nada ali é patchável), com barra que fica vermelha
+  a partir de 90%. O painel admin imprime o limite ao lado dos totais e marca quem já está acima —
+  situação alcançável sem upload nenhum, bastando baixar a cota de uma instância com contas dentro.
+  Admin não é isento, de propósito.
 
 ### 3.6 IA (opcional, sempre opt-in, BYO key)
 
@@ -933,8 +958,7 @@ O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada 
 1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
 2. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
-3. **Cotas por usuário** (3.5) — o vizinho natural do painel admin, que já mostra o uso de disco
-   por conta; falta o teto por env e o erro claro no upload.
+3. ~~**Cotas por usuário** (3.5)~~ — saiu em 2026-08-01 (ver abaixo).
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
 do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
@@ -981,6 +1005,13 @@ nenhuma rota e sim *onde mora o poder*: administrar virou env (`ADMIN_EMAILS`), 
 DECISIONS #32. O item vizinho **cotas por usuário** ficou barato de carona: o uso de disco por conta
 já é calculado e mostrado, então falta só o teto e a recusa no upload. Isso muda a fila?
 **Sub-labels/pastas** segue sendo o nº 1, e continua precisando de `parent_id` e árvore no sidebar.
+
+**Cotas por usuário** saíram em 2026-08-01, no dia seguinte ao painel admin e exatamente pelo motivo
+previsto ali: o uso de disco por conta já era calculado, então faltavam o teto e a recusa. O que o
+item obrigou a decidir não foi onde checar e sim **de quem é a conta** — do dono da nota, para que
+cobrança e contabilidade sejam a mesma coisa —, e que cópia e mesclagem também pagam, senão o limite
+teria uma porta dos fundos com dois cliques. Virou DECISIONS #33. Isso muda a fila? **Sub-labels/
+pastas** segue sendo o nº 1, e a fila agora tem só ele e **tabelas simples**.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

@@ -64,6 +64,8 @@
   "removeAudio": "Remove audio",
   "removeFile": "Remove file",
   "uploadFailed": "Couldn't upload the image",
+  "storageFull": "Your storage is full. Delete attachments or empty the trash to free space.",
+  "storageFullOf": "Your storage is full ({{quota}}). Delete attachments or empty the trash to free space.",
   "selectNote": "Select note",
   "deselectNote": "Deselect note",
   "clearSelection": "Clear selection",

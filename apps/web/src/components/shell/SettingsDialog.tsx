@@ -7,6 +7,7 @@ import { patchSettings, settingsQuery } from '../../lib/queries.js';
 import { useUiStore } from '../../stores/ui.js';
 import { CalendarFeedSection } from './CalendarFeedSection.js';
 import { DeleteAllNotesSection } from './DeleteAllNotesSection.js';
+import { StorageSection } from './StorageSection.js';
 
 const EMPTY_DIALOG_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 
@@ -129,6 +130,7 @@ export function SettingsDialog() {
           </section>
 
           <CalendarFeedSection />
+          <StorageSection />
           <DeleteAllNotesSection />
 
           <div className="mt-6 flex justify-end">

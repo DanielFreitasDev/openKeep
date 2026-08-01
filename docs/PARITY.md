@@ -74,6 +74,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | JSON export | Takeout equivalent | ✅ | M9 |
 | Offline edits survive reload | Keep has none | ✅ 🔀 IndexedDB outbox + localStorage draft mirror + offline banner/retry toasts (DECISIONS #22) | post-1.0 |
 | Instance administration | Keep has none (Google runs it) | ✅ 🔀 `ADMIN_EMAILS` puts an Administration panel in the gear menu: instance totals, disk use per account, an "allow new accounts" switch enforced where an account is born (form and OAuth alike), and account deletion with its notes and files. Session-only, so no PAT or MCP client reaches it; admin-ness comes only from the env (DECISIONS #32) | post-1.0 |
+| Storage quota per account | Keep has one Drive quota, not one per note-taker | ✅ 🔀 `USER_STORAGE_QUOTA_MB` caps attachment bytes per account (trash included), charged to the note's **owner** so it matches the panel's accounting; Settings shows usage against it and an upload past it is refused with `storage_quota_exceeded` (DECISIONS #33) | post-1.0 |
 
 ## Known deferrals in v1.0
 

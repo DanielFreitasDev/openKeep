@@ -38,7 +38,7 @@ export function registerAdminRoutes(app: App, db: Db, config: Config, storage: S
   app.get(
     '/api/admin/overview',
     { ...adminOnly, schema: { tags: ['admin'], response: { 200: zAdminOverview } } },
-    async () => svc.getOverview(db),
+    async () => svc.getOverview(db, config),
   );
 
   app.patch(
@@ -53,7 +53,7 @@ export function registerAdminRoutes(app: App, db: Db, config: Config, storage: S
     },
     async (req) => {
       await svc.setInstanceSettings(db, req.body);
-      return svc.getOverview(db);
+      return svc.getOverview(db, config);
     },
   );
 

@@ -27,6 +27,7 @@ import {
   sanitizeNoteHtml,
 } from '../../lib/sanitize.js';
 import type { Storage } from '../../lib/storage.js';
+import type { QuotaOpts } from '../attachments/service.js';
 import { importMediaAttachment } from '../attachments/service.js';
 import { listLabels } from '../labels/service.js';
 import { listNotes, snapshotVersion } from '../notes/service.js';
@@ -173,6 +174,7 @@ export async function runTakeoutImport(
   db: Db,
   storage: Storage,
   jobId: string,
+  quota: QuotaOpts,
   onProgress?: (done: number, total: number) => void,
 ): Promise<void> {
   const [job] = await db.select().from(userJobs).where(eq(userJobs.id, jobId)).limit(1);
@@ -203,7 +205,7 @@ export async function runTakeoutImport(
     };
 
     for (const { parsed } of entries) {
-      const outcome = await importOneNote(db, storage, userId, parsed, zip.readMedia);
+      const outcome = await importOneNote(db, storage, userId, parsed, zip.readMedia, quota);
       if (outcome === 'imported') imported++;
       else skipped++;
       if (parsed.wasShared) shared++;
@@ -296,6 +298,7 @@ async function importOneNote(
   userId: string,
   parsed: ParsedTakeoutNote,
   readMedia: (baseName: string) => Promise<Buffer | null>,
+  quota: QuotaOpts,
 ): Promise<'imported' | 'skipped'> {
   // Idempotency: (owner_id, imported_fingerprint) partial unique index.
   const existing = await db
@@ -377,8 +380,11 @@ async function importOneNote(
     const base = att.filePath.split('/').pop() ?? att.filePath;
     const buffer = await readMedia(base);
     if (!buffer) continue;
-    await importMediaAttachment(db, storage, userId, noteId, buffer).catch(() => {
-      // corrupt / unsupported media — skip
+    // Media the pipeline will not take is skipped, and so is media the account
+    // has no room for: the notes themselves still arrive, and the alternative
+    // (failing the whole archive on the byte that crossed the line) is worse.
+    await importMediaAttachment(db, storage, userId, noteId, buffer, quota).catch(() => {
+      // corrupt / unsupported media, or a full account — skip
     });
   }
 

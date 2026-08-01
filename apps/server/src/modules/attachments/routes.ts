@@ -4,6 +4,7 @@ import type { DrawingData } from '@openkeep/shared';
 import { LIMITS, zAttachment, zDrawingData, zId } from '@openkeep/shared';
 import { z } from 'zod';
 import type { App } from '../../app.js';
+import type { Config } from '../../config.js';
 import type { Db } from '../../db/client.js';
 import { errors } from '../../lib/errors.js';
 import type { Storage } from '../../lib/storage.js';
@@ -44,9 +45,12 @@ export async function registerAttachmentRoutes(
   db: Db,
   storage: Storage,
   realtime: Realtime,
+  config: Config,
 ): Promise<void> {
   const originOf = (req: { headers: Record<string, unknown> }) =>
     req.headers['x-client-id'] as string | undefined;
+  // The account allowance every upload here is measured against (DECISIONS #33).
+  const quota = { quotaBytes: config.storageQuotaBytes };
   await app.register(multipart, {
     limits: {
       fileSize: LIMITS.imageMaxBytes,
@@ -67,7 +71,14 @@ export async function registerAttachmentRoutes(
       const file = await req.file();
       if (!file) throw errors.badRequest('Expected a multipart file field');
       const data = await file.toBuffer();
-      const attachment = await svc.uploadImage(db, storage, req.user.id, req.params.id, data);
+      const attachment = await svc.uploadImage(
+        db,
+        storage,
+        req.user.id,
+        req.params.id,
+        data,
+        quota,
+      );
       realtime.publishToUsers(
         await memberIds(db, req.params.id),
         { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
@@ -92,7 +103,14 @@ export async function registerAttachmentRoutes(
       const file = await req.file({ limits: { fileSize: LIMITS.audioMaxBytes } });
       if (!file) throw errors.badRequest('Expected a multipart file field');
       const data = await file.toBuffer();
-      const attachment = await svc.uploadAudio(db, storage, req.user.id, req.params.id, data);
+      const attachment = await svc.uploadAudio(
+        db,
+        storage,
+        req.user.id,
+        req.params.id,
+        data,
+        quota,
+      );
       realtime.publishToUsers(
         await memberIds(db, req.params.id),
         { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
@@ -130,6 +148,7 @@ export async function registerAttachmentRoutes(
         req.params.id,
         data,
         file.filename ?? '',
+        quota,
       );
       realtime.publishToUsers(
         await memberIds(db, req.params.id),
@@ -156,6 +175,7 @@ export async function registerAttachmentRoutes(
         req.params.id,
         file,
         drawing,
+        quota,
       );
       realtime.publishToUsers(
         await memberIds(db, req.params.id),
@@ -182,6 +202,7 @@ export async function registerAttachmentRoutes(
         req.params.id,
         file,
         drawing,
+        quota,
       );
       realtime.publishToUsers(
         await memberIds(db, noteId),

@@ -69,6 +69,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web-push reminders (`pnpm --filter @openkeep/server gen:vapid`) |
 | `ADMIN_EMAILS` | Comma-separated addresses that get the Administration panel (see below). Unset = no admins, no panel. |
 | `TRASH_RETENTION_DAYS` | How long trashed notes survive the hourly purge (default `7`, Keep parity). The Trash banner states whatever you set. |
+| `USER_STORAGE_QUOTA_MB` | Attachment megabytes one account may own (see below). Unset = no ceiling. |
 | `METRICS_ENABLED`, `METRICS_TOKEN` | Prometheus metrics at `GET /metrics` (see below) |
 | `BACKUP_CRON`, `BACKUP_DIR`, `BACKUP_KEEP` | Scheduled per-account export archives (see below). Unset `BACKUP_CRON` = no backup job. |
 
@@ -96,6 +97,14 @@ It shows what the instance holds — accounts, notes, attachments, disk used, an
 - **Delete an account.** Past the trash and past undo: the notes that account owns are destroyed with their attachment files, and its labels, reminders, tokens, settings and sessions go with the row. Notes owned by *other* people are untouched — the deleted account simply stops being a collaborator on them. The dialog asks for the address to be typed, and an account still listed in `ADMIN_EMAILS` is refused (remove it from the env first). One caveat: sessions are cached in a signed cookie for five minutes, so a browser that was open when the account was deleted keeps a live session until it lapses — pointed at an account with nothing left in it.
 
 Disk usage is attachment bytes only (what the storage volume holds), not the database.
+
+## Storage quota per account
+
+`USER_STORAGE_QUOTA_MB=2048` caps the attachment bytes one account may own — images, audio, drawings and arbitrary files, the trash included, because those files are still on the volume until the purge takes them. Unset, there is no ceiling, which is the right answer for a single-user instance.
+
+The cap is charged to the **owner of the note**, not to whoever is uploading: a collaborator's photo on your note lands on your allowance, the same rule the admin panel already uses to attribute bytes to an account. Every path that writes new bytes answers to it — the four upload routes, re-saving a drawing (which pays only the difference), "Make a copy" and merging notes (duplicated bytes are new bytes). An upload past the line is refused with `413 storage_quota_exceeded` and a message that says to delete attachments or empty the trash; a Takeout/markdown import skips the media it cannot fit and still imports the notes.
+
+Settings shows each person their usage against the ceiling, so the number is visible before it is hit, and the admin panel prints the limit next to the per-account figures. Admins are not exempt. Lowering the value on a live instance does not delete anything: accounts already above it simply cannot add more, and the panel flags them.
 
 ## Scheduled backups and restoring
 

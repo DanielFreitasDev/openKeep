@@ -64,6 +64,8 @@
   "removeAudio": "Remover áudio",
   "removeFile": "Remover arquivo",
   "uploadFailed": "Não foi possível enviar a imagem",
+  "storageFull": "Seu armazenamento está cheio. Exclua anexos ou esvazie a lixeira para liberar espaço.",
+  "storageFullOf": "Seu armazenamento está cheio ({{quota}}). Exclua anexos ou esvazie a lixeira para liberar espaço.",
   "selectNote": "Selecionar nota",
   "deselectNote": "Desmarcar nota",
   "clearSelection": "Limpar seleção",

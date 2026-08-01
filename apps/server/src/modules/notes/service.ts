@@ -32,6 +32,7 @@ import {
   sanitizeNoteHtml,
 } from '../../lib/sanitize.js';
 import type { Storage } from '../../lib/storage.js';
+import type { QuotaOpts } from '../attachments/service.js';
 import {
   attachmentKeysForNotes,
   copyAttachments,
@@ -681,6 +682,7 @@ export async function copyNote(
   db: Db,
   userId: string,
   noteId: string,
+  quota: QuotaOpts,
   storage?: Storage,
 ): Promise<FullNote> {
   return db.transaction(async (tx) => {
@@ -741,7 +743,7 @@ export async function copyNote(
 
     // Attachment files are duplicated too (Keep parity).
     if (storage) {
-      await copyAttachments(tx as unknown as Db, storage, noteId, newNote!.id);
+      await copyAttachments(tx as unknown as Db, storage, noteId, newNote!.id, quota);
     }
     const newAtts = (await loadAttachments(tx, [newNote!.id])).get(newNote!.id) ?? [];
     const selfCollabs = (await loadCollaborators(tx, [newNote!.id])).get(newNote!.id) ?? [];
@@ -769,6 +771,7 @@ export async function mergeNotes(
   db: Db,
   userId: string,
   noteIds: string[],
+  quota: QuotaOpts,
   storage?: Storage,
 ): Promise<FullNote> {
   const ids = [...new Set(noteIds)];
@@ -883,7 +886,7 @@ export async function mergeNotes(
         );
       }
       for (const source of sources) {
-        await copyAttachments(tx as unknown as Db, storage, source.id, targetId);
+        await copyAttachments(tx as unknown as Db, storage, source.id, targetId, quota);
       }
     }
 
