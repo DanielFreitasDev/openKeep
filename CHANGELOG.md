@@ -1,3 +1,22 @@
+# [1.28.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.27.0...v1.28.0) (2026-08-01)
+
+
+### Features
+
+* administer the instance without opening psql ([9bc6270](https://github.com/DanielFreitasDev/openKeep/commit/9bc627039891d40268221baebea75d9657ef0ffe))
+* save a note as a template and start new notes from it ([563a80e](https://github.com/DanielFreitasDev/openKeep/commit/563a80eb5379dd28ea66d830e32e56fb25649985))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.28.0
+```
+
+Or download `compose.yml` below (image pinned to `1.28.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.28.0/docs/DEPLOYMENT.md).
+
 # [1.27.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.26.0...v1.27.0) (2026-08-01)
 
 
