@@ -1,3 +1,21 @@
+# [1.29.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.28.0...v1.29.0) (2026-08-01)
+
+
+### Features
+
+* cap how much disk one account may use ([58a1caa](https://github.com/DanielFreitasDev/openKeep/commit/58a1caaa97e089e60c7c7405b3de69370193034f))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.29.0
+```
+
+Or download `compose.yml` below (image pinned to `1.29.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.29.0/docs/DEPLOYMENT.md).
+
 # [1.28.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.27.0...v1.28.0) (2026-08-01)
 
 
