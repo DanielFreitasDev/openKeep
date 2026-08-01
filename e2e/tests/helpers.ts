@@ -41,7 +41,30 @@ export async function composeNote(page: Page, { title, body }: { title?: string;
     await titleField.pressSequentially(title);
   }
   if (body) await page.getByRole('textbox', { name: 'Take a note…' }).fill(body);
-  if (title) await expect(titleField).toHaveValue(title);
+  if (title) {
+    try {
+      await expect(titleField).toHaveValue(title);
+    } catch (err) {
+      // Three explanations were tried and refuted for the lost title (React
+      // dropping a controlled input's update, the composer stealing focus into
+      // the body as it expands, and the plain sequence under CPU load — see the
+      // commit that added this). So if it happens again, capture what tells the
+      // rest apart: where the keystrokes went, and whether the draft mirror —
+      // written from the same React state the save reads — ever saw the title.
+      // Evaluated as source text: this package has no DOM lib (the a11y spec's
+      // animation guard is written the same way).
+      const active = await page.evaluate<string>(
+        `(() => { const el = document.activeElement; return el.tagName + ':' + (el.getAttribute('aria-label') || ''); })()`,
+      );
+      const mirrored = await page.evaluate<string>(
+        `localStorage.getItem('openkeep:draft:composer') || 'none'`,
+      );
+      throw new Error(
+        `composeNote("${title}"): the title never came back from state — ` +
+          `focus: ${active}, mirrored draft: ${mirrored}\n${String(err)}`,
+      );
+    }
+  }
   await page.locator('main').getByRole('button', { name: 'Close' }).click();
   if (!title) return;
 
