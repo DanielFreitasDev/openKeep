@@ -1,3 +1,21 @@
+# [1.27.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.26.0...v1.27.0) (2026-08-01)
+
+
+### Features
+
+* attach any file to a note (PDF, documents, archives, text) ([76f6257](https://github.com/DanielFreitasDev/openKeep/commit/76f625745d1fd69b228006441235021dfe80f6b3))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.27.0
+```
+
+Or download `compose.yml` below (image pinned to `1.27.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.27.0/docs/DEPLOYMENT.md).
+
 # [1.26.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.25.0...v1.26.0) (2026-07-31)
 
 
