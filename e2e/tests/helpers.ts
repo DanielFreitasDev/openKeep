@@ -20,13 +20,62 @@ export async function signUpFreshUser(context: BrowserContext, name = 'E2E User'
   return email;
 }
 
-/** Create a note through the composer, waiting until the card appears. */
+/**
+ * Create a note through the composer, waiting until the card appears.
+ *
+ * The title is typed key by key rather than `fill()`ed, and then read back
+ * *after* the body has been typed. Both halves of that are load-flakiness
+ * lessons: the composer keeps its title in React state (the body it reads off
+ * the editor instance at save time), and a full-suite run occasionally
+ * committed a note whose POST carried `"title": ""` while the body was intact —
+ * the typed value had never reached state. Typing produces one event per
+ * character instead of one bulk insert, and since the field is controlled, a
+ * value that survives the render the body triggers is a value state agrees
+ * with. Assert it here and a lost title fails loudly, before a note exists.
+ */
 export async function composeNote(page: Page, { title, body }: { title?: string; body?: string }) {
   await page.getByLabel('Take a note…').click();
-  if (title) await page.getByLabel('Title', { exact: true }).fill(title);
+  const titleField = page.getByLabel('Title', { exact: true });
+  if (title) {
+    await titleField.click();
+    await titleField.pressSequentially(title);
+  }
   if (body) await page.getByRole('textbox', { name: 'Take a note…' }).fill(body);
+  if (title) await expect(titleField).toHaveValue(title);
   await page.locator('main').getByRole('button', { name: 'Close' }).click();
-  if (title) await expect(cardByTitle(page, title)).toBeVisible();
+  if (!title) return;
+
+  try {
+    await expect(cardByTitle(page, title)).toBeVisible();
+  } catch (err) {
+    /**
+     * A missing card looks the same whatever went wrong, so say which: the
+     * composer refusing to commit leaves itself open, one that read its draft
+     * as empty says so in a snackbar, and a note committed under the wrong name
+     * shows up among the cards. That last one is how the title loss above was
+     * found — the board held a card whose whole text was the body.
+     */
+    const discarded = await page
+      .getByText('Empty note discarded')
+      .isVisible()
+      .catch(() => false);
+    const composerStillOpen = await page
+      .getByLabel('Title', { exact: true })
+      .isVisible()
+      .catch(() => false);
+    // And what the board does hold: a note created without its title (a typed
+    // value the app never committed) is a card that exists under another name,
+    // which a missing locator alone cannot tell from no card at all.
+    const cards = await page
+      .locator('[data-note-id]')
+      .allInnerTexts()
+      .catch(() => []);
+    throw new Error(
+      `composeNote("${title}"): the card never appeared — ` +
+        `discard snackbar: ${discarded}, composer still open: ${composerStillOpen}, ` +
+        `cards on the board: ${JSON.stringify(cards)}\n${String(err)}`,
+    );
+  }
 }
 
 export function cardByTitle(page: Page, title: string) {
