@@ -46,6 +46,23 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...valid, BACKUP_CRON: '0 4 * *' })).toThrow(/BACKUP_CRON/);
   });
 
+  it('leaves storage uncapped unless a quota is given, and takes it in megabytes', () => {
+    expect(loadConfig({ ...valid }).storageQuotaBytes).toBeNull();
+    expect(loadConfig({ ...valid, USER_STORAGE_QUOTA_MB: '2048' }).storageQuotaBytes).toBe(
+      2048 * 1024 * 1024,
+    );
+  });
+
+  // A zero or fractional quota would refuse every upload, or round to one.
+  it('rejects a quota that is not a positive whole number of megabytes', () => {
+    expect(() => loadConfig({ ...valid, USER_STORAGE_QUOTA_MB: '0' })).toThrow(
+      /USER_STORAGE_QUOTA_MB/,
+    );
+    expect(() => loadConfig({ ...valid, USER_STORAGE_QUOTA_MB: '0.5' })).toThrow(
+      /USER_STORAGE_QUOTA_MB/,
+    );
+  });
+
   it('rejects a missing DATABASE_URL with a readable message', () => {
     const { DATABASE_URL: _omitted, ...rest } = valid;
     expect(() => loadConfig(rest)).toThrow(/DATABASE_URL/);
