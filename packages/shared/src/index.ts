@@ -13,6 +13,7 @@ export * from './lib/markdown-serialize.js';
 export * from './lib/note-markdown.js';
 export * from './lib/search-query.js';
 export * from './lib/text.js';
+export * from './schemas/admin.js';
 export * from './schemas/api-tokens.js';
 export * from './schemas/attachments.js';
 export * from './schemas/common.js';

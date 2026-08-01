@@ -8,6 +8,7 @@ export type ActiveDialog =
   | 'share'
   | 'import-export'
   | 'api-tokens'
+  | 'admin'
   | null;
 
 const THEME_KEY = 'openkeep-theme';

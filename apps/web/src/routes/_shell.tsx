@@ -6,6 +6,7 @@ import { MarqueeOverlay } from '../components/grid/MarqueeOverlay.js';
 import { EditLabelsDialog } from '../components/labels/EditLabelsDialog.js';
 import { EditorModal } from '../components/notes/EditorModal.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
+import { AdminDialog } from '../components/shell/AdminDialog.js';
 import { ApiTokensDialog } from '../components/shell/ApiTokensDialog.js';
 import { ImportExportDialog } from '../components/shell/ImportExportDialog.js';
 import { OfflineBanner } from '../components/shell/OfflineBanner.js';
@@ -89,6 +90,7 @@ function ShellLayout() {
       <ShortcutsDialog />
       <ImportExportDialog />
       <ApiTokensDialog />
+      <AdminDialog />
       <SelectionBar />
       <SnackbarHost />
     </div>

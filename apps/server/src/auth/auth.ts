@@ -1,10 +1,12 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { APIError } from 'better-auth/api';
 import nodemailer from 'nodemailer';
 import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
 import { account, session, user, verification } from '../db/schema/auth.js';
 import { userSettings } from '../db/schema/settings.js';
+import { getInstanceSettings, isAdmin } from '../modules/admin/service.js';
 
 /**
  * Better Auth, core only (email/password + optional OAuth). Pinned exact —
@@ -68,6 +70,27 @@ export function createAuth(config: Config, db: Db) {
     databaseHooks: {
       user: {
         create: {
+          /**
+           * The one place a new account is born, whichever door it came
+           * through — the sign-up form or a first OAuth login — so closing
+           * public sign-up belongs here and nowhere else. Better Auth's own
+           * `disableSignUp` is decided at boot; this switch is flipped from the
+           * admin panel at runtime, so the row is read per attempt.
+           *
+           * An address in ADMIN_EMAILS is always let through: the owner has to
+           * be able to create their own account on an instance they already
+           * closed, and they are the deploy's authority anyway.
+           */
+          before: async (u) => {
+            if (isAdmin(config, u.email)) return;
+            const { signupEnabled } = await getInstanceSettings(db);
+            if (!signupEnabled) {
+              throw new APIError('FORBIDDEN', {
+                code: 'SIGNUP_DISABLED',
+                message: 'Sign-ups are closed on this instance',
+              });
+            }
+          },
           after: async (u) => {
             await db.insert(userSettings).values({ userId: u.id }).onConflictDoNothing();
           },

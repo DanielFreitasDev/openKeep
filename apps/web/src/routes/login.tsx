@@ -66,7 +66,8 @@ function LoginPage() {
         if (err) {
           // Better Auth's sign-up path reports the longer code; accept both so
           // the friendly message survives either spelling.
-          if (
+          if (err.status === 403) setError(t('errorSignupClosed'));
+          else if (
             err.code === 'USER_ALREADY_EXISTS' ||
             err.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL'
           )
@@ -199,12 +200,16 @@ function LoginPage() {
           </div>
         )}
 
+        {/* A closed instance says so instead of offering a form that 403s.
+            Undefined meta (still loading) keeps the usual invitation. */}
         <p className="mt-8 text-center text-on-surface-variant text-sm">
           {mode === 'signup' ? (
             <>
               {t('haveAccount')}{' '}
               <ModeLink onClick={() => setMode('signin')}>{t('signInLink')}</ModeLink>
             </>
+          ) : meta?.signupEnabled === false ? (
+            t('signupClosed')
           ) : (
             <>
               {t('noAccount')}{' '}

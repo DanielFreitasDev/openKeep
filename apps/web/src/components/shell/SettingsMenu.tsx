@@ -1,6 +1,8 @@
 import { Menu } from '@base-ui/react/menu';
 import settingsSvg from '@material-symbols/svg-700/outlined/settings.svg?raw';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { adminMeQuery } from '../../lib/admin-api.js';
 import { isDarkEffective, useUiStore } from '../../stores/ui.js';
 import { Icon } from '../Icon.js';
 import { iconButtonClass } from '../IconButton.js';
@@ -16,6 +18,9 @@ export function SettingsMenu() {
   const toggleDarkTheme = useUiStore((s) => s.toggleDarkTheme);
   const setActiveDialog = useUiStore((s) => s.setActiveDialog);
   const dark = isDarkEffective(theme);
+  // Like labels and saved searches: the entry exists only for whoever it is
+  // for — an instance with no ADMIN_EMAILS shows no sign of a panel.
+  const { data: adminMe } = useQuery(adminMeQuery);
 
   return (
     <Menu.Root>
@@ -45,6 +50,11 @@ export function SettingsMenu() {
             <Menu.Item className={itemClass} onClick={() => setActiveDialog('api-tokens')}>
               {t('apiTokens')}
             </Menu.Item>
+            {adminMe?.admin && (
+              <Menu.Item className={itemClass} onClick={() => setActiveDialog('admin')}>
+                {t('administration')}
+              </Menu.Item>
+            )}
             <Menu.Item
               className={itemClass}
               render={<a href={FEEDBACK_URL} target="_blank" rel="noreferrer" />}

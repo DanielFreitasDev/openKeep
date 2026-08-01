@@ -55,5 +55,7 @@ export const zInstanceMeta = z.object({
   passwordReset: z.boolean(),
   /** How long trashed notes survive before the hourly purge takes them. */
   trashRetentionDays: z.number().int().positive(),
+  /** Off hides the sign-up form; the instance is closed to new accounts. */
+  signupEnabled: z.boolean(),
 });
 export type InstanceMeta = z.infer<typeof zInstanceMeta>;

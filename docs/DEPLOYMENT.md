@@ -67,6 +67,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` | OAuth sign-in buttons |
 | `SMTP_URL`, `SMTP_FROM` | Password-reset emails |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web-push reminders (`pnpm --filter @openkeep/server gen:vapid`) |
+| `ADMIN_EMAILS` | Comma-separated addresses that get the Administration panel (see below). Unset = no admins, no panel. |
 | `TRASH_RETENTION_DAYS` | How long trashed notes survive the hourly purge (default `7`, Keep parity). The Trash banner states whatever you set. |
 | `METRICS_ENABLED`, `METRICS_TOKEN` | Prometheus metrics at `GET /metrics` (see below) |
 | `BACKUP_CRON`, `BACKUP_DIR`, `BACKUP_KEEP` | Scheduled per-account export archives (see below). Unset `BACKUP_CRON` = no backup job. |
@@ -84,6 +85,17 @@ The MCP endpoint ships in the same container — nothing extra to deploy or conf
 - **Logs**: structured JSON on stdout (pino). Note content never appears above debug level.
 - **Calendar feeds** (per user, opt-in): Settings → Calendar feed mints `/api/calendar/<token>.ics`. The route has no session — the token in the path is the credential, stored in plaintext so the URL keeps working in the calendar app it was pasted into. It exposes reminder titles and note body snippets to whoever holds the link; rotating or turning it off revokes every subscription at once.
 - **Metrics** (opt-in): `METRICS_ENABLED=true` serves the Prometheus text format at `GET /metrics` — HTTP requests and latency by route *template*, pg-boss runs and duration by queue, open WebSocket connections, plus the standard `process_*`/`nodejs_*` gauges. Left off, the route does not exist (404). It carries no note content, but it does describe the instance: set `METRICS_TOKEN` (≥16 chars) to require `Authorization: Bearer <token>`, or keep the path off your public listener. The endpoint sits at the root, not under `/api` — no session, no PAT, not in the OpenAPI spec.
+
+## Administration
+
+`ADMIN_EMAILS=you@example.com,ops@example.com` puts an **Administration** entry in the gear menu for those accounts (matched case-insensitively). Unset, nobody has it and every `/api/admin/*` route answers 403 — there is no way to grant it from inside the app, which is the point: the operator of the deploy is whoever edits the env, and no request, and no row in the database, can promote anyone. Restart to change the list. The panel is session-only, so a personal access token (and therefore the MCP server) can never reach it.
+
+It shows what the instance holds — accounts, notes, attachments, disk used, and the same broken down per account — plus:
+
+- **Allow new accounts.** Off closes sign-up for everyone: the login page stops offering the form and the API refuses account creation at the one place a user is born, so an OAuth first-login is turned away exactly like the sign-up form. Existing accounts keep signing in normally. An address listed in `ADMIN_EMAILS` can still sign up while closed, so shutting the door before creating your own account is not a lockout.
+- **Delete an account.** Past the trash and past undo: the notes that account owns are destroyed with their attachment files, and its labels, reminders, tokens, settings and sessions go with the row. Notes owned by *other* people are untouched — the deleted account simply stops being a collaborator on them. The dialog asks for the address to be typed, and an account still listed in `ADMIN_EMAILS` is refused (remove it from the env first). One caveat: sessions are cached in a signed cookie for five minutes, so a browser that was open when the account was deleted keeps a live session until it lapses — pointed at an account with nothing left in it.
+
+Disk usage is attachment bytes only (what the storage volume holds), not the database.
 
 ## Scheduled backups and restoring
 

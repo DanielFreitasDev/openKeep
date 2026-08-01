@@ -41,6 +41,13 @@ const EnvSchema = z.object({
   BACKUP_DIR: z.string().default('./backups'),
   /** Archives kept per account before the oldest is deleted. */
   BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(7),
+  /**
+   * Comma-separated e-mails that administer this instance. Unset means nobody
+   * does — the admin panel simply is not there. Deliberately env and not a
+   * column: who owns the deploy is a property of the deploy, it needs no
+   * bootstrap answer for an empty database, and no request can grant it.
+   */
+  ADMIN_EMAILS: z.string().optional(),
 });
 
 export type Config = z.infer<typeof EnvSchema> & {
@@ -49,6 +56,8 @@ export type Config = z.infer<typeof EnvSchema> & {
   isTest: boolean;
   storageDirAbs: string;
   backupDirAbs: string;
+  /** ADMIN_EMAILS, split and lowercased once at boot. */
+  adminEmails: string[];
 };
 
 /** Load `.env` from cwd or repo root without overriding real env vars. */
@@ -92,5 +101,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     isTest: cfg.NODE_ENV === 'test',
     storageDirAbs: path.resolve(process.cwd(), cfg.STORAGE_DIR),
     backupDirAbs: path.resolve(process.cwd(), cfg.BACKUP_DIR),
+    adminEmails: (cfg.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0),
   };
 }

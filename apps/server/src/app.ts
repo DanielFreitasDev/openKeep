@@ -14,6 +14,8 @@ import type { Db } from './db/client.js';
 import { buildLogger } from './lib/logger.js';
 import { createMetrics } from './lib/metrics.js';
 import type { Storage } from './lib/storage.js';
+import { registerAdminRoutes } from './modules/admin/routes.js';
+import { getInstanceSettings } from './modules/admin/service.js';
 import { registerApiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerAttachmentRoutes } from './modules/attachments/routes.js';
 import { registerCalendarRoutes } from './modules/calendar/routes.js';
@@ -123,11 +125,15 @@ export async function buildApp(config: Config, deps: AppDeps) {
       },
       passwordReset: config.SMTP_URL !== undefined,
       trashRetentionDays: config.TRASH_RETENTION_DAYS,
+      // Read per request, not at boot: the admin panel flips this at runtime
+      // and the login page is what has to stop offering the form.
+      signupEnabled: (await getInstanceSettings(deps.db)).signupEnabled,
     }),
   );
 
   registerSettingsRoutes(app, deps.db, realtime);
   registerApiTokenRoutes(app, deps.db);
+  registerAdminRoutes(app, deps.db, config, deps.storage);
   registerNotesRoutes(app, deps.db, realtime, deps.storage);
   registerItemRoutes(app, deps.db, realtime);
   registerLabelRoutes(app, deps.db, realtime);

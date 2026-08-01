@@ -73,6 +73,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Takeout import | — (adoption feature) | ✅ 🔀 images + audio, 512 MB archives, media read on demand, version snapshot at import | M9 |
 | JSON export | Takeout equivalent | ✅ | M9 |
 | Offline edits survive reload | Keep has none | ✅ 🔀 IndexedDB outbox + localStorage draft mirror + offline banner/retry toasts (DECISIONS #22) | post-1.0 |
+| Instance administration | Keep has none (Google runs it) | ✅ 🔀 `ADMIN_EMAILS` puts an Administration panel in the gear menu: instance totals, disk use per account, an "allow new accounts" switch enforced where an account is born (form and OAuth alike), and account deletion with its notes and files. Session-only, so no PAT or MCP client reaches it; admin-ness comes only from the env (DECISIONS #32) | post-1.0 |
 
 ## Known deferrals in v1.0
 

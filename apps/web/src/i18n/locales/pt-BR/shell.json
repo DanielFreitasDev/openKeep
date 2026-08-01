@@ -36,5 +36,6 @@
   "signOut": "Sair",
   "emptyView": "Nada por aqui ainda",
   "importExport": "Importar / Exportar",
-  "apiTokens": "Tokens de API"
+  "apiTokens": "Tokens de API",
+  "administration": "Administração"
 }

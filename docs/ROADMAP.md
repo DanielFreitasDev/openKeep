@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-08-01** (modelos de nota;
-> antes: anexar qualquer arquivo — PDF, documentos, zip;
+> Última atualização: **2026-08-01** (painel de administração da instância;
+> antes: modelos de nota;
+> anexar qualquer arquivo — PDF, documentos, zip;
 > compartilhar por link público somente leitura;
 > vincular notas com `[[` e backlinks;
 > gravação de áudio no navegador;
@@ -790,12 +791,39 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.5 Self-host e administração
 
-- [ ] **Painel/rotas de administração** *(impacto alto · esforço M/G)*
+- [x] **Painel/rotas de administração** *(impacto alto · esforço M/G)* — feito em 2026-08-01
   **O quê:** o dono da instância hoje administra via SQL. Mínimo viável: listar usuários,
   desativar cadastro público, deletar usuário (com purge de dados/arquivos), uso de disco por
   usuário.
   **Como:** `ADMIN_EMAILS` no env → flag no usuário; rotas `/api/admin/*` + página simples em
   Settings. Cuidado: manter fora do escopo dos PATs (como já é feito com gestão de tokens).
+  **Entregue:** o "flag no usuário" previsto aqui **não** existe — quem administra sai só do
+  `ADMIN_EMAILS`, comparado sem caixa com o e-mail da sessão. Uma coluna precisaria responder quem
+  promove o primeiro admin numa instância vazia, estaria a um `UPDATE` de distância de quem
+  alcançar o banco e viveria longe de quem de fato manda na máquina; o env já é o que o operador
+  controla para o servidor sequer subir. Sem `ADMIN_EMAILS` ninguém administra: o `GET
+  /api/admin/me` responde `{admin:false}`, o item do menu não nasce e as outras rotas são 403 para
+  todo mundo. Tudo é `rejectPatAuth` como a gestão de tokens — o que também mantém o painel fora do
+  MCP, que fala com estas mesmas rotas por PAT.
+  **Só uma coisa vira linha no banco:** `instance_settings`, uma linha só (`id = 'singleton'`, com
+  check), hoje guardando `signup_enabled`. Linha ausente = padrão, então nada precisa semear.
+  **O cadastro é fechado onde a conta nasce, não na rota de cadastro:** o
+  `databaseHooks.user.create.before` do Better Auth é o único ponto por onde passa tanto o
+  formulário quanto o primeiro login OAuth, e é lido a cada tentativa — o `disableSignUp` nativo é
+  decidido no boot e não serviria a um interruptor de runtime. Endereço do `ADMIN_EMAILS` passa
+  mesmo com a porta fechada: quem é dono precisa poder criar a própria conta numa instância que já
+  fechou.
+  **Excluir conta se apoia no schema em vez de reimplementá-lo:** toda tabela por usuário cascateia
+  de `user`, então a linha sumir *é* a exclusão; o que o banco não faz são os arquivos dos anexos,
+  colhidos antes das linhas (falha no meio deixa linha apontando para arquivo, nunca o contrário) —
+  a mesma ordem do `deleteAllNotes`. Dois cercados: o corpo carrega o literal
+  (`{"confirm":"delete-user"}`) e o diálogo pede o endereço digitado, porque atrás disso não há
+  lixeira; e conta ainda listada no `ADMIN_EMAILS` é recusada — apagar a linha deixaria um nome que
+  entra de novo no minuto seguinte, e sendo a sua, tiraria de você o painel que desfaria isso.
+  **O limite honesto:** a sessão vive num cookie assinado por 5 minutos (`cookieCache`), então o
+  navegador que estava aberto na hora da exclusão continua respondendo por ele até vencer — olhando
+  para uma conta sem nada dentro. O teste de integração afirma exatamente isso em vez de fingir um
+  401 imediato.
 
 - [ ] **SSO genérico OIDC (Authentik/Keycloak/Pocket ID)** *(impacto alto · esforço M)*
   **O quê:** o pedido nº 1 da comunidade self-host para qualquer app. Hoje: Google/GitHub
@@ -903,10 +931,10 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
 1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-2. **Admin mínimo** (3.5) — o que resta do pacote self-host (retenção da lixeira e backup agendado
-   já saíram).
-3. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
+2. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
    compartilhado é onde a sintaxe `|---|` entraria.
+3. **Cotas por usuário** (3.5) — o vizinho natural do painel admin, que já mostra o uso de disco
+   por conta; falta o teto por env e o erro claro no upload.
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
 do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
@@ -946,6 +974,13 @@ já eram exatamente as três peças da feature, então o que sobrou foi uma colu
 num lugar só (`onBoard()`). Isso muda a fila? Não — e vale registrar o que o item **não** decidiu:
 a prateleira é plana, então ela não é um ensaio de **sub-labels/pastas**, que continua sendo o nº 1
 e continua precisando de `parent_id` e árvore no sidebar.
+
+**Painel admin** saiu em 2026-08-01 e era o nº 2 desta fila. O que ele obrigou a decidir não foi
+nenhuma rota e sim *onde mora o poder*: administrar virou env (`ADMIN_EMAILS`), não coluna, e a
+única linha nova no banco é a que o painel escreve (`instance_settings.signup_enabled`) — virou
+DECISIONS #32. O item vizinho **cotas por usuário** ficou barato de carona: o uso de disco por conta
+já é calculado e mostrado, então falta só o teto e a recusa no upload. Isso muda a fila?
+**Sub-labels/pastas** segue sendo o nº 1, e continua precisando de `parent_id` e árvore no sidebar.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

@@ -1,6 +1,7 @@
 export * from './api-tokens.js';
 export * from './attachments.js';
 export * from './auth.js';
+export * from './instance.js';
 export * from './jobs.js';
 export * from './labels.js';
 export * from './notes.js';
