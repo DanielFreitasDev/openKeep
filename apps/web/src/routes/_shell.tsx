@@ -15,6 +15,7 @@ import { SettingsDialog } from '../components/shell/SettingsDialog.js';
 import { ShortcutsDialog } from '../components/shell/ShortcutsDialog.js';
 import { Sidebar } from '../components/shell/Sidebar.js';
 import { TopBar } from '../components/shell/TopBar.js';
+import { WebhooksDialog } from '../components/shell/WebhooksDialog.js';
 import { useAppKeys } from '../hooks/use-app-keys.jsx';
 import { useComposeShortcut } from '../hooks/use-compose-shortcut.js';
 import { useDraftRestore } from '../hooks/use-draft-restore.js';
@@ -90,6 +91,7 @@ function ShellLayout() {
       <ShortcutsDialog />
       <ImportExportDialog />
       <ApiTokensDialog />
+      <WebhooksDialog />
       <AdminDialog />
       <SelectionBar />
       <SnackbarHost />

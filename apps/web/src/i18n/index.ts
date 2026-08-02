@@ -16,6 +16,7 @@ import enSharing from './locales/en/sharing.json';
 import enShell from './locales/en/shell.json';
 import enShortcuts from './locales/en/shortcuts.json';
 import enTrash from './locales/en/trash.json';
+import enWebhooks from './locales/en/webhooks.json';
 import ptAdmin from './locales/pt-BR/admin.json';
 import ptApiTokens from './locales/pt-BR/apiTokens.json';
 import ptAuth from './locales/pt-BR/auth.json';
@@ -32,6 +33,7 @@ import ptSharing from './locales/pt-BR/sharing.json';
 import ptShell from './locales/pt-BR/shell.json';
 import ptShortcuts from './locales/pt-BR/shortcuts.json';
 import ptTrash from './locales/pt-BR/trash.json';
+import ptWebhooks from './locales/pt-BR/webhooks.json';
 
 export const resources = {
   en: {
@@ -51,6 +53,7 @@ export const resources = {
     importExport: enImportExport,
     apiTokens: enApiTokens,
     admin: enAdmin,
+    webhooks: enWebhooks,
   },
   'pt-BR': {
     common: ptCommon,
@@ -69,6 +72,7 @@ export const resources = {
     importExport: ptImportExport,
     apiTokens: ptApiTokens,
     admin: ptAdmin,
+    webhooks: ptWebhooks,
   },
 } as const;
 

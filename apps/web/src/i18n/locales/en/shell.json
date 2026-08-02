@@ -37,5 +37,6 @@
   "emptyView": "Nothing here yet",
   "importExport": "Import / Export",
   "apiTokens": "API tokens",
+  "webhooks": "Webhooks",
   "administration": "Administration"
 }

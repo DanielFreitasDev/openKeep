@@ -72,6 +72,7 @@ Set `APP_URL` to the exact public origin — cookies are `Secure` when it is htt
 | `USER_STORAGE_QUOTA_MB` | Attachment megabytes one account may own (see below). Unset = no ceiling. |
 | `METRICS_ENABLED`, `METRICS_TOKEN` | Prometheus metrics at `GET /metrics` (see below) |
 | `BACKUP_CRON`, `BACKUP_DIR`, `BACKUP_KEEP` | Scheduled per-account export archives (see below). Unset `BACKUP_CRON` = no backup job. |
+| `WEBHOOK_ALLOW_PRIVATE_TARGETS` | Lets outgoing webhooks reach private/LAN addresses (see below). Off by default. |
 
 ## MCP / AI clients
 
@@ -105,6 +106,32 @@ Disk usage is attachment bytes only (what the storage volume holds), not the dat
 The cap is charged to the **owner of the note**, not to whoever is uploading: a collaborator's photo on your note lands on your allowance, the same rule the admin panel already uses to attribute bytes to an account. Every path that writes new bytes answers to it — the four upload routes, re-saving a drawing (which pays only the difference), "Make a copy" and merging notes (duplicated bytes are new bytes). An upload past the line is refused with `413 storage_quota_exceeded` and a message that says to delete attachments or empty the trash; a Takeout/markdown import skips the media it cannot fit and still imports the notes.
 
 Settings shows each person their usage against the ceiling, so the number is visible before it is hit, and the admin panel prints the limit next to the per-account figures. Admins are not exempt. Lowering the value on a live instance does not delete anything: accounts already above it simply cannot add more, and the panel flags them.
+
+## Outgoing webhooks
+
+Each account can point up to five endpoints at its own notes from **Settings → Webhooks** — no environment variable is needed to turn the feature on. An endpoint subscribes to any of seven events (`note.created`, `note.updated`, `note.state_changed`, `note.trashed`, `note.restored`, `note.deleted`, `reminder.fired`) and receives a JSON POST:
+
+```json
+{
+  "deliveryId": "0d0e…", "event": "note.created",
+  "occurredAt": "2026-08-01T12:00:00.000Z",
+  "noteId": "018f…", "note": { "id": "018f…", "title": "Buy milk", "…": "…" }
+}
+```
+
+`note` is the note as `GET /api/notes/:id` would return it *to the account that owns the webhook*, read at delivery time — labels, reminder and pin are that person's — so an automation never has to call back. It is `null` when the note is already gone, which is the ordinary case for `note.deleted`.
+
+**Verifying a delivery.** Every request carries `X-OpenKeep-Event`, `X-OpenKeep-Delivery`, `X-OpenKeep-Timestamp` (Unix seconds) and:
+
+```
+X-OpenKeep-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<raw body>" keyed with the secret>
+```
+
+The secret is shown in the dialog (and rotatable there — rotating invalidates nothing but your receiver's configuration). Sign the timestamp with the body, not the body alone, and reject a timestamp older than a few minutes: that is what stops a recorded delivery from being replayed at you.
+
+**Delivery semantics.** Deliveries are queued, not sent inside the request: five attempts with exponential backoff (10 s → capped at 1 h), so a receiver that is down for a minute does not cost the event. Anything outside `2xx` is a failure; redirects are not followed (a `30x` is a misconfigured endpoint) and the response body is never read. The last attempt's status is shown next to the endpoint, and **Send test** delivers a `webhook.test` event inline so you see the receiver's status code immediately. An endpoint that stays broken keeps retrying rather than switching itself off — losing events silently is worse than a noisy log. `note.updated` fires once per saved edit, which the editor's autosave already coalesces; expect one per pause in typing, not one per keystroke.
+
+`WEBHOOK_ALLOW_PRIVATE_TARGETS=true` is needed if your endpoints live on the LAN (`http://homeassistant.local:8123`, a container on the same network, anything on loopback). Left off, deliveries go through the same SSRF guard as link previews — DNS resolved up front, connection pinned to the validated address, every private/loopback/link-local/metadata range refused — because on a multi-user instance any account could otherwise aim an endpoint at your internal services. Endpoints are still *stored* either way; only the delivery is guarded, so flipping the variable does not make anyone re-add their hooks. Management is session-only, so a personal access token — and therefore the MCP server — can never create or read one.
 
 ## Scheduled backups and restoring
 

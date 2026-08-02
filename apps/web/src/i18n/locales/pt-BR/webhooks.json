@@ -1,0 +1,33 @@
+{
+  "title": "Webhooks",
+  "hint": "Envie um POST assinado para outro app quando suas notas mudarem — n8n, Home Assistant, Zapier. Cada requisição leva um cabeçalho X-OpenKeep-Signature que o receptor confere com o segredo abaixo.",
+  "createTitle": "Adicionar um endereço",
+  "urlLabel": "URL do endereço",
+  "urlPlaceholder": "https://exemplo.com/hooks/openkeep",
+  "createButton": "Adicionar",
+  "listTitle": "Seus endereços",
+  "empty": "Nenhum endereço ainda. Adicione um para conectar uma automação.",
+  "enabled": "Ativo",
+  "secretHidden": "Segredo de assinatura oculto",
+  "showSecret": "Mostrar segredo",
+  "hideSecret": "Ocultar segredo",
+  "copySecret": "Copiar segredo",
+  "rotateSecret": "Trocar segredo",
+  "sendTest": "Enviar teste",
+  "testOk": "Teste entregue ({{status}})",
+  "testFailed": "Teste falhou: {{error}}",
+  "neverDelivered": "Nunca entregou",
+  "lastOk": "Última entrega {{date}} ({{status}})",
+  "lastFailed": "Última entrega {{date}} falhou: {{error}}",
+  "delete": "Excluir",
+  "deleteConfirm": "Excluir mesmo?",
+  "events": {
+    "note.created": "Nota criada",
+    "note.updated": "Nota editada",
+    "note.state_changed": "Fixada, cor, marcadores ou lembrete alterados",
+    "note.trashed": "Nota na lixeira",
+    "note.restored": "Nota restaurada",
+    "note.deleted": "Nota excluída",
+    "reminder.fired": "Lembrete disparou"
+  }
+}

@@ -28,6 +28,9 @@ import { registerReminderRoutes } from './modules/reminders/routes.js';
 import { registerSearchRoutes } from './modules/search/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
 import { registerSharingRoutes } from './modules/sharing/routes.js';
+import type { EnqueueWebhook } from './modules/webhooks/dispatcher.js';
+import { WebhookDispatcher } from './modules/webhooks/dispatcher.js';
+import { registerWebhookRoutes } from './modules/webhooks/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerMcp } from './plugins/mcp.js';
@@ -47,6 +50,8 @@ export interface AppDeps {
   enqueueLinkPreview?: (url: string, requestedBy: string) => Promise<void>;
   /** Enqueue an import/export job (pg-boss in prod; direct in tests). */
   enqueueJob?: (queue: 'import-takeout' | 'export-user-data', jobId: string) => Promise<void>;
+  /** Enqueue one webhook delivery (pg-boss in prod; direct in tests). */
+  enqueueWebhook?: EnqueueWebhook;
   /** In-process realtime registry (created here when absent). */
   realtime?: Realtime;
 }
@@ -131,8 +136,15 @@ export async function buildApp(config: Config, deps: AppDeps) {
     }),
   );
 
+  // Attached before any route can publish: the dispatcher is the second
+  // reader of every realtime event.
+  const webhooks = new WebhookDispatcher(deps.db, deps.enqueueWebhook ?? (async () => {}), app.log);
+  await webhooks.refresh();
+  realtime.onPublish = webhooks.publish;
+
   registerSettingsRoutes(app, deps.db, realtime, config);
   registerApiTokenRoutes(app, deps.db);
+  registerWebhookRoutes(app, deps.db, config, webhooks);
   registerAdminRoutes(app, deps.db, config, deps.storage);
   registerNotesRoutes(app, deps.db, realtime, config, deps.storage);
   registerItemRoutes(app, deps.db, realtime);

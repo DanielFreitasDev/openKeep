@@ -6,6 +6,7 @@ import { createDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { startJobs } from './jobs/index.js';
 import { Storage } from './lib/storage.js';
+import type { EnqueueWebhook } from './modules/webhooks/dispatcher.js';
 import { Realtime } from './realtime/registry.js';
 
 loadDotenv();
@@ -22,6 +23,7 @@ await storage.init();
 let enqueueLinkPreview: (url: string, requestedBy: string) => Promise<void> = async () => {};
 let enqueueJob: (queue: 'import-takeout' | 'export-user-data', jobId: string) => Promise<void> =
   async () => {};
+let enqueueWebhook: EnqueueWebhook = async () => {};
 const realtime = new Realtime();
 const app = await buildApp(config, {
   db,
@@ -31,6 +33,7 @@ const app = await buildApp(config, {
   realtime,
   enqueueLinkPreview: (url, requestedBy) => enqueueLinkPreview(url, requestedBy),
   enqueueJob: (queue, jobId) => enqueueJob(queue, jobId),
+  enqueueWebhook: (job) => enqueueWebhook(job),
 });
 
 let boss: PgBoss | undefined;
@@ -60,6 +63,9 @@ try {
   };
   enqueueJob = async (queue, jobId) => {
     await boss?.send(queue, { jobId }, { singletonKey: jobId });
+  };
+  enqueueWebhook = async (job) => {
+    await boss?.send('webhook-deliver', job);
   };
   app.log.info(`OpenKeep API ready on :${config.PORT} (${config.NODE_ENV})`);
 } catch (err) {

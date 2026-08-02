@@ -27,6 +27,7 @@ Where Google has *removed* features (native reminders moved to Google Tasks in l
 - Installable PWA with cached reads
 - i18n: English and Português (Brasil)
 - MCP server for AI assistants (Claude Code/Desktop/API) — everything the UI does, via API tokens ([`docs/MCP.md`](docs/MCP.md))
+- Outgoing webhooks — signed POSTs when your notes change, for n8n, Zapier and Home Assistant
 
 See [`docs/FEATURES.md`](docs/FEATURES.md) for the exhaustive catalog and [`docs/PARITY.md`](docs/PARITY.md) for the side-by-side parity checklist.
 

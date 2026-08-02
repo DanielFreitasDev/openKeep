@@ -8,6 +8,7 @@ export type ActiveDialog =
   | 'share'
   | 'import-export'
   | 'api-tokens'
+  | 'webhooks'
   | 'admin'
   | null;
 

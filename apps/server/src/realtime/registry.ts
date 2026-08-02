@@ -12,6 +12,14 @@ import { noteMembers } from '../db/schema/notes.js';
 export class Realtime {
   private readonly sockets = new Map<string, Set<WebSocket>>();
 
+  /**
+   * Second reader of the same stream: outgoing webhooks. It lives here rather
+   * than at the ~40 call sites so a route that learns to publish learns to
+   * fire webhooks in the same line. Must return promptly and never throw —
+   * publishing to sockets is not allowed to wait on the network.
+   */
+  onPublish?: (userIds: string[], event: WsEvent) => void;
+
   add(userId: string, socket: WebSocket): void {
     let set = this.sockets.get(userId);
     if (!set) {
@@ -50,6 +58,7 @@ export class Realtime {
         if (socket.readyState === socket.OPEN) socket.send(message);
       }
     }
+    this.onPublish?.(userIds, event);
   }
 }
 

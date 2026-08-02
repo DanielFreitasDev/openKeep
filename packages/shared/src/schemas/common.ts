@@ -48,6 +48,7 @@ export const ERROR_CODES = [
   'attachment_limit_reached',
   'collaborator_limit_reached',
   'token_limit_reached',
+  'webhook_limit_reached',
   'sharing_disabled',
   'sharing_disabled_for_target',
   'collaborator_not_registered',

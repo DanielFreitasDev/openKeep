@@ -25,6 +25,10 @@ import {
 import { purgeExpiredTrash } from '../modules/notes/service.js';
 import { configureWebPush, pushFiredReminders } from '../modules/reminders/push.js';
 import { fireDueReminders } from '../modules/reminders/service.js';
+import type { DeliveryOptions } from '../modules/webhooks/delivery.js';
+import { deliverWebhook } from '../modules/webhooks/delivery.js';
+import type { WebhookJob } from '../modules/webhooks/dispatcher.js';
+import { buildPayload, findWebhookById, recordAttempt } from '../modules/webhooks/service.js';
 import type { Realtime } from '../realtime/registry.js';
 
 interface QueryablePool {
@@ -109,6 +113,27 @@ export async function linkPreviewFetchJob(
 }
 
 /**
+ * `webhook-deliver` worker body: one POST, then record what came back.
+ *
+ * A failure is rethrown so pg-boss retries it with backoff, and the endpoint
+ * is re-read on every attempt — an endpoint deleted or switched off between
+ * the event and the delivery simply stops delivering, which is what "off"
+ * should mean to somebody who just clicked it.
+ */
+export async function webhookDeliverJob(
+  db: Db,
+  data: WebhookJob,
+  opts: DeliveryOptions,
+): Promise<void> {
+  const webhook = await findWebhookById(db, data.webhookId);
+  if (!webhook?.enabled) return;
+  const payload = await buildPayload(db, data.userId, data);
+  const outcome = await deliverWebhook({ url: webhook.url, secret: webhook.secret }, payload, opts);
+  await recordAttempt(db, webhook.id, outcome);
+  if (!outcome.ok) throw new Error(outcome.error ?? 'webhook delivery failed');
+}
+
+/**
  * pg-boss over the shared pg Pool. In-process workers; idempotent schedules.
  */
 export async function startJobs(
@@ -159,6 +184,25 @@ export async function startJobs(
       }
     }),
   );
+
+  // Retries are the feature here: a receiver that is down for a minute must
+  // not cost the event. Five tries over an exponential backoff capped at an
+  // hour, and a delivery that cannot finish in a minute is a dead endpoint.
+  await boss.createQueue('webhook-deliver', {
+    retryLimit: 5,
+    retryDelay: 10,
+    retryBackoff: true,
+    retryDelayMax: 3600,
+    expireInSeconds: 60,
+  });
+  await boss.work<WebhookJob>('webhook-deliver', async ([job]) => {
+    if (!job) return;
+    await work('webhook-deliver', () =>
+      webhookDeliverJob(db, job.data, {
+        allowPrivateTargets: config.WEBHOOK_ALLOW_PRIVATE_TARGETS,
+      }),
+    );
+  });
 
   await boss.createQueue('link-preview-fetch');
   await boss.work<{ url: string; requestedBy?: string }>('link-preview-fetch', async ([job]) => {

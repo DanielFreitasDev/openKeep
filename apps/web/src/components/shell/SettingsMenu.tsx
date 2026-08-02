@@ -50,6 +50,9 @@ export function SettingsMenu() {
             <Menu.Item className={itemClass} onClick={() => setActiveDialog('api-tokens')}>
               {t('apiTokens')}
             </Menu.Item>
+            <Menu.Item className={itemClass} onClick={() => setActiveDialog('webhooks')}>
+              {t('webhooks')}
+            </Menu.Item>
             {adminMe?.admin && (
               <Menu.Item className={itemClass} onClick={() => setActiveDialog('admin')}>
                 {t('administration')}

@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-08-01** (cotas de armazenamento por conta;
-> antes: painel de administração da instância;
+> Última atualização: **2026-08-01** (webhooks de saída;
+> antes: cotas de armazenamento por conta;
+> painel de administração da instância;
 > modelos de nota;
 > anexar qualquer arquivo — PDF, documentos, zip;
 > compartilhar por link público somente leitura;
@@ -759,11 +760,42 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   reusado pelo handler de `?compose=`, então os dois caminhos produzem a mesma nota. Sem ícones
   próprios por atalho — o sistema cai no ícone do app.
 
-- [ ] **Webhooks de saída** *(impacto médio · esforço M)*
+- [x] **Webhooks de saída** *(impacto médio · esforço M)* — feito em 2026-08-01
   **O quê:** POST assinado (HMAC) em URL configurável quando nota é criada/editada/arquivada —
   destrava n8n/Zapier/Home Assistant, pedido típico de self-host.
   **Como:** tabela de webhooks por usuário + job pg-boss com retry/backoff pendurado no mesmo
   ponto que publica no WS (`publishToUsers`); payload = DTO já existente.
+  **Entregue:** o engate é o previsto — um *sink* opcional no `publishToUsers`, e não uma chamada
+  nova em cada uma das ~40 rotas que publicam —, mas **o que sai não é o que trafega por dentro**.
+  O socket fala com o nosso próprio cliente, que vem junto com o servidor; um webhook fala com o
+  n8n de outra pessoa, e cada nome ali é promessa feita a estranho. Então vinte eventos internos
+  viram sete fatos no nível da nota (`toWebhookEvent`): subir anexo, mexer num item da checklist e
+  colar no corpo são todos `note.updated`, e o que não tem nota atrás (job, settings, o purge da
+  conta inteira) simplesmente não sai.
+  **O corpo é sempre `{event, noteId, note}`, com a nota lida na hora da entrega** pelo caminho
+  normal por usuário — então o receptor nunca precisa ligar de volta, o estado por usuário
+  (marcadores, lembrete, fixada) é o de quem pediu o hook, e nenhum receptor aprende o formato dos
+  nossos *patch results*. `note` só é nulo quando a nota já não existe, que é o caso normal de
+  `note.deleted`.
+  **Duas coisas caem do caminho quente:** o conjunto de contas com endereço vivo fica em memória
+  (todo autosave publica, e quase nenhuma instância tem webhook), e a entrega é job pg-boss com
+  backoff exponencial — cinco tentativas, teto de 1h — em vez de um `await` dentro da requisição.
+  **A assinatura cobre `<timestamp>.<corpo>`**, não o corpo sozinho: sobre o corpo ela seria
+  replayável para sempre. O segredo é guardado em claro, ao contrário do hash de um PAT, porque
+  precisamos reproduzi-lo para assinar — e ele não dá acesso a nada aqui, só prova ao receptor que
+  a requisição veio de nós.
+  **Endereço privado é decisão do deploy** (`WEBHOOK_ALLOW_PRIVATE_TARGETS`): o guard de SSRF do
+  link preview está certo para instância multiusuário e errado para o homelab cuja lista inteira de
+  alvos está na LAN. O endereço é guardado nos dois modos — só a entrega é barrada —, então virar a
+  env não obriga ninguém a recadastrar nada. O corpo da resposta é descartado sem leitura sempre:
+  webhook não pode virar um jeito de buscar página. Virou DECISIONS #34.
+  **De carona, um evento que não é mudança de ninguém:** `reminder.fired`. O job que dispara
+  lembretes já anuncia no mesmo canal, e "quando o lembrete tocar, faça X" é a razão pela qual a
+  maioria das pessoas liga um app de notas a qualquer coisa.
+  **O teste é o botão**: "Enviar teste" entrega na hora (não enfileira) para poder devolver o
+  código que o receptor respondeu — e entrega como `webhook.test`, nunca como `note.created`, senão
+  um teste acionaria a automação de verdade. Gerenciar é sessão-only como os PATs, o que também
+  mantém o painel fora do MCP.
 
 - [x] **Feed iCalendar (.ics) dos lembretes** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   URL secreta `/api/calendar/<token>.ics` para assinar no Google Calendar/Thunderbird/Proton.
@@ -1012,6 +1044,14 @@ item obrigou a decidir não foi onde checar e sim **de quem é a conta** — do 
 cobrança e contabilidade sejam a mesma coisa —, e que cópia e mesclagem também pagam, senão o limite
 teria uma porta dos fundos com dois cliques. Virou DECISIONS #33. Isso muda a fila? **Sub-labels/
 pastas** segue sendo o nº 1, e a fila agora tem só ele e **tabelas simples**.
+
+**Webhooks de saída** saíram em 2026-08-01, no mesmo dia das cotas e também fora da fila dos dois:
+foram escolhidos por serem o item de maior impacto que **fechava inteiro numa sessão** — superfície
+toda nova, sem colidir com nada de pé. O que ele obrigou a decidir não foi onde engatar (o
+`publishToUsers` já era o ponto previsto aqui) e sim **o que atravessa a fronteira**: vinte eventos
+internos viram sete, porque um nome dito a um n8n de estranho é promessa, enquanto um nome dito ao
+nosso próprio cliente é código que viaja junto. Virou DECISIONS #34. Isso muda a fila?
+**Sub-labels/pastas** segue sendo o nº 1, com **tabelas simples** atrás.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

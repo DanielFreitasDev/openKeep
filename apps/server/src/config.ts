@@ -53,6 +53,17 @@ const EnvSchema = z.object({
    * a single-user instance should not have to think about this at all.
    */
   USER_STORAGE_QUOTA_MB: z.coerce.number().int().min(1).max(10_000_000).optional(),
+  /**
+   * Let outgoing webhooks reach private/loopback/link-local addresses. Off by
+   * default: on a multi-user instance any account could otherwise aim an
+   * endpoint at the cloud metadata service or a neighbouring container. A
+   * homelab turns it on, because `http://homeassistant.local:8123` is the
+   * whole point — and only the deploy owner can make that call.
+   */
+  WEBHOOK_ALLOW_PRIVATE_TARGETS: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 export type Config = z.infer<typeof EnvSchema> & {

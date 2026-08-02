@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
-import type { App } from '../../src/app.js';
+import type { App, AppDeps } from '../../src/app.js';
 import { buildApp } from '../../src/app.js';
 import { createAuth } from '../../src/auth/auth.js';
 import type { Config } from '../../src/config.js';
@@ -21,8 +21,15 @@ export interface TestApp {
   signUp: (email: string, name?: string, password?: string) => Promise<string>;
 }
 
+/**
+ * Extra app deps, built once the db/config exist — how a test stands in for
+ * pg-boss (the queue is "run it now", so an assertion can await the effect).
+ */
+export type DepsFactory = (ctx: { db: Db; config: Config }) => Partial<AppDeps>;
+
 export async function createTestApp(
   envOverrides: Partial<NodeJS.ProcessEnv> = {},
+  depsFactory?: DepsFactory,
 ): Promise<TestApp> {
   const adminDbUrl = inject('adminDbUrl');
   const dbName = `t_${randomUUID().replaceAll('-', '')}`;
@@ -40,7 +47,13 @@ export async function createTestApp(
   const auth = createAuth(config, db);
   const storage = new Storage(`${process.env.TMPDIR ?? '/tmp'}/openkeep-test-storage-${dbName}`);
   await storage.init();
-  const app = await buildApp(config, { db, pool, auth, storage });
+  const app = await buildApp(config, {
+    db,
+    pool,
+    auth,
+    storage,
+    ...(depsFactory ? depsFactory({ db, config }) : {}),
+  });
 
   const signUp = async (email: string, name = 'Test User', password = 'password-123') => {
     const res = await app.inject({

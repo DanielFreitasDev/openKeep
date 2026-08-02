@@ -14,6 +14,11 @@ export const LIMITS = {
   labelsPerUserMax: 50,
   /** Personal access tokens (MCP/API) per account. */
   apiTokensPerUserMax: 10,
+  /**
+   * Outgoing webhooks per account. Low on purpose: every note change fans out
+   * to all of them, and a self-hosted box is the one paying for the sockets.
+   */
+  webhooksPerUserMax: 5,
   /** Saved searches per account — sidebar shortcuts, so a list that still reads. */
   savedSearchesPerUserMax: 20,
   savedSearchNameMax: 60,

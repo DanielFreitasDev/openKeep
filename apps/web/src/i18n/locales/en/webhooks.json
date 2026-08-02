@@ -1,0 +1,33 @@
+{
+  "title": "Webhooks",
+  "hint": "Send a signed POST to another app when your notes change — n8n, Home Assistant, Zapier. Each request carries an X-OpenKeep-Signature header your receiver can verify with the secret below.",
+  "createTitle": "Add an endpoint",
+  "urlLabel": "Endpoint URL",
+  "urlPlaceholder": "https://example.com/hooks/openkeep",
+  "createButton": "Add",
+  "listTitle": "Your endpoints",
+  "empty": "No endpoints yet. Add one to connect an automation.",
+  "enabled": "Enabled",
+  "secretHidden": "Signing secret hidden",
+  "showSecret": "Show secret",
+  "hideSecret": "Hide secret",
+  "copySecret": "Copy secret",
+  "rotateSecret": "Rotate secret",
+  "sendTest": "Send test",
+  "testOk": "Test delivered ({{status}})",
+  "testFailed": "Test failed: {{error}}",
+  "neverDelivered": "Never delivered",
+  "lastOk": "Last delivery {{date}} ({{status}})",
+  "lastFailed": "Last delivery {{date}} failed: {{error}}",
+  "delete": "Delete",
+  "deleteConfirm": "Really delete?",
+  "events": {
+    "note.created": "Note created",
+    "note.updated": "Note edited",
+    "note.state_changed": "Pin, colour, labels or reminder changed",
+    "note.trashed": "Note trashed",
+    "note.restored": "Note restored",
+    "note.deleted": "Note deleted",
+    "reminder.fired": "Reminder went off"
+  }
+}

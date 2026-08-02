@@ -132,6 +132,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 - **Personal access tokens** (`okp_…`), managed in Settings → API tokens: shown once, sha256-at-rest, optional expiration, 10 per account, revocable; token management is session-only.
 - Two transports: Streamable HTTP mounted at `/api/mcp` (same container) and a stdio binary (`packages/mcp`) for local clients; stdio adds local-file tools (Takeout import, export download).
 - AI mutations ride the normal REST layer and fan out over WebSocket — edits appear live in open tabs, attributed to the token's client id.
+- **Outgoing webhooks** *(divergence)*, in Settings → Webhooks: up to 5 endpoints per account, each subscribed to any of seven note-level events, delivered as a signed POST (`X-OpenKeep-Signature`, HMAC-SHA256 over timestamp + body) carrying the note itself. Queued with exponential backoff, testable from the dialog, and session-only to manage — this is the hook for n8n, Zapier and Home Assistant.
 
 ## Production readiness
 
