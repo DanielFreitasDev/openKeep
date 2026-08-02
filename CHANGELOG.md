@@ -1,3 +1,21 @@
+## [1.30.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.30.0...v1.30.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* stop an offline edit from being overwritten by an older save ([375c0e7](https://github.com/DanielFreitasDev/openKeep/commit/375c0e78709219ce158310766d4ee9b27b891953))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.30.1
+```
+
+Or download `compose.yml` below (image pinned to `1.30.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.30.1/docs/DEPLOYMENT.md).
+
 # [1.30.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.29.0...v1.30.0) (2026-08-02)
 
 
