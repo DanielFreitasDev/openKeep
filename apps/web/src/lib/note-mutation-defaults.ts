@@ -21,6 +21,40 @@ export const noteMutationKeys = {
   patchState: ['notes', 'patchState'] as const,
 };
 
+/**
+ * One note, one queue: writes to the same note leave in the order they were
+ * made.
+ *
+ * React Query resumes paused mutations concurrently, so an outbox drained on
+ * reconnect used to put three PATCHes for one note on the wire at once and let
+ * the server apply whichever arrived last — "last writer wins" quietly became
+ * "last arriver wins", and the order of arrival is not the order somebody
+ * typed. That is how an offline edit could end up overwritten by an earlier
+ * value of the same field. Chaining by note id costs nothing at this volume
+ * (saves are debounced) and leaves writes to *other* notes untouched, so a
+ * slow request never holds up a different card.
+ *
+ * A failed link must not stall the queue behind it, hence `then(run, run)`;
+ * the caller still gets the real rejection so `onError` fires as before.
+ */
+const noteWriteChain = new Map<string, Promise<unknown>>();
+
+function inOrder<T>(noteId: string, run: () => Promise<T>): Promise<T> {
+  const previous = noteWriteChain.get(noteId) ?? Promise.resolve();
+  const result = previous.then(run, run);
+  const settled = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  noteWriteChain.set(noteId, settled);
+  void settled.then(() => {
+    // Only the tail clears the entry, or a slower predecessor would drop a
+    // queue that is still being written to.
+    if (noteWriteChain.get(noteId) === settled) noteWriteChain.delete(noteId);
+  });
+  return result;
+}
+
 /** Re-fires a keyed mutation (defaults supply the lifecycle); errors re-toast. */
 function refire(queryClient: QueryClient, mutationKey: readonly string[], variables: unknown) {
   const observer = new MutationObserver<unknown, Error, unknown>(queryClient, {
@@ -43,7 +77,7 @@ export function registerNoteMutationDefaults(queryClient: QueryClient) {
   queryClient.setMutationDefaults(noteMutationKeys.create, {
     mutationFn: async (input: CreateNote & { id: string }): Promise<FullNote> => {
       try {
-        return await apiNotes.createNote(input);
+        return await inOrder(input.id, () => apiNotes.createNote(input));
       } catch (err) {
         // Replay of a create that already landed (client-generated id):
         // treat the 409 as delivered and converge on the server copy.
@@ -100,7 +134,7 @@ export function registerNoteMutationDefaults(queryClient: QueryClient) {
 
   queryClient.setMutationDefaults(noteMutationKeys.patchContent, {
     mutationFn: ({ id, patch }: { id: string; patch: PatchNoteContent }) =>
-      apiNotes.patchNoteContent(id, patch),
+      inOrder(id, () => apiNotes.patchNoteContent(id, patch)),
     onMutate: ({ id, patch }: { id: string; patch: PatchNoteContent }) => {
       setNotes((old) => mergeNote(old, id, patch));
       return { sentAt: Date.now() };
@@ -125,7 +159,7 @@ export function registerNoteMutationDefaults(queryClient: QueryClient) {
 
   queryClient.setMutationDefaults(noteMutationKeys.patchState, {
     mutationFn: ({ id, patch }: { id: string; patch: PatchNoteState }) =>
-      apiNotes.patchNoteState(id, patch),
+      inOrder(id, () => apiNotes.patchNoteState(id, patch)),
     onMutate: ({ id, patch }: { id: string; patch: PatchNoteState }) => {
       setNotes((old) => mergeNote(old, id, patch));
     },

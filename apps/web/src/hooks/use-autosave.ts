@@ -9,11 +9,15 @@ import { saveNoteDraftFields } from '../lib/drafts.js';
  * With a `draftId`, every dirty value is also mirrored to the local draft
  * store, so an edit survives a reload even if the PATCH never lands; the
  * mirror is cleared by the mutation's ack, not by flush.
+ *
+ * `committed` reads back what the server already holds for a field, so a
+ * "change" to the value that is already stored is dropped rather than queued.
  */
 export function useAutosave(
   save: (patch: Record<string, unknown>) => void,
   delayMs = 500,
   draftId?: string,
+  committed?: (field: string) => unknown,
 ) {
   const dirtyRef = useRef(new Map<string, unknown>());
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -21,6 +25,8 @@ export function useAutosave(
   saveRef.current = save;
   const draftIdRef = useRef(draftId);
   draftIdRef.current = draftId;
+  const committedRef = useRef(committed);
+  committedRef.current = committed;
 
   const flush = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -33,6 +39,15 @@ export function useAutosave(
 
   const markDirty = useCallback(
     (field: string, value: unknown) => {
+      // A value the server already has is not an edit. Editors re-emit their
+      // content for reasons that have nothing to do with typing — a remote
+      // merge writing the same html back, a programmatic setContent, a
+      // conversion — and each of those used to queue a PATCH of unchanged
+      // content. Online that is only noise; offline those no-op writes sit in
+      // the outbox holding the *pre-edit* value and race the real edit on
+      // reconnect, where whichever lands last wins. A field that is already
+      // dirty keeps the normal path: the pending value is the one to replace.
+      if (!dirtyRef.current.has(field) && committedRef.current?.(field) === value) return;
       dirtyRef.current.set(field, value);
       if (draftIdRef.current) saveNoteDraftFields(draftIdRef.current, { [field]: value });
       if (timerRef.current) clearTimeout(timerRef.current);

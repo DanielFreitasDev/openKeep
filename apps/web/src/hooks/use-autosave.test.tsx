@@ -76,4 +76,42 @@ describe('useAutosave', () => {
     expect(result.current.isDirty('title')).toBe(true);
     expect(result.current.isDirty('bodyHtml')).toBe(false);
   });
+
+  describe('the value the server already has', () => {
+    const committed = () => ({ title: 'stored', bodyHtml: '<p>stored</p>' });
+
+    it('is not an edit, so nothing is queued', () => {
+      const save = vi.fn();
+      const { result } = renderHook(() =>
+        useAutosave(save, 500, undefined, (f) => committed()[f as 'title']),
+      );
+      act(() => result.current.markDirty('bodyHtml', '<p>stored</p>'));
+      expect(result.current.isDirty('bodyHtml')).toBe(false);
+      act(() => vi.advanceTimersByTime(1000));
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('still lets a real change through', () => {
+      const save = vi.fn();
+      const { result } = renderHook(() =>
+        useAutosave(save, 500, undefined, (f) => committed()[f as 'title']),
+      );
+      act(() => result.current.markDirty('title', 'typed'));
+      act(() => vi.advanceTimersByTime(500));
+      expect(save).toHaveBeenCalledWith({ title: 'typed' });
+    });
+
+    it('does not silence a field that is already dirty', () => {
+      const save = vi.fn();
+      const { result } = renderHook(() =>
+        useAutosave(save, 500, undefined, (f) => committed()[f as 'title']),
+      );
+      // Typed away and then back again: the pending value has to be replaced,
+      // or the queue would keep an edit the user has undone.
+      act(() => result.current.markDirty('title', 'typed'));
+      act(() => result.current.markDirty('title', 'stored'));
+      act(() => vi.advanceTimersByTime(500));
+      expect(save).toHaveBeenCalledWith({ title: 'stored' });
+    });
+  });
 });

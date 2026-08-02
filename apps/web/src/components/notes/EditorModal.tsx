@@ -88,6 +88,9 @@ import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 const menuItemClass =
   'flex cursor-default select-none items-center px-4 py-2 text-sm text-on-surface outline-none data-[highlighted]:bg-(--surface-hover)';
 
+/** Stands in for "there is no committed value to compare against". */
+const UNTRACKED = Symbol('untracked');
+
 type MobileSheet = 'add' | 'palette' | 'more' | 'reminder' | 'labels' | null;
 
 /**
@@ -471,12 +474,22 @@ function EditorBody({
   };
 
   const noteIdRef = useRef(note.id);
+  // Read through a ref: the guard has to compare against the note as it reads
+  // now, not as it read when the autosave was created.
+  const noteRef = useRef(note);
+  noteRef.current = note;
   const autosave = useAutosave(
     (patch) => {
       m.patchContent.mutate({ id: noteIdRef.current, patch });
     },
     500,
     note.id,
+    (field) => {
+      if (field === 'title') return noteRef.current.title;
+      if (field === 'bodyHtml') return noteRef.current.bodyHtml;
+      // A field nobody tracks here must never compare equal to anything.
+      return UNTRACKED;
+    },
   );
 
   const bodyEmptyRef = useRef(htmlIsBlank(note.bodyHtml));
