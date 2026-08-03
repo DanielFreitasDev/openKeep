@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { noteMembers, notes } from '../../db/schema/notes.js';
 import { errors } from '../../lib/errors.js';
+import { requestIsRevealed } from '../../lib/note-protection.js';
 
 export type MembershipRow = typeof noteMembers.$inferSelect;
 export type NoteRow = typeof notes.$inferSelect;
@@ -26,16 +27,33 @@ type Queryable = Pick<Db, 'select'>;
  */
 export type AccessLevel = 'member' | 'editor' | 'owner';
 
+export interface AccessOpts {
+  /**
+   * Let a PROTECTED note through without a reveal. Only for the handful of
+   * operations that are about the lock or about the card rather than about
+   * the content: reading the redacted note, locking it, unlocking it, and
+   * moving/colouring/pinning the card it leaves behind.
+   */
+  allowLocked?: boolean;
+}
+
 /**
  * THE authz chokepoint. Non-members receive the same 404 as a missing note —
  * no existence oracle. A level they cannot meet yields 403 instead (they can
  * see the note, so hiding it would be pointless).
+ *
+ * It is also where protection bites: a note the user has locked answers 423
+ * to everything until this session re-authenticates. Putting it here rather
+ * than on each route is what makes the guarantee checkable — every read and
+ * every write already passes through this function, so nothing can quietly
+ * grow a way around it.
  */
 export async function assertNoteAccess(
   db: Queryable,
   userId: string,
   noteId: string,
   level: AccessLevel = 'member',
+  opts: AccessOpts = {},
 ): Promise<NoteAccess> {
   const rows = await db
     .select({ member: noteMembers, note: notes })
@@ -51,7 +69,13 @@ export async function assertNoteAccess(
     throw errors.forbidden('Only the owner can do this');
   }
   if (level === 'editor' && role === 'viewer') throw errors.readOnlyNote();
+  if (row.member.locked && !opts.allowLocked && !requestIsRevealed()) throw errors.noteLocked();
   return row;
+}
+
+/** True when this request must receive the note with its content stripped. */
+export function isRedacted(member: MembershipRow): boolean {
+  return member.locked && !requestIsRevealed();
 }
 
 /** Trashed notes are read-only (409 note_trashed on any edit attempt). */

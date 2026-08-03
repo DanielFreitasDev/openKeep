@@ -30,6 +30,12 @@ export type WsEvent =
   | { type: 'note.removed'; payload: { id: string; reason: 'deleted' | 'unshared' | 'left' } }
   | { type: 'note.state_changed'; payload: NoteStateResult }
   | { type: 'note.labels_changed'; payload: { id: string; labelIds: string[] } }
+  /**
+   * The protection flag moved. Per-user like the rest of the membership row,
+   * so this only ever travels to the person who locked it — and the note it
+   * names arrives redacted on the next read unless that tab is revealed too.
+   */
+  | { type: 'note.lock_changed'; payload: { id: string; locked: boolean } }
   | { type: 'note.converted'; payload: { note: FullNote } }
   /** Every note of this account is gone at once — per-note events would be thousands. */
   | { type: 'notes.purged'; payload: { deleted: number; labels: number } }

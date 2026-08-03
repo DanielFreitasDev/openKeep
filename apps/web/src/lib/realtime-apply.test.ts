@@ -29,6 +29,7 @@ function note(overrides: Partial<FullNote> = {}): FullNote {
     pinned: false,
     archived: false,
     isTemplate: false,
+    locked: false,
     color: 'default',
     background: 'none',
     position: 'a0',

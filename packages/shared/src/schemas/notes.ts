@@ -37,6 +37,12 @@ export const zFullNote = z.object({
   archived: z.boolean(),
   /** Kept as a starting shape rather than a note: out of every other view. */
   isTemplate: z.boolean(),
+  /**
+   * Protected (per-user). While it is true and this session has not
+   * re-authenticated, `title`, `bodyHtml`, `items` and `attachments` arrive
+   * empty — the note is a locked card, not a note the client is hiding.
+   */
+  locked: z.boolean(),
   color: zNoteColor,
   background: zNoteBackground,
   position: z.string(),

@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-08-01** (webhooks de saída;
-> antes: cotas de armazenamento por conta;
+> Última atualização: **2026-08-03** (proteger nota com PIN/senha;
+> antes: webhooks de saída;
+> cotas de armazenamento por conta;
 > painel de administração da instância;
 > modelos de nota;
 > anexar qualquer arquivo — PDF, documentos, zip;
@@ -720,12 +721,46 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   os colaboradores recebem o evento certo para cada metade: `note.removed` nas minhas, que
   acabaram, e `collaborator.removed` nas deles, que só perderam um colaborador.
 
-- [ ] **Proteger nota com PIN/senha (ocultar)** *(impacto médio · esforço M)*
+- [x] **Proteger nota com PIN/senha (ocultar)** *(impacto médio · esforço M)* — feito em 2026-08-03
   **O quê:** nota "trancada": conteúdo borrado/oculto (inclusive na busca) até confirmar senha
   da conta ou PIN. Top-6 da Android Police.
-  **Como:** flag por membership + re-auth pontual (Better Auth já expõe verificação de senha);
-  excluir corpo do corpus client-side enquanto trancada (título genérico "Nota protegida").
-  **Não é criptografia** — deixar explícito na UI (o servidor continua lendo o conteúdo).
+  **Entregue:** flag `locked` por membership, "Proteger nota" nos menus da nota e do card. A
+  decisão que define o resto: **quem esconde é o servidor, não o cliente**. Uma nota protegida sai
+  da API já sem título, corpo, itens e anexos — a versão "borrar no CSS" cairia com um F12, e
+  ninguém instala um cadeado que só engana o dono. O que sobra é o que o board precisa para
+  desenhar o card no lugar certo (cor, fundo, fixado, posição, marcadores, colaboradores): a nota
+  protegida continua sendo arrastada, colorida e arquivada, porque nada disso conta o que ela diz.
+  **A trava mora no `assertNoteAccess`**, e é isso que a torna verificável: toda leitura e toda
+  escrita já passavam por lá, então nenhuma rota nova pode crescer por fora. Quem precisa passar
+  carrega `allowLocked` — são quatro casos, todos sobre o cadeado ou sobre o card, nunca sobre o
+  conteúdo. Os caminhos que **não** passam pelo chokepoint tiveram que repetir a checagem, e são
+  exatamente os que vazariam: os bytes do anexo (uma `<img>` lê uma nota tão bem quanto o texto) e
+  o link público — nota protegida que a internet inteira ainda lê não está protegida, então o link
+  apaga junto (reversível, como o lixo).
+  **A busca não devolve a nota "vazia", devolve nada**: um resultado em branco já responderia a
+  única pergunta que o cadeado existe para recusar — se existe uma nota sobre *aquilo*. Mesma
+  regra no servidor e no corpus client-side.
+  **A liberação é por sessão, com 15 minutos**, guardada em memória (reiniciar o processo tranca
+  tudo de novo — é feature). Por sessão, não por conta: destrancar no celular não pode descobrir
+  o notebook aberto na mesa do escritório. Como "esta requisição herdou a liberação?" é escopo de
+  requisição igual a um request id, ela viaja em `AsyncLocalStorage` em vez de virar parâmetro em
+  trinta funções de serviço — e o padrão de contexto ausente é `false`, então job do pg-boss,
+  frame de WebSocket e teste unitário veem a nota redigida, que é a resposta que falha para o lado
+  seguro. O **PIN (4–8 dígitos) é atalho da senha**, com o mesmo scrypt do Better Auth, e por isso
+  é a senha que o instala; cinco erros custam cinco minutos, porque o que protege um segredo de
+  quatro dígitos é o contador, não a entropia.
+  **Três coisas que só apareceram no caminho:** (a) o export **não** é redigido — é backup, não
+  visualização, e devolver um zip que perdeu silenciosamente o conteúdo seria pior que qualquer
+  vazamento (o `locked` viaja junto, então restaurar recoloca a cortina); (b) eventos de conteúdo
+  pulam quem trancou a nota (`contentAudience`) — o REST já lhe nega o texto, e um evento é o
+  mesmo texto entrando por outra porta; (c) o service worker não grava o que foi lido com a
+  cortina aberta, e o marcador é um header nosso, não `no-store` — o Better Auth marca a rota de
+  sessão assim por conta própria, e um worker que pulasse tudo com esse header pararia de guardar
+  justamente a sessão de que o app precisa para abrir offline.
+  **Token de API nunca destranca**, porque não dá para pedir uma senha a um token: notas
+  protegidas são invisíveis para o MCP e para qualquer agente, por construção e não por política.
+  **Não é criptografia** — a seção de Configurações diz isso com todas as letras: o servidor
+  continua lendo a nota.
 
 - [x] **Exportar como PDF / imprimir bem** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   Menu da nota → "Imprimir/PDF": stylesheet de impressão dedicada (nota limpa, sem chrome) +

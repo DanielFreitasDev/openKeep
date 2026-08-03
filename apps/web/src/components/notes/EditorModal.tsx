@@ -19,6 +19,8 @@ import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
+import lockSvg from '@material-symbols/svg-700/outlined/lock.svg?raw';
+import lockOpenSvg from '@material-symbols/svg-700/outlined/lock_open.svg?raw';
 import micSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import noteStackSvg from '@material-symbols/svg-700/outlined/note_stack.svg?raw';
@@ -49,6 +51,7 @@ import { useNoteFromTemplate } from '../../hooks/use-create-note.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { usePrintNote } from '../../hooks/use-print-note.js';
+import { useProtectionMutations, useRevealed } from '../../hooks/use-protection.js';
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
@@ -245,7 +248,19 @@ function EditorDialog({
     if (isSuccess && !note && creating === 0) onClose();
   }, [isSuccess, note, creating, onClose]);
 
-  if (!note) return null;
+  // A protected note arrives with nothing in it, so there is no editor to
+  // open: the URL bounces to the unlock prompt, which navigates back here
+  // once the curtain is up. Closing the prompt leaves the board, not a shell.
+  const revealed = useRevealed();
+  const hidden = note?.locked === true && !revealed;
+  const setUnlockPrompt = useUiStore((s) => s.setUnlockPrompt);
+  useEffect(() => {
+    if (!hidden) return;
+    setUnlockPrompt(noteId);
+    onClose();
+  }, [hidden, noteId, setUnlockPrompt, onClose]);
+
+  if (!note || hidden) return null;
   return (
     <EditorBody
       note={note}
@@ -397,7 +412,22 @@ function EditorBody({
   }, [autoRecord, canRecord, recorder.start, navigate]);
 
   const printNote = usePrintNote();
+  const protection = useProtectionMutations();
   const setOpenEditorNoteId = useUiStore((s) => s.setOpenEditorNoteId);
+
+  /**
+   * Protecting the note one is reading closes it — otherwise the only sign
+   * anything happened is a snackbar, and the point of the lock is the card it
+   * leaves on the board.
+   */
+  const toggleProtection = () => {
+    autosave.flush();
+    if (note.locked) protection.unprotect.mutate(note.id);
+    else {
+      protection.protect.mutate(note.id);
+      onClose();
+    }
+  };
 
   // The open note's card keeps its grid footprint with hidden content (Keep
   // web) — flagged before paint so the card never flashes under the morph.
@@ -1140,6 +1170,9 @@ function EditorBody({
                         <Menu.Item className={menuItemClass} onClick={openFind}>
                           {t('findInNote')}
                         </Menu.Item>
+                        <Menu.Item className={menuItemClass} onClick={toggleProtection}>
+                          {note.locked ? t('notes:removeProtection') : t('notes:protectNote')}
+                        </Menu.Item>
                         <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                           {t('versionHistory')}
                         </Menu.Item>
@@ -1459,6 +1492,14 @@ function EditorBody({
               onClick={() => {
                 setSheet(null);
                 openFind();
+              }}
+            />
+            <SheetItem
+              svg={note.locked ? lockOpenSvg : lockSvg}
+              label={note.locked ? t('notes:removeProtection') : t('notes:protectNote')}
+              onClick={() => {
+                setSheet(null);
+                toggleProtection();
               }}
             />
             <SheetItem

@@ -43,5 +43,17 @@
   "deleteAllConfirm": "Delete forever",
   "deleteAllDone_one": "1 note deleted",
   "deleteAllDone_other": "{{count}} notes deleted",
-  "deleteAllFailed": "Could not delete your notes"
+  "deleteAllFailed": "Could not delete your notes",
+  "protectedNotes": "Protected notes",
+  "protectionHint": "A protected note is hidden — no title, no body, no images, and out of search — until you confirm your password or PIN. It is hidden, not encrypted: the server can still read it.",
+  "protectedCount_one": "{{count}} note is protected.",
+  "protectedCount_other": "{{count}} notes are protected.",
+  "setPin": "Set a PIN",
+  "changePin": "Change PIN",
+  "removePin": "Remove PIN",
+  "pinLabel": "PIN (4 to 8 digits)",
+  "pinPasswordLabel": "Account password",
+  "pinSaved": "PIN saved",
+  "pinRemoved": "PIN removed",
+  "lockNow": "Lock now"
 }

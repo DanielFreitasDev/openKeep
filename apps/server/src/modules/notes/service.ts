@@ -3,6 +3,7 @@ import type {
   CreateNote,
   FullNote,
   NoteContentResult,
+  NoteLockResult,
   NoteStateResult,
   NoteVersionMeta,
   PatchNoteContent,
@@ -41,7 +42,7 @@ import {
 } from '../attachments/service.js';
 import { toReminderDto } from '../reminders/service.js';
 import type { MembershipRow, NoteRow } from './access.js';
-import { assertNoteAccess, assertNotTrashed } from './access.js';
+import { assertNoteAccess, assertNotTrashed, isRedacted } from './access.js';
 
 type ItemRow = typeof noteItems.$inferSelect;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -68,6 +69,18 @@ function isUniqueViolation(err: unknown): boolean {
 type AttachmentRow = typeof attachmentsTable.$inferSelect;
 type ReminderRow = typeof remindersTable.$inferSelect;
 
+/**
+ * The one place a note becomes a DTO — and therefore the one place a
+ * protected note is emptied out. What survives redaction is what the board
+ * needs to draw a locked card in the right place: colour, background, pin,
+ * position, labels, the reminder's timing (never its note's words) and who
+ * shares it. Everything the note SAYS — title, body, checklist, attachments —
+ * leaves as if the note were blank.
+ *
+ * `reveal` is the escape hatch for the account's own export, which is a
+ * backup rather than a view; it defaults to what this request is allowed to
+ * see, so forgetting it hides content instead of leaking it.
+ */
 function toFullNote(
   note: NoteRow,
   member: MembershipRow,
@@ -76,28 +89,33 @@ function toFullNote(
   attachmentRows: AttachmentRow[] = [],
   reminder: ReminderRow | null = null,
   collaborators: Collaborator[] = [],
+  reveal = false,
 ): FullNote {
+  const redact = !reveal && isRedacted(member);
   return {
     id: note.id,
     type: note.type as FullNote['type'],
-    title: note.title,
-    bodyHtml: note.bodyHtml,
-    hasLinks: note.hasLinks,
-    items: items.map((i) => ({
-      id: i.id,
-      text: i.text,
-      checked: i.checked,
-      indent: (i.indent === 1 ? 1 : 0) as 0 | 1,
-      position: i.position,
-    })),
+    title: redact ? '' : note.title,
+    bodyHtml: redact ? '' : note.bodyHtml,
+    hasLinks: redact ? false : note.hasLinks,
+    items: redact
+      ? []
+      : items.map((i) => ({
+          id: i.id,
+          text: i.text,
+          checked: i.checked,
+          indent: (i.indent === 1 ? 1 : 0) as 0 | 1,
+          position: i.position,
+        })),
     labelIds,
-    attachments: attachmentRows.map(toAttachmentDto),
+    attachments: redact ? [] : attachmentRows.map(toAttachmentDto),
     reminder: reminder ? toReminderDto(reminder) : null,
     collaborators,
     role: member.role as FullNote['role'],
     pinned: member.pinned,
     archived: member.archived,
     isTemplate: member.isTemplate,
+    locked: member.locked,
     color: member.color as FullNote['color'],
     background: member.background as FullNote['background'],
     position: member.position,
@@ -207,8 +225,16 @@ async function loadReminders(
   return map;
 }
 
+/**
+ * `allowLocked` because the DTO this returns is already redacted: reading a
+ * protected note has to answer with the locked card, not with a 423 — that is
+ * how the board draws it and how a `?note=` deep link knows to ask for the
+ * password instead of showing "not found".
+ */
 async function loadFullNote(db: Db | Tx, userId: string, noteId: string): Promise<FullNote> {
-  const { member, note } = await assertNoteAccess(db as Db, userId, noteId);
+  const { member, note } = await assertNoteAccess(db as Db, userId, noteId, 'member', {
+    allowLocked: true,
+  });
   const items = (await loadItems(db, [noteId])).get(noteId) ?? [];
   const labelIds = (await loadLabelIds(db, userId, [noteId])).get(noteId) ?? [];
   const atts = (await loadAttachments(db, [noteId])).get(noteId) ?? [];
@@ -240,6 +266,7 @@ export async function assembleFullNotes(
   db: Db,
   userId: string,
   rows: { member: MembershipRow; note: NoteRow }[],
+  reveal = false,
 ): Promise<FullNote[]> {
   const ids = rows.map((r) => r.note.id);
   const itemsByNote = await loadItems(db, ids);
@@ -256,6 +283,7 @@ export async function assembleFullNotes(
       attsByNote.get(note.id) ?? [],
       remByNote.get(note.id) ?? null,
       collabsByNote.get(note.id) ?? [],
+      reveal,
     ),
   );
 }
@@ -266,6 +294,8 @@ export async function listNotes(
   userId: string,
   view?: 'active' | 'archived' | 'trash' | 'templates',
   label?: string,
+  /** Only the account's own export sets this — see toFullNote. */
+  reveal = false,
 ): Promise<FullNote[]> {
   const conditions = [eq(noteMembers.userId, userId)];
   if (label) {
@@ -304,7 +334,7 @@ export async function listNotes(
     return true;
   });
 
-  return (await assembleFullNotes(db, userId, filtered)).sort(comparePositions);
+  return (await assembleFullNotes(db, userId, filtered, reveal)).sort(comparePositions);
 }
 
 // ---------------------------------------------------------------- helpers
@@ -537,7 +567,10 @@ export async function patchNoteState(
   noteId: string,
   patch: PatchNoteState,
 ): Promise<NoteStateResult> {
-  const { note } = await assertNoteAccess(db, userId, noteId);
+  // `allowLocked`: none of this is content. A protected note still has a card
+  // on the board, and pinning it, colouring it, archiving it or dragging it
+  // somewhere else says nothing about what it holds.
+  const { note } = await assertNoteAccess(db, userId, noteId, 'member', { allowLocked: true });
   assertNotTrashed(note);
 
   const [updated] = await db
@@ -1096,6 +1129,34 @@ export async function restoreVersion(
 
     return loadFullNote(tx, userId, noteId);
   });
+}
+
+// ---------------------------------------------------------------- protection
+
+/**
+ * Protect / unprotect MY copy of a note. Locking needs no credential — hiding
+ * something is never the dangerous direction — while unlocking rides on the
+ * reveal the session already earned, so `assertNoteAccess` refusing a locked
+ * note without one is the whole check.
+ *
+ * A note shared with other people locks for me alone: `note_members` is where
+ * per-user state lives, and my curtain is not theirs to notice.
+ */
+export async function setNoteLocked(
+  db: Db,
+  userId: string,
+  noteId: string,
+  locked: boolean,
+): Promise<NoteLockResult> {
+  // Locking is allowed from behind the curtain; unlocking is not, so an
+  // already-locked note demands the reveal that assertNoteAccess enforces.
+  const { note } = await assertNoteAccess(db, userId, noteId, 'member', { allowLocked: locked });
+  assertNotTrashed(note);
+  await db
+    .update(noteMembers)
+    .set({ locked })
+    .where(and(eq(noteMembers.noteId, noteId), eq(noteMembers.userId, userId)));
+  return { id: noteId, locked };
 }
 
 // ---------------------------------------------------------------- purge

@@ -1,7 +1,7 @@
 import type { Reminder, SetReminder } from '@openkeep/shared';
 import { and, eq, isNotNull, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
-import { notes } from '../../db/schema/notes.js';
+import { noteMembers, notes } from '../../db/schema/notes.js';
 import { reminders } from '../../db/schema/reminders.js';
 import { errors } from '../../lib/errors.js';
 import { isValidRule, nextOccurrence } from '../../lib/recurrence.js';
@@ -142,15 +142,22 @@ export async function fireDueReminders(db: Db, now = new Date()): Promise<FiredR
         .set(advance)
         .where(and(eq(reminders.noteId, rem.noteId), eq(reminders.userId, rem.userId)));
 
+      // The title rides along into a toast and a push notification, which is
+      // exactly the lock screen a protected note must not appear on — so it
+      // is read through the membership row and comes back empty when locked.
       const [note] = await tx
-        .select({ title: notes.title })
+        .select({ title: notes.title, locked: noteMembers.locked })
         .from(notes)
+        .innerJoin(
+          noteMembers,
+          and(eq(noteMembers.noteId, notes.id), eq(noteMembers.userId, rem.userId)),
+        )
         .where(eq(notes.id, rem.noteId));
       fired.push({
         noteId: rem.noteId,
         userId: rem.userId,
         remindAt: rem.snoozedUntil ?? rem.remindAt,
-        noteTitle: note?.title ?? '',
+        noteTitle: note && !note.locked ? note.title : '',
       });
     }
     return fired;

@@ -3,6 +3,7 @@ import type { Auth, SessionUser } from '../auth/auth.js';
 import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
 import { errors } from '../lib/errors.js';
+import { enterProtectionContext, isRevealed } from '../lib/note-protection.js';
 import { verifyApiToken } from '../modules/api-tokens/service.js';
 
 declare module 'fastify' {
@@ -84,6 +85,11 @@ export async function registerAuth(
   });
 
   app.decorate('requireAuth', async (req: FastifyRequest, _reply: FastifyReply) => {
+    // Opened before the session is known so that an early throw still leaves a
+    // context behind — an absent one and a `revealed: false` one mean the same
+    // thing, but only one of them is an accident waiting to happen.
+    const protection = enterProtectionContext();
+
     const header = req.headers.authorization;
     if (typeof header === 'string' && header.startsWith('Bearer okp_')) {
       const verified = await verifyApiToken(db, header.slice('Bearer '.length));
@@ -91,11 +97,15 @@ export async function registerAuth(
       req.user = verified.user;
       req.tokenId = verified.tokenId;
       req.sessionId = `pat:${verified.tokenId}`;
+      // A token, unlike a browser, cannot be asked to retype a password — so
+      // it never carries a reveal, and protected notes stay hidden from the
+      // MCP server and every other agent holding one.
       return;
     }
     const session = await auth.api.getSession({ headers: toWebHeaders(req) });
     if (!session) throw errors.unauthorized();
     req.user = session.user as SessionUser;
     req.sessionId = session.session.id;
+    protection.revealed = isRevealed(req.sessionId);
   });
 }

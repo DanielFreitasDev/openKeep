@@ -11,6 +11,7 @@ import type { Db } from '../../db/client.js';
 import { attachments } from '../../db/schema/attachments.js';
 import { noteMembers, notes } from '../../db/schema/notes.js';
 import { AppError, errors } from '../../lib/errors.js';
+import { requestIsRevealed } from '../../lib/note-protection.js';
 import type { Storage } from '../../lib/storage.js';
 import { assertNoteAccess, assertNotTrashed } from '../notes/access.js';
 
@@ -631,14 +632,21 @@ export function attachmentDisposition(filename: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
+/**
+ * Membership straight off the join — this is the read path for the bytes, and
+ * it deliberately does not go through `assertNoteAccess` (there is no note to
+ * load). The protection check therefore has to be repeated here: an `<img>`
+ * tag is a perfectly good way to read a note whose words are hidden.
+ */
 async function findForUser(db: Db, userId: string, attachmentId: string): Promise<AttachmentRow> {
   const [row] = await db
-    .select({ att: attachments })
+    .select({ att: attachments, locked: noteMembers.locked })
     .from(attachments)
     .innerJoin(noteMembers, eq(noteMembers.noteId, attachments.noteId))
     .where(and(eq(attachments.id, attachmentId), eq(noteMembers.userId, userId)))
     .limit(1);
   if (!row) throw errors.notFound();
+  if (row.locked && !requestIsRevealed()) throw errors.noteLocked();
   return row.att;
 }
 

@@ -98,6 +98,13 @@ export const noteMembers = pgTable(
     archived: boolean().notNull().default(false),
     /** A template is a bucket of my board, like the archive — never shared state. */
     isTemplate: boolean().notNull().default(false),
+    /**
+     * Protected note: MY copy is hidden (content redacted, edits refused, out
+     * of search) until this session re-authenticates. Per-membership like the
+     * rest of this row — locking a shared note locks it for me alone, and the
+     * server still reads the content: this is a curtain, not encryption.
+     */
+    locked: boolean().notNull().default(false),
     color: text().notNull().default('default'),
     background: text().notNull().default('none'),
     position: positionText().notNull(),

@@ -20,6 +20,7 @@ function note(over: Partial<FullNote>): FullNote {
     pinned: false,
     archived: false,
     isTemplate: false,
+    locked: false,
     color: 'default',
     background: 'none',
     position: `a${seq}`,

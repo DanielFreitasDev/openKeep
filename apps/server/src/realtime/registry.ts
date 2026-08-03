@@ -1,5 +1,5 @@
 import type { WsEnvelope, WsEvent } from '@openkeep/shared';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { WebSocket } from 'ws';
 import type { Db } from '../db/client.js';
 import { noteMembers } from '../db/schema/notes.js';
@@ -62,11 +62,29 @@ export class Realtime {
   }
 }
 
-/** All member ids of a note (for content-event fan-out). */
+/** All member ids of a note — everyone who has a card to redraw. */
 export async function memberIds(db: Db, noteId: string): Promise<string[]> {
   const rows = await db
     .select({ userId: noteMembers.userId })
     .from(noteMembers)
     .where(eq(noteMembers.noteId, noteId));
+  return rows.map((r) => r.userId);
+}
+
+/**
+ * Members who may be told what the note now SAYS — title, body, items,
+ * attachments. A member who has PROTECTED their copy is left out: the REST
+ * side already refuses them the content until they re-authenticate, and an
+ * event is the same content arriving by another door. They lose nothing by
+ * missing it, since the copy in their cache is the redacted card either way.
+ *
+ * Events about the note's EXISTENCE — trashed, restored, removed, shared —
+ * still use `memberIds`: a locked card must still disappear when the note does.
+ */
+export async function contentAudience(db: Db, noteId: string): Promise<string[]> {
+  const rows = await db
+    .select({ userId: noteMembers.userId })
+    .from(noteMembers)
+    .where(and(eq(noteMembers.noteId, noteId), eq(noteMembers.locked, false)));
   return rows.map((r) => r.userId);
 }

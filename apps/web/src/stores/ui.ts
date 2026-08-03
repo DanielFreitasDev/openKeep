@@ -58,6 +58,13 @@ interface UiState {
   /** Note currently open in the editor modal — its card hides content but keeps its footprint. */
   openEditorNoteId: string | null;
   setOpenEditorNoteId: (id: string | null) => void;
+  /**
+   * The unlock prompt, when one is up: the id of the protected note that asked
+   * for it, or `'session'` when the reveal was asked for on its own (Settings).
+   * Null closes it.
+   */
+  unlockPrompt: string | null;
+  setUnlockPrompt: (target: string | null) => void;
   /** Small-screen overlay drawer (hamburger on mobile). */
   mobileDrawerOpen: boolean;
   setMobileDrawerOpen: (open: boolean) => void;
@@ -78,6 +85,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   focusedNoteId: null,
   openEditorNoteId: null,
   setOpenEditorNoteId: (openEditorNoteId) => set({ openEditorNoteId }),
+  unlockPrompt: null,
+  setUnlockPrompt: (unlockPrompt) => set({ unlockPrompt }),
   mobileDrawerOpen: false,
   setMobileDrawerOpen: (mobileDrawerOpen) => set({ mobileDrawerOpen }),
   viewNoteIds: [],

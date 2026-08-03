@@ -8,6 +8,7 @@ import { useUiStore } from '../../stores/ui.js';
 import { Select } from '../Select.js';
 import { CalendarFeedSection } from './CalendarFeedSection.js';
 import { DeleteAllNotesSection } from './DeleteAllNotesSection.js';
+import { NoteProtectionSection } from './NoteProtectionSection.js';
 import { StorageSection } from './StorageSection.js';
 
 const EMPTY_DIALOG_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
@@ -133,6 +134,7 @@ export function SettingsDialog() {
             />
           </section>
 
+          <NoteProtectionSection />
           <CalendarFeedSection />
           <StorageSection />
           <DeleteAllNotesSection />

@@ -99,6 +99,7 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       pinned: false,
       archived: false,
       isTemplate: false,
+      locked: false,
       color: 'default',
       background: 'none',
       position: `a${this.notes.size}`,

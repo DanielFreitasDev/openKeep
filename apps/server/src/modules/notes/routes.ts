@@ -7,6 +7,7 @@ import {
   zListNotesQuery,
   zMergeNotes,
   zNoteContentResult,
+  zNoteLockResult,
   zNoteStateResult,
   zNoteVersionMeta,
   zPatchNoteContent,
@@ -20,7 +21,7 @@ import type { Db } from '../../db/client.js';
 import { notes as notesTable } from '../../db/schema/notes.js';
 import type { Storage } from '../../lib/storage.js';
 import type { Realtime } from '../../realtime/registry.js';
-import { memberIds } from '../../realtime/registry.js';
+import { contentAudience, memberIds } from '../../realtime/registry.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
@@ -87,7 +88,7 @@ export function registerNotesRoutes(
     async (req) => {
       const result = await svc.patchNoteContent(db, req.user.id, req.params.id, req.body);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'note.updated', payload: result },
         originOf(req),
       );
@@ -111,6 +112,45 @@ export function registerNotesRoutes(
       realtime.publishToUsers(
         [req.user.id],
         { type: 'note.state_changed', payload: result },
+        originOf(req),
+      );
+      return result;
+    },
+  );
+
+  /**
+   * Protect this note (mine only). No credential: putting something behind
+   * the curtain is the safe direction, and the person asking is already
+   * signed in. Taking it back out is the other route, and it needs the reveal.
+   */
+  app.post(
+    '/api/notes/:id/lock',
+    {
+      ...auth,
+      schema: { tags: ['notes'], params: zNoteParams, response: { 200: zNoteLockResult } },
+    },
+    async (req) => {
+      const result = await svc.setNoteLocked(db, req.user.id, req.params.id, true);
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'note.lock_changed', payload: result },
+        originOf(req),
+      );
+      return result;
+    },
+  );
+
+  app.post(
+    '/api/notes/:id/unlock',
+    {
+      ...auth,
+      schema: { tags: ['notes'], params: zNoteParams, response: { 200: zNoteLockResult } },
+    },
+    async (req) => {
+      const result = await svc.setNoteLocked(db, req.user.id, req.params.id, false);
+      realtime.publishToUsers(
+        [req.user.id],
+        { type: 'note.lock_changed', payload: result },
         originOf(req),
       );
       return result;
@@ -215,7 +255,7 @@ export function registerNotesRoutes(
     async (req) => {
       const note = await svc.convertNote(db, req.user.id, req.params.id, req.body.to);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'note.converted', payload: { note } },
         originOf(req),
       );
@@ -296,7 +336,7 @@ export function registerNotesRoutes(
       const note = await svc.mergeNotes(db, req.user.id, req.body.noteIds, quota, storage);
 
       realtime.publishToUsers(
-        await memberIds(db, note.id),
+        await contentAudience(db, note.id),
         { type: 'note.converted', payload: { note } },
         originOf(req),
       );
@@ -350,7 +390,7 @@ export function registerNotesRoutes(
     async (req) => {
       const note = await svc.restoreVersion(db, req.user.id, req.params.id, req.params.versionId);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'note.converted', payload: { note } },
         originOf(req),
       );

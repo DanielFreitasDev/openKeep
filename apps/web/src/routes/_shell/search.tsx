@@ -18,6 +18,7 @@ import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Icon } from '../../components/Icon.js';
 import { SaveSearchButton } from '../../components/shell/SaveSearchButton.js';
 import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
+import { useRevealed } from '../../hooks/use-protection.js';
 import { formatSearchDay } from '../../lib/dates.js';
 import { labelsQuery } from '../../lib/labels-api.js';
 import type { SearchFilters } from '../../lib/note-selectors.js';
@@ -93,6 +94,7 @@ function SearchView() {
     !query.isEmpty || params.type || params.label || params.color || params.collaborator;
 
   const noteSort = settings?.noteSort ?? 'manual';
+  const revealed = useRevealed();
 
   // Must be referentially stable, or react-query re-runs the whole search on
   // every render of this view rather than only when the filters change.
@@ -107,7 +109,7 @@ function SearchView() {
         labelIds,
         notLabelIds,
       };
-      return selectSearch(notes, filters, noteSort);
+      return selectSearch(notes, filters, noteSort, revealed);
     },
     [
       params.q,
@@ -118,6 +120,7 @@ function SearchView() {
       labelIds,
       notLabelIds,
       noteSort,
+      revealed,
     ],
   );
 

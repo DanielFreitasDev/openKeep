@@ -9,7 +9,7 @@ import type { Db } from '../../db/client.js';
 import { errors } from '../../lib/errors.js';
 import type { Storage } from '../../lib/storage.js';
 import type { Realtime } from '../../realtime/registry.js';
-import { memberIds } from '../../realtime/registry.js';
+import { contentAudience } from '../../realtime/registry.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
@@ -80,7 +80,7 @@ export async function registerAttachmentRoutes(
         quota,
       );
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
         originOf(req),
       );
@@ -112,7 +112,7 @@ export async function registerAttachmentRoutes(
         quota,
       );
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
         originOf(req),
       );
@@ -151,7 +151,7 @@ export async function registerAttachmentRoutes(
         quota,
       );
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
         originOf(req),
       );
@@ -178,7 +178,7 @@ export async function registerAttachmentRoutes(
         quota,
       );
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'attachment.added', payload: { noteId: req.params.id, attachment } },
         originOf(req),
       );
@@ -205,7 +205,7 @@ export async function registerAttachmentRoutes(
         quota,
       );
       realtime.publishToUsers(
-        await memberIds(db, noteId),
+        await contentAudience(db, noteId),
         { type: 'attachment.updated', payload: { noteId, attachment } },
         originOf(req),
       );
@@ -273,7 +273,7 @@ export async function registerAttachmentRoutes(
       await svc.deleteAttachment(db, storage, req.user.id, req.params.id);
       if (noteId) {
         realtime.publishToUsers(
-          await memberIds(db, noteId),
+          await contentAudience(db, noteId),
           { type: 'attachment.removed', payload: { noteId, attachmentId: req.params.id } },
           originOf(req),
         );

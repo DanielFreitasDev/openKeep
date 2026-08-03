@@ -14,6 +14,7 @@ import { attachments } from '../../db/schema/attachments.js';
 import { labels, noteLabels } from '../../db/schema/labels.js';
 import { noteItems, noteMembers, notes } from '../../db/schema/notes.js';
 import { reminders } from '../../db/schema/reminders.js';
+import { requestIsRevealed } from '../../lib/note-protection.js';
 import { buildPrefixTsquery } from '../../lib/tsquery.js';
 import { assembleFullNotes } from '../notes/service.js';
 
@@ -67,6 +68,11 @@ export function registerSearchRoutes(app: App, db: Db): void {
         isNull(notes.trashedAt),
         eq(noteMembers.isTemplate, false),
       ];
+
+      // A protected note is not merely redacted in the results — it is not a
+      // result. Leaving the empty card in would answer the question the lock
+      // exists to refuse: whether a note about *that* exists at all.
+      if (!requestIsRevealed()) conditions.push(eq(noteMembers.locked, false));
 
       /** Note-or-item text match, which is what "the note contains it" means. */
       const textMatches = (tsquery: string) =>

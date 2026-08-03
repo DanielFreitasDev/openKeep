@@ -29,6 +29,7 @@ function note(over: Partial<FullNote>): FullNote {
     pinned: false,
     archived: false,
     isTemplate: false,
+    locked: false,
     color: 'default',
     background: 'none',
     position: `a${seq}`,
@@ -174,6 +175,31 @@ describe('selectSearch', () => {
       expect(titles('color:banana')).toEqual([]);
       expect(titles('is:pinned has:image')).toEqual([]);
     });
+  });
+});
+
+describe('selectSearch and protected notes', () => {
+  // The server sends a protected note with its words already stripped, so the
+  // only thing a client-side filter could still leak is the card itself —
+  // which is exactly what `is:pinned`-style operators would surface.
+  const locked = note({ title: '', bodyHtml: '', locked: true, pinned: true, color: 'coral' });
+  const open = note({ title: 'grocery list', pinned: true, color: 'coral' });
+
+  it('leaves protected notes out of every result while the curtain is up', () => {
+    const corpus = [locked, open];
+    expect(selectSearch(corpus, { q: 'is:pinned' }).active.map((n) => n.id)).toEqual([open.id]);
+    expect(selectSearch(corpus, { q: '', color: 'coral' }).active.map((n) => n.id)).toEqual([
+      open.id,
+    ]);
+  });
+
+  it('lets them back in once the session has re-authenticated', () => {
+    // Revealed, the server sends the words too — so the note is findable by
+    // what it says, not merely present as a card.
+    const shown = note({ ...locked, title: 'passport', locked: true });
+    const found = selectSearch([shown, open], { q: 'passport' }, undefined, true);
+    expect(found.active.map((n) => n.id)).toEqual([shown.id]);
+    expect(selectSearch([shown, open], { q: 'passport' }).active).toEqual([]);
   });
 });
 

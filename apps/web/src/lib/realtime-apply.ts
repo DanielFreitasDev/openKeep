@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { labelsQuery } from './labels-api.js';
 import { mergeNote, removeNote, upsertNote } from './note-selectors.js';
 import { notesQuery } from './notes-api.js';
+import { refreshProtectedViews } from './protection-api.js';
 import { sessionQuery, settingsQuery } from './queries.js';
 
 type Handler = (queryClient: QueryClient, payload: never) => boolean | undefined;
@@ -59,6 +60,16 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
       position: p.position,
     }),
   'note.labels_changed': (qc, p) => mergeIfKnown(qc, p.id, { labelIds: p.labelIds }),
+  // Another tab of mine protected (or released) the note. The flag can be
+  // patched in, but the CONTENT cannot: a note that just became protected is
+  // holding words this tab was sent before the curtain came down, and a note
+  // that was just released is holding none. Either way the corpus is now
+  // wrong, so this one refetches instead of patching.
+  'note.lock_changed': (qc, p) => {
+    mergeIfKnown(qc, p.id, { locked: p.locked });
+    void refreshProtectedViews(qc);
+    return true;
+  },
   'note.converted': (qc, p) =>
     // Merge SHARED content only — per-user fields in the payload belong to the actor.
     mergeIfKnown(qc, p.note.id, {

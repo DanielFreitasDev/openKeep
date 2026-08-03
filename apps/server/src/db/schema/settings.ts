@@ -41,6 +41,13 @@ export const userSettings = pgTable(
      */
     savedSearches: jsonb().$type<SavedSearch[]>().notNull().default(sql`'[]'::jsonb`),
     /**
+     * scrypt hash of the optional PIN that unlocks protected notes, as a
+     * shortcut for retyping the account password. Null = no PIN. Never part of
+     * the settings DTO — setting or clearing it goes through /api/protection,
+     * which asks for the password first.
+     */
+    notePinHash: text(),
+    /**
      * Secret in the iCalendar feed URL. Null = no feed; rotating it revokes
      * every subscription at once. Not part of the settings DTO — a bearer
      * secret has no business in a body the client can PATCH.

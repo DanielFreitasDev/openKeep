@@ -69,5 +69,20 @@
   "selectNote": "Select note",
   "deselectNote": "Deselect note",
   "clearSelection": "Clear selection",
-  "selectedCount": "{{count}} selected"
+  "selectedCount": "{{count}} selected",
+  "protectNote": "Protect note",
+  "removeProtection": "Remove protection",
+  "unlockNote": "Unlock",
+  "protectedNote": "Protected note",
+  "unprotectedNote": "Protection removed",
+  "lockedNow": "Protected notes locked",
+  "unlockTitle": "Protected note",
+  "unlockPinHint": "Enter your PIN to show protected notes.",
+  "unlockPasswordHint": "Enter your account password to show protected notes.",
+  "unlockPinLabel": "PIN",
+  "unlockPasswordLabel": "Password",
+  "unlockUsePassword": "Use password instead",
+  "unlockUsePin": "Use PIN instead",
+  "unlockConfirm": "Unlock",
+  "noteProtected": "Note protected"
 }

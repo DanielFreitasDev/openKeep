@@ -24,6 +24,7 @@ import { registerItemRoutes } from './modules/items/routes.js';
 import { registerLabelRoutes } from './modules/labels/routes.js';
 import { registerLinkPreviewRoutes } from './modules/link-preview/routes.js';
 import { registerNotesRoutes } from './modules/notes/routes.js';
+import { registerProtectionRoutes } from './modules/protection/routes.js';
 import { registerReminderRoutes } from './modules/reminders/routes.js';
 import { registerSearchRoutes } from './modules/search/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
@@ -146,6 +147,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerApiTokenRoutes(app, deps.db);
   registerWebhookRoutes(app, deps.db, config, webhooks);
   registerAdminRoutes(app, deps.db, config, deps.storage);
+  registerProtectionRoutes(app, deps.db);
   registerNotesRoutes(app, deps.db, realtime, config, deps.storage);
   registerItemRoutes(app, deps.db, realtime);
   registerLabelRoutes(app, deps.db, realtime);

@@ -532,7 +532,11 @@ export async function writeExportZip(
   const archive = new ZipArchive({ zlib: { level: 6 } });
   archive.pipe(output);
 
-  const allNotes = await listNotes(db, userId);
+  // `reveal`: the archive is a BACKUP, not a view. Redacting protected notes
+  // here would hand the user a zip that silently lost their content — and the
+  // job runs with no request behind it, so the flag has to be explicit. The
+  // `locked` flag travels in notes.json, so a restore puts the curtain back.
+  const allNotes = await listNotes(db, userId, undefined, undefined, true);
   const allLabels = await listLabels(db, userId);
   const settings = await getSettings(db, userId);
 

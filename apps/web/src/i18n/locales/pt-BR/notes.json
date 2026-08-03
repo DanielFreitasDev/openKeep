@@ -69,5 +69,20 @@
   "selectNote": "Selecionar nota",
   "deselectNote": "Desmarcar nota",
   "clearSelection": "Limpar seleção",
-  "selectedCount": "{{count}} selecionada(s)"
+  "selectedCount": "{{count}} selecionada(s)",
+  "protectNote": "Proteger nota",
+  "removeProtection": "Remover proteção",
+  "unlockNote": "Destrancar",
+  "protectedNote": "Nota protegida",
+  "unprotectedNote": "Proteção removida",
+  "lockedNow": "Notas protegidas trancadas",
+  "unlockTitle": "Nota protegida",
+  "unlockPinHint": "Digite seu PIN para mostrar as notas protegidas.",
+  "unlockPasswordHint": "Digite a senha da sua conta para mostrar as notas protegidas.",
+  "unlockPinLabel": "PIN",
+  "unlockPasswordLabel": "Senha",
+  "unlockUsePassword": "Usar a senha",
+  "unlockUsePin": "Usar o PIN",
+  "unlockConfirm": "Destrancar",
+  "noteProtected": "Nota protegida"
 }

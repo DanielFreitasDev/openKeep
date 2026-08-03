@@ -299,8 +299,21 @@ function hasType(n: FullNote, type: SearchType): boolean {
  */
 const editedDay = (n: FullNote) => n.updatedAt.slice(0, 10);
 
-/** Instant client-side search over the corpus (Keep behavior). */
-export function selectSearch(notes: FullNote[], f: SearchFilters, sort?: NoteSort): SearchResults {
+/**
+ * Instant client-side search over the corpus (Keep behavior).
+ *
+ * `revealed` is the session's curtain, and it is a parameter rather than a
+ * guess from the note's shape: a protected note is skipped entirely while the
+ * curtain is up. Its words are not in the corpus to match anyway, but the card
+ * would still answer `is:pinned` or `color:mint` — and "there is a hidden note
+ * about this" is precisely what the lock refuses to say.
+ */
+export function selectSearch(
+  notes: FullNote[],
+  f: SearchFilters,
+  sort?: NoteSort,
+  revealed = false,
+): SearchResults {
   const query = parseSearchQuery(f.q);
   const hasAny = !query.isEmpty || f.type || f.labelId || f.color || f.collaboratorId;
   if (!hasAny) return { active: [], archived: [] };
@@ -309,6 +322,7 @@ export function selectSearch(notes: FullNote[], f: SearchFilters, sort?: NoteSor
   const excluded = queryWords(query.exclude.join(' '));
   const matched = notes.filter((n) => {
     if (!onBoard(n)) return false;
+    if (n.locked && !revealed) return false;
     if (f.type && !hasType(n, f.type)) return false;
     if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
     if (f.color && n.color !== f.color) return false;

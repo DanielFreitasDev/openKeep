@@ -121,4 +121,5 @@ HTML appears only on request — `get_note`/`list_notes` accept `include_html`, 
 - **claude.ai custom connectors need OAuth** — OpenKeep v1 authenticates MCP with PATs only, so the hosted claude.ai "custom connector" flow is not supported. Use Claude Code, Claude Desktop or the API connector above.
 - **PATs do not open WebSockets** and cannot access `/api/auth/*` — they authenticate REST + MCP only.
 - **PATs cannot manage PATs**: `/api/tokens` requires a browser session (a leaked token cannot mint more tokens).
+- **Protected notes are invisible to MCP.** A note you protect arrives with its title, body, checklist and images empty and never appears in `search_notes`; every tool that would read or write its content answers 423 `note_locked`. Unlocking means retyping the account password or PIN, which a token cannot be asked to do — so the protection holds for agents by construction, not by policy.
 - Push subscriptions and fractional drag positions are intentionally absent from the tool surface.

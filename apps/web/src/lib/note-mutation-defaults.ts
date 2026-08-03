@@ -113,6 +113,7 @@ export function registerNoteMutationDefaults(queryClient: QueryClient) {
         pinned: input.pinned ?? false,
         archived: false,
         isTemplate: false,
+        locked: false,
         color: input.color ?? 'default',
         background: input.background ?? 'none',
         position: positionBefore(minPos ?? null),

@@ -40,6 +40,22 @@ registerRoute(
   new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api\//] }),
 );
 
+/**
+ * Workbox caches a 200 whatever its headers say, which is wrong for exactly
+ * one kind of response here: anything the server handed to a session that has
+ * unlocked its protected notes. Writing those to disk would outlive the
+ * fifteen-minute window the user agreed to, so returning null from
+ * `cacheWillUpdate` keeps the response on screen and off the disk.
+ *
+ * Keyed on our own header rather than on `no-store`: Better Auth's session
+ * route sets that for its own reasons, and refusing to cache the session is
+ * refusing to boot offline at all.
+ */
+const SKIP_REVEALED = {
+  cacheWillUpdate: async ({ response }: { response: Response }) =>
+    response.headers.has('x-openkeep-revealed') ? null : response,
+};
+
 // API reads: network-first with a 3s timeout, cache fallback (offline reads).
 registerRoute(
   (options) =>
@@ -51,7 +67,10 @@ registerRoute(
   new NetworkFirst({
     cacheName: 'api-reads',
     networkTimeoutSeconds: 3,
-    plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * 24 * 3600 })],
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * 24 * 3600 }),
+      SKIP_REVEALED,
+    ],
   }),
 );
 
@@ -63,7 +82,10 @@ registerRoute(
     !isApiNavigation(options),
   new CacheFirst({
     cacheName: 'attachments',
-    plugins: [new ExpirationPlugin({ maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600 })],
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600 }),
+      SKIP_REVEALED,
+    ],
   }),
 );
 

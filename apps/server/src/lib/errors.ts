@@ -38,6 +38,21 @@ export const errors = {
     new AppError(409, code, title, detail),
   noteTrashed: () =>
     new AppError(409, 'note_trashed', 'Note is in the trash', 'Restore the note to edit it.'),
+  /**
+   * The note is protected and this session has not re-authenticated. 423 is
+   * the literal answer ("Locked"), and the client turns it into the unlock
+   * prompt rather than an error toast.
+   */
+  noteLocked: () =>
+    new AppError(
+      423,
+      'note_locked',
+      'Note is protected',
+      'Confirm your password or PIN to open this note.',
+    ),
+  /** Wrong password/PIN — never says which one was wrong, or whether one exists. */
+  invalidCredential: (detail: string) =>
+    new AppError(401, 'invalid_credential', 'Incorrect credentials', detail),
   /** Shared with view-only permission — distinct from a plain 403 so clients can say so. */
   readOnlyNote: () =>
     new AppError(

@@ -42,6 +42,8 @@ export const ERROR_CODES = [
   'not_found',
   'conflict',
   'note_trashed',
+  'note_locked',
+  'invalid_credential',
   'label_limit_reached',
   'label_exists',
   'item_limit_reached',

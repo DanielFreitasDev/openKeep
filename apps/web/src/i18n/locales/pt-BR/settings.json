@@ -43,5 +43,17 @@
   "deleteAllConfirm": "Excluir para sempre",
   "deleteAllDone_one": "1 nota excluída",
   "deleteAllDone_other": "{{count}} notas excluídas",
-  "deleteAllFailed": "Não foi possível excluir suas notas"
+  "deleteAllFailed": "Não foi possível excluir suas notas",
+  "protectedNotes": "Notas protegidas",
+  "protectionHint": "Uma nota protegida fica oculta — sem título, sem corpo, sem imagens e fora da busca — até você confirmar sua senha ou PIN. Ela fica oculta, não criptografada: o servidor continua conseguindo lê-la.",
+  "protectedCount_one": "{{count}} nota protegida.",
+  "protectedCount_other": "{{count}} notas protegidas.",
+  "setPin": "Definir um PIN",
+  "changePin": "Alterar PIN",
+  "removePin": "Remover PIN",
+  "pinLabel": "PIN (4 a 8 dígitos)",
+  "pinPasswordLabel": "Senha da conta",
+  "pinSaved": "PIN salvo",
+  "pinRemoved": "PIN removido",
+  "lockNow": "Trancar agora"
 }

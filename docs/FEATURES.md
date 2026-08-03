@@ -31,6 +31,7 @@ The v1.0 scope: full parity with the Google Keep **web** app as researched in Ju
 - **Archive**: hides from main view; searchable; keeps labels and reminders; `e` shortcut.
 - **Trash**: 7-day retention banner, read-only notes while trashed, Restore / Delete forever / Empty trash; only the owner deletes for everyone.
 - **Templates** *(divergence — Keep has none)*: "Save as template" in the note and card menus moves a note onto a Templates shelf, out of the board, the archive, search, reminders and the `[[` picker; the same menu item moves it back, and the trash still outranks the shelf. "Use template" makes an ordinary copy and opens it — from the composer, the mobile FAB or the template itself. The sidebar row and both entry points appear only once a template exists.
+- **Protected notes** *(divergence — Keep has none)*: "Protect note" in the note and card menus hides a note's title, body, checklist and images and takes it out of search, leaving a "Protected note" card that still pins, colours and drags. The words come back for 15 minutes once the session confirms the account password — or an optional 4-to-8-digit PIN set in Settings. Per-user like pin and colour, so protecting a shared note protects only my copy; the note's public link goes dark while it is on. **Hidden, not encrypted**: the server still reads the content, and so does the account's own export. Invisible to API tokens and therefore to the MCP server, which cannot be asked to retype a password.
 - Manual drag reorder within sections — per-user, synced across devices (`Shift+J/K` keyboard equivalent).
 - Grid ↔ list view toggle (`Ctrl+G`), persisted per user.
 - **Colors**: 12 swatches — Default, Coral, Peach, Sand, Mint, Sage, Fog, Storm, Dusk, Blossom, Clay, Chalk — with distinct light and dark palettes (see `packages/shared/src/constants/colors.ts`).
@@ -108,6 +109,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 ## Settings
 
 - Add new items to the bottom · Move checked items to bottom of list · Display rich link previews · Enable dark theme · Reminder default times (morning/afternoon/evening) · Enable sharing.
+- Protected notes: set / change / remove the unlock PIN (the account password authorizes it) and "Lock now" to close the reveal window early.
 - Theme is per device, with "follow system" *(small enhancement)*.
 
 ## UI chrome

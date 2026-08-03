@@ -10,7 +10,7 @@ import { z } from 'zod';
 import type { App } from '../../app.js';
 import type { Db } from '../../db/client.js';
 import type { Realtime } from '../../realtime/registry.js';
-import { memberIds } from '../../realtime/registry.js';
+import { contentAudience } from '../../realtime/registry.js';
 import * as svc from './service.js';
 
 const zNoteParams = z.object({ id: zId });
@@ -35,7 +35,7 @@ export function registerItemRoutes(app: App, db: Db, realtime: Realtime): void {
     async (req, reply) => {
       const item = await svc.createItem(db, req.user.id, req.params.id, req.body);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'item.added', payload: { noteId: req.params.id, item } },
         originOf(req),
       );
@@ -63,7 +63,7 @@ export function registerItemRoutes(app: App, db: Db, realtime: Realtime): void {
         req.body,
       );
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         {
           type: 'item.updated',
           payload: { noteId: req.params.id, item: result.item, cascaded: result.cascaded },
@@ -80,7 +80,7 @@ export function registerItemRoutes(app: App, db: Db, realtime: Realtime): void {
     async (req, reply) => {
       await svc.deleteItem(db, req.user.id, req.params.id, req.params.itemId);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'item.removed', payload: { noteId: req.params.id, itemId: req.params.itemId } },
         originOf(req),
       );
@@ -97,7 +97,7 @@ export function registerItemRoutes(app: App, db: Db, realtime: Realtime): void {
     async (req) => {
       const result = await svc.uncheckAll(db, req.user.id, req.params.id);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'items.replaced', payload: result },
         originOf(req),
       );
@@ -114,7 +114,7 @@ export function registerItemRoutes(app: App, db: Db, realtime: Realtime): void {
     async (req) => {
       const result = await svc.deleteChecked(db, req.user.id, req.params.id);
       realtime.publishToUsers(
-        await memberIds(db, req.params.id),
+        await contentAudience(db, req.params.id),
         { type: 'items.replaced', payload: result },
         originOf(req),
       );

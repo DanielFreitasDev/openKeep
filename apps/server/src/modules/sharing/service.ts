@@ -264,6 +264,10 @@ export async function revokeShareLink(db: Db, userId: string, noteId: string): P
  * expired, or whose note went to the trash, resolves to nothing — the same
  * nothing an invented token resolves to, so the 404 is never an oracle.
  * Trashing is reversible, and so is this: restoring the note revives the link.
+ *
+ * An OWNER who protects the note darkens the link the same reversible way.
+ * A protected note that the whole internet can still read is not protected,
+ * and the lock is the more recent instruction of the two.
  */
 async function noteIdForToken(db: Db, token: string, now: Date): Promise<string | null> {
   const [row] = await db
@@ -271,12 +275,14 @@ async function noteIdForToken(db: Db, token: string, now: Date): Promise<string 
       noteId: noteShareLinks.noteId,
       expiresAt: noteShareLinks.expiresAt,
       trashedAt: notes.trashedAt,
+      locked: noteMembers.locked,
     })
     .from(noteShareLinks)
     .innerJoin(notes, eq(notes.id, noteShareLinks.noteId))
+    .innerJoin(noteMembers, and(eq(noteMembers.noteId, notes.id), eq(noteMembers.role, 'owner')))
     .where(eq(noteShareLinks.token, token))
     .limit(1);
-  if (!row || row.trashedAt !== null) return null;
+  if (!row || row.trashedAt !== null || row.locked) return null;
   if (row.expiresAt !== null && row.expiresAt.getTime() <= now.getTime()) return null;
   return row.noteId;
 }

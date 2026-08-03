@@ -5,6 +5,7 @@ import { DrawingScreen } from '../components/drawing/DrawingScreen.js';
 import { MarqueeOverlay } from '../components/grid/MarqueeOverlay.js';
 import { EditLabelsDialog } from '../components/labels/EditLabelsDialog.js';
 import { EditorModal } from '../components/notes/EditorModal.js';
+import { UnlockDialog } from '../components/notes/UnlockDialog.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
 import { AdminDialog } from '../components/shell/AdminDialog.js';
 import { ApiTokensDialog } from '../components/shell/ApiTokensDialog.js';
@@ -21,6 +22,7 @@ import { useComposeShortcut } from '../hooks/use-compose-shortcut.js';
 import { useDraftRestore } from '../hooks/use-draft-restore.js';
 import { useGridAutoScroll } from '../hooks/use-grid-auto-scroll.js';
 import { useMarqueeSelection } from '../hooks/use-marquee-selection.js';
+import { useRevealExpiry } from '../hooks/use-protection.js';
 import { usePushRegistration } from '../hooks/use-push.js';
 import { useRealtime } from '../hooks/use-realtime.js';
 import { useReminderToasts } from '../hooks/use-reminder-toasts.js';
@@ -72,6 +74,7 @@ function ShellLayout() {
   useUnsavedGuard();
   useDraftRestore();
   useComposeShortcut();
+  useRevealExpiry();
   return (
     <div className="min-h-full">
       <TopBar />
@@ -87,6 +90,7 @@ function ShellLayout() {
       <MarqueeOverlay box={marquee} />
       <OfflineBanner />
       <EditorModal />
+      <UnlockDialog />
       <DrawingScreen />
       <SettingsDialog />
       <EditLabelsDialog />

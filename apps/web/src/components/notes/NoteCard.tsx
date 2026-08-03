@@ -7,6 +7,8 @@ import deleteForeverSvg from '@material-symbols/svg-700/outlined/delete_forever.
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
 import pinFilledSvg from '@material-symbols/svg-700/outlined/keep-fill.svg?raw';
+import lockSvg from '@material-symbols/svg-700/outlined/lock.svg?raw';
+import lockOpenSvg from '@material-symbols/svg-700/outlined/lock_open.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import paletteSvg from '@material-symbols/svg-700/outlined/palette.svg?raw';
 import personAddSvg from '@material-symbols/svg-700/outlined/person_add.svg?raw';
@@ -20,6 +22,7 @@ import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js'
 import { useNoteFromTemplate } from '../../hooks/use-create-note.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { usePrintNote } from '../../hooks/use-print-note.js';
+import { useProtectionMutations, useRevealed } from '../../hooks/use-protection.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { setEditorOrigin } from '../../lib/editor-origin.js';
 import { focusNoteCard, noteCardRects } from '../../lib/note-focus.js';
@@ -92,6 +95,9 @@ export const NoteCard = memo(function NoteCard({
   const selectionActive = useSelectionStore((s) => s.selected.size > 0);
   const isFocused = useUiStore((s) => s.focusedNoteId === note.id);
   const setFocusedNoteId = useUiStore((s) => s.setFocusedNoteId);
+  const setUnlockPrompt = useUiStore((s) => s.setUnlockPrompt);
+  const revealed = useRevealed();
+  const protection = useProtectionMutations();
   const isOpenInEditor = useUiStore((s) => s.openEditorNoteId === note.id);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -100,8 +106,15 @@ export const NoteCard = memo(function NoteCard({
   const [showVersions, setShowVersions] = useState(false);
 
   const trashed = note.trashedAt !== null;
+  /**
+   * Protected and still behind the curtain. The card has nothing to draw —
+   * the server sent no title, no body, no images — so it draws the lock, and
+   * every action that would need the content is off the toolbar. Pin, colour
+   * and drag stay: they are about the card, not about what it says.
+   */
+  const hidden = note.locked && !revealed;
   /** Shared content only; pin, color, labels and reminder stay mine. */
-  const canEdit = canEditContent(note);
+  const canEdit = canEditContent(note) && !hidden;
 
   /**
    * Long-press (touch) toggles selection — the Keep-app gesture; mobile cards
@@ -135,6 +148,12 @@ export const NoteCard = memo(function NoteCard({
     if (justLongPressed()) return;
     if (selectionActive) {
       toggleSelect(note.id);
+      return;
+    }
+    // Opening a protected note IS the request to unlock it — the editor never
+    // opens on an empty shell the user then has to work out how to fill.
+    if (hidden) {
+      setUnlockPrompt(note.id);
       return;
     }
     // The editor morphs open from this card's rect (the masonry wrapper owns
@@ -204,7 +223,7 @@ export const NoteCard = memo(function NoteCard({
       <div
         role="button"
         tabIndex={roving ? 0 : -1}
-        aria-label={note.title || t('openNote')}
+        aria-label={hidden ? t('protectedNote') : note.title || t('openNote')}
         onClick={openEditor}
         // Tab into the grid adopts the tab stop; a mouse click must not, or
         // every closed editor would leave its card wearing the focus ring.
@@ -238,24 +257,44 @@ export const NoteCard = memo(function NoteCard({
         }}
         className="relative min-h-[56px] cursor-default rounded-t-lg outline-none focus-visible:ring-2 focus-visible:ring-(--primary) max-md:rounded-t-xl"
       >
-        <NoteImages note={note} />
-        <div className="px-4 pt-3 pb-2">
-          {note.title && (
-            <div className="mb-1.5 break-words pr-7 font-semibold text-[1.1875rem] text-on-surface leading-7 max-md:pr-0 max-md:text-[1rem] max-md:leading-6">
-              {note.title}
+        {hidden ? (
+          // No blur, no scramble: there is nothing here to obscure. The card
+          // says what it is and how to open it, which is also the honest
+          // picture — the server never sent this tab the note's words.
+          <div className="flex items-center gap-2.5 px-4 py-5 text-on-surface-variant">
+            <Icon svg={lockSvg} size={20} />
+            <span className="text-[1rem]">{t('protectedNote')}</span>
+          </div>
+        ) : (
+          <>
+            {/* Revealed, but still protected — say so, or the reveal ending
+                later looks like the note disappeared. */}
+            {note.locked && (
+              <div className="flex items-center gap-1.5 px-4 pt-2.5 text-on-surface-variant text-xs">
+                <Icon svg={lockSvg} size={14} />
+                <span>{t('protectedNote')}</span>
+              </div>
+            )}
+            <NoteImages note={note} />
+            <div className="px-4 pt-3 pb-2">
+              {note.title && (
+                <div className="mb-1.5 break-words pr-7 font-semibold text-[1.1875rem] text-on-surface leading-7 max-md:pr-0 max-md:text-[1rem] max-md:leading-6">
+                  {note.title}
+                </div>
+              )}
+              {isEmpty ? (
+                <div className="py-3 text-[1rem] text-on-surface-variant">{t('emptyNote')}</div>
+              ) : (
+                <NoteBody
+                  note={note}
+                  onToggleItem={(itemId, checked) =>
+                    m.toggleItem.mutate({ noteId: note.id, itemId, checked })
+                  }
+                />
+              )}
             </div>
-          )}
-          {isEmpty ? (
-            <div className="py-3 text-[1rem] text-on-surface-variant">{t('emptyNote')}</div>
-          ) : (
-            <NoteBody
-              note={note}
-              onToggleItem={(itemId, checked) =>
-                m.toggleItem.mutate({ noteId: note.id, itemId, checked })
-              }
-            />
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       <NoteFileChips note={note} />
@@ -294,6 +333,51 @@ export const NoteCard = memo(function NoteCard({
               iconSize={18}
               className="text-on-surface-variant"
               onClick={() => m.restoreWithUndo(note)}
+            />
+          </>
+        ) : hidden ? (
+          // A locked card keeps exactly the two things that are about the card
+          // — its colour and which pile it sits in — plus the way back in.
+          <>
+            <IconButton
+              svg={lockOpenSvg}
+              label={t('unlockNote')}
+              size={34}
+              iconSize={18}
+              className="text-on-surface-variant"
+              onClick={() => setUnlockPrompt(note.id)}
+            />
+            <Popover.Root>
+              <Popover.Trigger
+                aria-label={t('backgroundOptions')}
+                data-tooltip={t('backgroundOptions')}
+                className={iconButtonClass}
+                style={{ width: 34, height: 34 }}
+              >
+                <Icon svg={paletteSvg} size={18} />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Positioner className="z-50" sideOffset={4}>
+                  <Popover.Popup className="z-40 rounded-lg border border-(--outline-variant) bg-surface shadow-(--elevation-3)">
+                    <ColorPicker
+                      color={note.color}
+                      background={note.background}
+                      onColor={(color) => m.patchState.mutate({ id: note.id, patch: { color } })}
+                      onBackground={(background) =>
+                        m.patchState.mutate({ id: note.id, patch: { background } })
+                      }
+                    />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+            <IconButton
+              svg={note.archived ? unarchiveSvg : archiveSvg}
+              label={note.archived ? t('unarchiveNote') : t('shell:navArchive')}
+              size={34}
+              iconSize={18}
+              className="text-on-surface-variant"
+              onClick={() => (note.archived ? m.unarchiveWithUndo(note) : m.archiveWithUndo(note))}
             />
           </>
         ) : (
@@ -419,6 +503,16 @@ export const NoteCard = memo(function NoteCard({
                       onClick={() => m.toggleTemplateWithUndo(note)}
                     >
                       {note.isTemplate ? t('removeFromTemplates') : t('saveAsTemplate')}
+                    </Menu.Item>
+                    <Menu.Item
+                      className={menuItemClass}
+                      onClick={() =>
+                        note.locked
+                          ? protection.unprotect.mutate(note.id)
+                          : protection.protect.mutate(note.id)
+                      }
+                    >
+                      {note.locked ? t('removeProtection') : t('protectNote')}
                     </Menu.Item>
                     <Menu.Item className={menuItemClass} onClick={() => setShowVersions(true)}>
                       {t('editor:versionHistory')}
