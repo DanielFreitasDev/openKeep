@@ -1,3 +1,21 @@
+## [1.36.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.36.0...v1.36.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* keep the caret when picking a note to link ([71a3f35](https://github.com/DanielFreitasDev/openKeep/commit/71a3f35d1b7ce37ea85cb0dcc7963ab0ccdac959))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.36.1
+```
+
+Or download `compose.yml` below (image pinned to `1.36.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.36.1/docs/DEPLOYMENT.md).
+
 # [1.36.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.35.0...v1.36.0) (2026-08-03)
 
 
