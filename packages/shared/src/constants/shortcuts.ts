@@ -181,6 +181,24 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'findInNote',
     group: 'editor',
   },
+  // One pair of keys over two histories: TipTap's inside the body, the
+  // session's snapshot ring for the title and the list items (DECISIONS #36).
+  {
+    id: 'undo',
+    keys: ['mod+z'],
+    display: 'Ctrl + z',
+    scope: 'editor',
+    labelKey: 'undo',
+    group: 'editor',
+  },
+  {
+    id: 'redo',
+    keys: ['mod+shift+z', 'mod+y'],
+    display: 'Ctrl + Shift + z',
+    scope: 'editor',
+    labelKey: 'redo',
+    group: 'editor',
+  },
   {
     id: 'toggle-checkboxes',
     keys: ['mod+shift+8'],

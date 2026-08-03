@@ -24,6 +24,8 @@
   "closeEditor": "Close note",
   "saveCloseEditor": "Save and close note",
   "findInNote": "Find in note",
+  "undo": "Undo",
+  "redo": "Redo",
   "toggleCheckboxes": "Show or hide checkboxes",
   "indentItem": "Indent list item",
   "outdentItem": "Un-indent list item",

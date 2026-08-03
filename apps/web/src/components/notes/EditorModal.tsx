@@ -48,6 +48,7 @@ import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js'
 import { audioRecordingSupported, useAudioRecorder } from '../../hooks/use-audio-recorder.js';
 import { useAutosave } from '../../hooks/use-autosave.js';
 import { useNoteFromTemplate } from '../../hooks/use-create-note.js';
+import { useFieldHistory } from '../../hooks/use-field-history.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { usePrintNote } from '../../hooks/use-print-note.js';
@@ -55,6 +56,7 @@ import { useProtectionMutations, useRevealed } from '../../hooks/use-protection.
 import { formatCreatedTooltip, formatEdited } from '../../lib/dates.js';
 import { downloadNoteMarkdown } from '../../lib/download-markdown.js';
 import { takeEditorOrigin } from '../../lib/editor-origin.js';
+import type { FieldSnapshot, HistoryItem } from '../../lib/field-history.js';
 import { applyFind, findInText, findMatchCount } from '../../lib/find-in-note.js';
 import { noteMutationKeys } from '../../lib/note-mutation-defaults.js';
 import { canEditContent, isViewer } from '../../lib/note-permissions.js';
@@ -361,6 +363,8 @@ function EditorBody({
   const [sheet, setSheet] = useState<MobileSheet>(null);
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
   const checklistRef = useRef<ChecklistHandle | null>(null);
+  /** Which of the two histories the toolbar buttons should reach for first. */
+  const lastSurfaceRef = useRef<'body' | 'fields'>('fields');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const docInputRef = useRef<HTMLInputElement | null>(null);
@@ -540,6 +544,7 @@ function EditorBody({
     enablePasteRules: false,
     onUpdate: ({ editor: ed }) => {
       bodyEmptyRef.current = ed.isEmpty;
+      lastSurfaceRef.current = 'body';
       autosave.markDirty('bodyHtml', ed.getHTML());
     },
     // Leaving a field commits it: the debounce is there to batch keystrokes,
@@ -552,6 +557,80 @@ function EditorBody({
   useEffect(() => {
     editor?.setEditable(canEdit);
   }, [editor, canEdit]);
+
+  // ------------------------------------------------------ session undo/redo
+  /**
+   * TipTap's history covers the body; the title and the list items are native
+   * textareas with nothing behind Ctrl+Z. They get a ring buffer of snapshots
+   * for the life of the editing session (see `lib/field-history.ts`) —
+   * recorded as each edit lands, applied by writing the title back into its
+   * uncontrolled textarea and handing the rows to the checklist.
+   */
+  const readFields = (): FieldSnapshot => ({
+    title: titleRef.current?.value ?? note.title,
+    items: isList
+      ? (checklistRef.current?.snapshot() ??
+        note.items.map(
+          (i): HistoryItem => ({
+            key: i.id,
+            text: i.text,
+            checked: i.checked,
+            indent: i.indent,
+            position: i.position,
+          }),
+        ))
+      : null,
+  });
+  const readFieldsRef = useRef(readFields);
+  readFieldsRef.current = readFields;
+  const history = useFieldHistory(() => readFieldsRef.current(), `${note.id}:${note.type}`);
+
+  const applyFields = (snapshot: FieldSnapshot) => {
+    const el = titleRef.current;
+    if (el && el.value !== snapshot.title) {
+      el.value = snapshot.title;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+      // Undoing to the value the server already holds is not a save; the
+      // autosave drops it, and the dirty flag it would have set with it.
+      autosave.markDirty('title', snapshot.title);
+    }
+    if (snapshot.items) checklistRef.current?.restore(snapshot.items);
+  };
+
+  /**
+   * Ctrl+Z / Ctrl+Y across both histories. A keystroke belongs to the surface
+   * it was typed in — inside the body ProseMirror's own keymap claims it, so
+   * this only runs for the title and the items — while the toolbar buttons
+   * follow the surface edited last and fall back to the other one when it has
+   * nothing left to give.
+   */
+  const runHistory = (dir: 'undo' | 'redo', prefer: 'body' | 'fields') => {
+    if (!canEdit) return;
+    const body = () => {
+      if (isList || !editor) return false;
+      if (!(dir === 'undo' ? editor.can().undo() : editor.can().redo())) return false;
+      const chain = editor.chain().focus();
+      (dir === 'undo' ? chain.undo() : chain.redo()).run();
+      lastSurfaceRef.current = 'body';
+      return true;
+    };
+    const fields = () => {
+      const snapshot = history.walk(dir, readFields());
+      if (!snapshot) return false;
+      applyFields(snapshot);
+      lastSurfaceRef.current = 'fields';
+      return true;
+    };
+    for (const run of prefer === 'body' ? [body, fields] : [fields, body]) {
+      if (run()) return;
+    }
+  };
+
+  const bodyHistory = (dir: 'undo' | 'redo') =>
+    !isList && (dir === 'undo' ? (editor?.can().undo() ?? false) : (editor?.can().redo() ?? false));
+  const canUndo = history.canUndo || bodyHistory('undo');
+  const canRedo = history.canRedo || bodyHistory('redo');
 
   // Counted off the plain text the server derives, so the "/ 19,999" the user
   // sees is the same number the body limit is enforced against.
@@ -835,6 +914,18 @@ function EditorBody({
             } else if (e.ctrlKey && e.shiftKey && e.key === '8' && canEdit) {
               e.preventDefault();
               m.convert.mutate({ id: note.id, to: isList ? 'text' : 'list' });
+            } else if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) {
+              const dir = e.key.toLowerCase() === 'y' || e.shiftKey ? 'redo' : 'undo';
+              const inBody = editor?.view.dom.contains(e.target as Node) === true;
+              // Typed inside the body: ProseMirror's keymap already has the
+              // keystroke — until its own history runs out, at which point the
+              // fields keep the shortcut alive instead of it going dead.
+              if (inBody && (dir === 'undo' ? editor?.can().undo() : editor?.can().redo())) return;
+              // The title's native undo would fight this one, and the item
+              // textareas are controlled, so theirs does nothing at all.
+              e.preventDefault();
+              e.stopPropagation();
+              runHistory(dir, inBody ? 'body' : 'fields');
             }
           }}
         >
@@ -913,6 +1004,8 @@ function EditorBody({
               readOnly={!canEdit}
               onChange={(e) => {
                 autosave.markDirty('title', e.target.value);
+                lastSurfaceRef.current = 'fields';
+                history.record({ title: e.target.value, items: readFields().items }, 'title');
                 e.target.style.height = 'auto';
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
@@ -957,6 +1050,10 @@ function EditorBody({
                 addItemsToBottom={settings?.addItemsToBottom ?? true}
                 handleRef={checklistRef}
                 find={find.open ? checklistFind : undefined}
+                onStep={(items, groupKey) => {
+                  lastSurfaceRef.current = 'fields';
+                  history.record({ title: titleRef.current?.value ?? note.title, items }, groupKey);
+                }}
               />
             ) : (
               <EditorContent editor={editor} className="note-editor" />
@@ -1232,8 +1329,8 @@ function EditorBody({
                       size={38}
                       iconSize={19}
                       className="text-on-surface-variant"
-                      disabled={!editor?.can().undo()}
-                      onClick={() => editor?.chain().focus().undo().run()}
+                      disabled={!canUndo}
+                      onClick={() => runHistory('undo', lastSurfaceRef.current)}
                     />
                     <IconButton
                       svg={redoSvg}
@@ -1241,8 +1338,8 @@ function EditorBody({
                       size={38}
                       iconSize={19}
                       className="text-on-surface-variant"
-                      disabled={!editor?.can().redo()}
-                      onClick={() => editor?.chain().focus().redo().run()}
+                      disabled={!canRedo}
+                      onClick={() => runHistory('redo', lastSurfaceRef.current)}
                     />
                   </>
                 )}

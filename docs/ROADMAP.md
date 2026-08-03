@@ -4,8 +4,9 @@
 > (com a data, ex.: `[x] ... — feito em 2026-08-02`). Escrito em pt-BR por ser documento de
 > trabalho; os demais docs do repo permanecem em inglês.
 >
-> Última atualização: **2026-08-03** (proteger nota com PIN/senha;
-> antes: webhooks de saída;
+> Última atualização: **2026-08-03** (undo/redo de sessão para título e itens de lista;
+> antes: proteger nota com PIN/senha;
+> webhooks de saída;
 > cotas de armazenamento por conta;
 > painel de administração da instância;
 > modelos de nota;
@@ -142,9 +143,22 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   restore reconstrói o html e o download da versão virou `.md`. Linhas antigas continuam válidas:
   texto puro é markdown válido.
 
-- [ ] **Undo/redo de sessão para título e itens de lista** *(impacto médio · esforço M)*
+- [x] **Undo/redo de sessão para título e itens de lista** *(impacto médio · esforço M)* — feito em 2026-08-03
   O histórico do TipTap cobre só o corpo. Construir o ring buffer de snapshots
   (título + itens) por sessão de edição, integrado aos mesmos atalhos Ctrl+Z/Y do editor.
+  **Entregue:** ring de 100 snapshots inteiros (`lib/field-history.ts` + `use-field-history.ts`),
+  não de operações inversas — o vocabulário dos itens já tem oito verbos, e inverter cada um é
+  oito chances de errar sutilmente. **As linhas são endereçadas pela chave local, nunca pelo id do
+  servidor:** desfazer uma exclusão *cria* a linha de novo, e os passos seguintes precisam
+  continuar apontando para ela. O passo é gravado por um effect sobre as linhas já commitadas, e
+  não dentro da op — é isso que faz o Enter (que muda um texto e adiciona uma linha) ser um passo
+  só e deixa de fora todo `setRows` que ninguém pediu (merge de colaborador, id chegando do
+  servidor, o próprio restore). E undo/redo empilham a nota **como ela está na tela**, não o
+  snapshot do último passo, para que a edição de um colaborador que caiu no meio não seja
+  ressuscitada por um redo. Agrupamento por campo na mesma janela de meio segundo do ProseMirror;
+  atalho vai para a superfície em que foi digitado (o corpo continua com o histórico dele até
+  acabar), botões da barra seguem a última superfície editada. Converter a nota zera o ring.
+  Ver DECISIONS #36.
 
 - [ ] **Mídia offline** *(impacto médio · esforço M/G)*
   Nota composta offline restaura texto/labels/lembrete após reload, mas perde imagens; uploads
@@ -1048,7 +1062,8 @@ O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada 
 3. ~~**Cotas por usuário** (3.5)~~ — saiu em 2026-08-01 (ver abaixo).
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
-do grid já estava no código sem estar marcada. Sobram lá só undo/redo de sessão e mídia offline.
+do grid já estava no código sem estar marcada. Com o undo/redo de sessão (2026-08-03), sobra lá só
+mídia offline.
 
 **Buscas salvas** saíram junto (2026-07-31): eram o item barato que os operadores destravaram.
 

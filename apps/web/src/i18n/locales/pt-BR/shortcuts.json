@@ -24,6 +24,8 @@
   "closeEditor": "Fechar nota",
   "saveCloseEditor": "Salvar e fechar nota",
   "findInNote": "Localizar na nota",
+  "undo": "Desfazer",
+  "redo": "Refazer",
   "toggleCheckboxes": "Mostrar ou ocultar caixas de seleção",
   "indentItem": "Recuar item da lista",
   "outdentItem": "Remover recuo do item",

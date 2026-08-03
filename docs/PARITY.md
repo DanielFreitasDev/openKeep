@@ -18,7 +18,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Note card hover toolbar (remind, collaborator, color, image, archive, more) | ✓ | ✅ all six: remind, collaborator, color/background, add image, archive, more (+pin) | M2 |
 | 12 colors, light+dark | ✓ | ✅ verified via e2e in both themes | M2 |
 | 9 background illustrations | ✓ themes, original art | ✅ 🔀 original line-art, theme-adaptive | M2 |
-| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; morphs open/closed from its card; Esc/Ctrl+Enter close; undo covers the body (title/items deferred, see below) | M2 |
+| Editor modal (formatting bar, Edited tooltip, undo/redo, close) | ✓ | ✅ ?note= deep link; morphs open/closed from its card; Esc/Ctrl+Enter close; undo/redo covers the body (TipTap) plus the title and list items (session snapshot ring, DECISIONS #36) | M2 |
 | Rich formatting H1/H2/normal/B/I/U/clear | ✓ (May-2025 set) | ✅ TipTap, server-sanitized allowlist | M2 |
 | Markdown as you type and paste | Keep has none | ✅ 🔀 headings 1–6, `**b**`/`*i*`/`~~s~~`/`` `code` ``, ``` fences, `> ` quotes, `---` rules, `- `/`1. ` lists and `[text](url)` links — typed, pasted or imported. `#` still quick-labels everywhere except a line start, where the next character decides | post-1.0 |
 | Note formatting vocabulary | H1/H2/B/I/U (May-2025 set) | ✅ 🔀 widened to what markdown expresses: H1–H6, strikethrough, inline code, code blocks, quotes, rules, bullet/ordered lists, links (sanitizer allowlist, DECISIONS #26) | post-1.0 |
@@ -91,8 +91,6 @@ the table above stays honest. Roughly in order of user impact:
   offline-composed note restores its text/labels/reminder after a reload, but
   not unsaved images. Attachment uploads pause while offline and resume within
   the session only (FormData is not persisted to the outbox).
-- **Session undo/redo for title/list items** — TipTap history covers the body;
-  the title/items snapshot ring buffer was not built.
 - **Takeout `sharees`** — imported notes are never re-shared; the import report
   now says how many were shared in Keep. `annotations` (WEBLINK) are typed but
   unused (links are re-detected from text).

@@ -21,6 +21,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clearDraftItems, saveNoteDraftItems } from '../../lib/drafts.js';
+import type { HistoryItem } from '../../lib/field-history.js';
 import {
   createItemApi,
   deleteCheckedApi,
@@ -57,6 +58,21 @@ export interface ChecklistHandle {
   uncheckAll: () => void;
   deleteChecked: () => void;
   hasChecked: () => boolean;
+  /** The rows as they read right now — one half of an undo step. */
+  snapshot: () => HistoryItem[];
+  /** Put the rows back the way a step remembers them (undo/redo). */
+  restore: (items: readonly HistoryItem[]) => void;
+}
+
+/** Rows → the shape an undo step remembers (no server ids: see field-history). */
+function toHistoryItems(rows: readonly ChecklistRow[]): HistoryItem[] {
+  return rows.map((r) => ({
+    key: r.key,
+    text: r.text,
+    checked: r.checked,
+    indent: r.indent,
+    position: r.position,
+  }));
 }
 
 /**
@@ -76,6 +92,11 @@ interface ChecklistEditorProps {
   addItemsToBottom: boolean;
   handleRef?: React.Ref<ChecklistHandle>;
   find?: ChecklistFind;
+  /**
+   * A local edit just landed: the rows it produced, and the field it happened
+   * in (null when the change is structural, which never coalesces).
+   */
+  onStep?: (items: HistoryItem[], groupKey: string | null) => void;
 }
 
 /**
@@ -91,6 +112,7 @@ export function ChecklistEditor({
   addItemsToBottom,
   handleRef,
   find,
+  onStep,
 }: ChecklistEditorProps) {
   const { t } = useTranslation('editor');
   const queryClient = useQueryClient();
@@ -120,6 +142,24 @@ export function ChecklistEditor({
   const pendingPatch = useRef(new Map<string, number>());
   /** True after any local edit — gates the draft mirror below. */
   const dirtiedRef = useRef(false);
+  /**
+   * Set by a local op just before it changes the rows, and consumed by the
+   * effect that reports the step. Reporting from an effect rather than from
+   * the op is what makes a step the rows React actually committed — several
+   * ops in one batch (Enter, which splits a row, is two) are one step, and a
+   * `setRows` nobody asked for (the remote merge, a restore, an id landing
+   * from the server) leaves the marker unset and is not a step at all.
+   */
+  const pendingStepRef = useRef<{ key: string | null } | null>(null);
+  const onStepRef = useRef(onStep);
+  onStepRef.current = onStep;
+
+  useEffect(() => {
+    const step = pendingStepRef.current;
+    pendingStepRef.current = null;
+    if (!step) return;
+    onStepRef.current?.(toHistoryItems(rows), step.key);
+  }, [rows]);
 
   const beginPatch = useCallback((key: string) => {
     pendingPatch.current.set(key, (pendingPatch.current.get(key) ?? 0) + 1);
@@ -246,6 +286,7 @@ export function ChecklistEditor({
   const addRow = useCallback(
     (afterKey: string | null, seedText = '', indent: 0 | 1 = 0, caret = 0) => {
       dirtiedRef.current = true;
+      pendingStepRef.current = { key: null };
       const key = crypto.randomUUID();
       const position = positionAfterRow(rowsRef.current, afterKey);
       const row: ChecklistRow = { key, id: null, text: seedText, checked: false, indent, position };
@@ -274,6 +315,7 @@ export function ChecklistEditor({
   const changeText = useCallback(
     (key: string, text: string) => {
       dirtiedRef.current = true;
+      pendingStepRef.current = { key: `item:${key}` };
       setRows((prev) => prev.map((r) => (r.key === key ? { ...r, text } : r)));
       scheduleTextSync(key, text);
     },
@@ -283,6 +325,7 @@ export function ChecklistEditor({
   const toggleCheck = useCallback(
     (key: string, checked: boolean) => {
       dirtiedRef.current = true;
+      pendingStepRef.current = { key: null };
       // Cascaded rows (parent auto-check) are pending too until the ack lands,
       // so the remote merge can't briefly revert them.
       const next = applyCheck(rowsRef.current, key, checked).rows;
@@ -310,6 +353,7 @@ export function ChecklistEditor({
     (key: string, indent: 0 | 1) => {
       if (indent === 1 && !canIndent(rowsRef.current, key)) return;
       dirtiedRef.current = true;
+      pendingStepRef.current = { key: null };
       setRows((prev) => prev.map((r) => (r.key === key ? { ...r, indent } : r)));
       patchServer(key, { indent });
     },
@@ -319,6 +363,7 @@ export function ChecklistEditor({
   const removeRow = useCallback(
     (key: string, focusPrev = false) => {
       dirtiedRef.current = true;
+      pendingStepRef.current = { key: null };
       const ordered = [...rowsRef.current].sort(byPosition);
       const idx = ordered.findIndex((r) => r.key === key);
       const prev = ordered[idx - 1];
@@ -366,12 +411,98 @@ export function ChecklistEditor({
     [changeText, removeRow],
   );
 
+  /**
+   * Put the rows back the way an undo/redo step remembers them. Rows are
+   * matched by local key, so a row the step brings back is created afresh
+   * server-side under the key later steps already point at; everything else
+   * is the smallest patch that makes the row read like the snapshot.
+   */
+  const restore = useCallback(
+    (snapshot: readonly HistoryItem[]) => {
+      dirtiedRef.current = true;
+      const current = rowsRef.current;
+      const byKey = new Map(current.map((r) => [r.key, r]));
+      const wanted = new Set(snapshot.map((s) => s.key));
+      const dropTimer = (key: string) => {
+        const timer = textTimers.current.get(key);
+        if (timer) clearTimeout(timer);
+        textTimers.current.delete(key);
+      };
+
+      for (const row of current) {
+        if (wanted.has(row.key)) continue;
+        // A debounced text for a row that is going away would otherwise land
+        // as a PATCH on an id the DELETE has already taken.
+        dropTimer(row.key);
+        withServerId(row.key, (id) => {
+          void deleteItemApi(noteId, id)
+            .then(() => cacheRemove(id))
+            .catch(() => show({ message: t('common:saveFailed') }));
+        });
+      }
+
+      setRows(
+        snapshot.map((s) => ({
+          key: s.key,
+          id: byKey.get(s.key)?.id ?? null,
+          text: s.text,
+          checked: s.checked,
+          indent: s.indent,
+          position: s.position,
+        })),
+      );
+
+      for (const s of snapshot) {
+        const row = byKey.get(s.key);
+        if (!row) {
+          const creation = createItemApi(noteId, {
+            text: s.text,
+            checked: s.checked,
+            indent: s.indent,
+            position: s.position,
+          })
+            .then((item) => {
+              setRows((prev) => prev.map((r) => (r.key === s.key ? { ...r, id: item.id } : r)));
+              const live = rowsRef.current.find((r) => r.key === s.key);
+              cacheUpsert({ ...item, text: live?.text ?? item.text });
+              return item.id;
+            })
+            .catch(() => {
+              show({ message: t('common:saveFailed') });
+              return null;
+            });
+          creations.current.set(s.key, creation);
+          continue;
+        }
+        if (
+          row.text === s.text &&
+          row.checked === s.checked &&
+          row.indent === s.indent &&
+          row.position === s.position
+        ) {
+          continue;
+        }
+        dropTimer(s.key);
+        patchServer(s.key, {
+          text: s.text,
+          checked: s.checked,
+          indent: s.indent,
+          position: s.position,
+        });
+      }
+    },
+    [noteId, withServerId, patchServer, cacheUpsert, cacheRemove, show, t],
+  );
+
   useImperativeHandle(
     handleRef,
     () => ({
       hasChecked: () => rowsRef.current.some((r) => r.checked),
+      snapshot: () => toHistoryItems(rowsRef.current),
+      restore,
       uncheckAll: () => {
         dirtiedRef.current = true;
+        pendingStepRef.current = { key: null };
         setRows((prev) => prev.map((r) => ({ ...r, checked: false })));
         void uncheckAllApi(noteId).then((res) =>
           updateCachedItems(queryClient, noteId, () => res.items),
@@ -379,13 +510,14 @@ export function ChecklistEditor({
       },
       deleteChecked: () => {
         dirtiedRef.current = true;
+        pendingStepRef.current = { key: null };
         setRows((prev) => prev.filter((r) => !r.checked));
         void deleteCheckedApi(noteId).then((res) =>
           updateCachedItems(queryClient, noteId, () => res.items),
         );
       },
     }),
-    [noteId, queryClient],
+    [noteId, queryClient, restore],
   );
 
   // ---------------------------------------------------------------- dnd
@@ -505,6 +637,7 @@ export function ChecklistEditor({
         if (nextIndent !== row.indent) patch.indent = nextIndent;
 
         if (patch.position === undefined && patch.indent === undefined) return;
+        pendingStepRef.current = { key: null };
         setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
         patchServer(key, patch);
       },
@@ -649,6 +782,17 @@ function Row({
   const { t } = useTranslation('editor');
   const rootRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<HTMLButtonElement | null>(null);
+  const textRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Text can change without anyone typing into the field — an undo, a
+  // collaborator's edit — and the box has to grow or shrink to fit it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the text is the trigger, not something the effect reads
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [row.text]);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -718,13 +862,9 @@ function Row({
       />
       <textarea
         ref={(el) => {
-          if (el) {
-            inputRefs.current.set(row.key, el);
-            el.style.height = 'auto';
-            el.style.height = `${el.scrollHeight}px`;
-          } else {
-            inputRefs.current.delete(row.key);
-          }
+          textRef.current = el;
+          if (el) inputRefs.current.set(row.key, el);
+          else inputRefs.current.delete(row.key);
         }}
         value={row.text}
         readOnly={readOnly || row.checked}
@@ -733,11 +873,7 @@ function Row({
         className={`min-h-6 w-full resize-none bg-transparent px-1 py-0.5 text-[0.875rem] text-on-surface leading-5 outline-none ${
           row.checked ? 'text-on-surface-variant line-through' : ''
         } focus:border-(--outline) border-b border-transparent`}
-        onChange={(e) => {
-          onText(row.key, e.target.value);
-          e.target.style.height = 'auto';
-          e.target.style.height = `${e.target.scrollHeight}px`;
-        }}
+        onChange={(e) => onText(row.key, e.target.value)}
         onKeyDown={(e) => {
           if (readOnly || row.checked) return;
           const el = e.currentTarget;

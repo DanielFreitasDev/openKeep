@@ -10,7 +10,7 @@ The v1.0 scope: full parity with the Google Keep **web** app as researched in Ju
 - Limits: body 19,999 characters, title ~999 characters.
 - "Empty note discarded" when a composer/editor closes with no content.
 - Edited timestamp in editor footer, with created-date tooltip on hover.
-- Session-scoped Undo/Redo inside the editor (cleared when the editor closes; v1.0 covers the body — title/list-item undo *deferred*).
+- Session-scoped Undo/Redo inside the editor (cleared when the editor closes), over the body, the title and the list items — Ctrl+Z / Ctrl+Y or the toolbar buttons. Typing coalesces per field; adding, splitting, checking, indenting, reordering or deleting a row is one step each, and undoing a deleted row puts it back on the server.
 - Version history: markdown snapshots per editing session, dated list, download as `.md`; in-place restore keeps the formatting (small enhancement over Keep).
 - "Make a copy": copies content, color, labels, images; does **not** copy reminders, collaborators, or pin state.
 
