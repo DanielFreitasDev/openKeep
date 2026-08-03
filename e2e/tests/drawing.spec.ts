@@ -152,6 +152,34 @@ test('zoom buttons scale the page and Fit to screen puts it back', async ({ page
   await expect(readout).toHaveText('100%');
 });
 
+test('drawing against the bottom edge grows the page', async ({ page }) => {
+  await page.getByRole('button', { name: 'New note with drawing' }).click();
+  const canvas = page.locator('canvas[aria-label="Drawing"]');
+  await expect(canvas).toBeVisible();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas not laid out');
+
+  // A fresh page is exactly the viewport, so it starts fitted at 100%.
+  const readout = canvas.locator('..').getByText('%');
+  await expect(readout).toHaveText('100%');
+
+  // Drag ink into the bottom edge: the paper is a roll, so it lengthens.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height - 2, { steps: 20 });
+  await page.mouse.up();
+
+  // Taller than the window now, so fitting the whole page has to zoom out.
+  await page.getByRole('button', { name: 'Fit to screen' }).click();
+  await expect(readout).not.toHaveText('100%');
+
+  // And the taller page is what gets saved.
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Edit drawing' }),
+  ).toBeVisible();
+});
+
 test('the editor ⋮ menu offers Add drawing', async ({ page }) => {
   // A note created through the composer…
   await page.getByLabel('Take a note…').click();

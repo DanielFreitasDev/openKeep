@@ -76,6 +76,17 @@ type PanelId = Tool | 'grid' | null;
 
 const TOOLBAR_H = 56;
 
+/**
+ * The paper grows under the pen: ink coming within `MARGIN` page pixels of the
+ * bottom adds `CHUNK` more, and holding the pen inside `EDGE` container pixels
+ * of the bottom rolls the page up at `SPEED` per frame so the stroke can keep
+ * going. It only ever grows downwards — Keep's canvas is a roll, not a sheet.
+ */
+const EXTEND_MARGIN = 24;
+const EXTEND_CHUNK = 220;
+const EXTEND_EDGE = 44;
+const EXTEND_SPEED = 9;
+
 const GRID_OPTIONS: { id: DrawingBackground; svg: string | null }[] = [
   { id: 'squares', svg: grid4x4Svg },
   { id: 'dots', svg: grainSvg },
@@ -126,6 +137,10 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const selRef = useRef<DrawingStroke[]>([]);
   const moveRef = useRef<{ x: number; y: number; dx: number; dy: number } | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
+
+  // Auto-extend: the frame that rolls the paper, and where the pen last was.
+  const autoScrollRef = useRef(0);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   // Canvas geometry: a fixed logical page, letterbox-fitted to the viewport.
   const [meta, setMeta] = useState<{ width: number; height: number } | null>(() =>
@@ -277,6 +292,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     () => () => {
       cancelAnimationFrame(frameRef.current);
       cancelAnimationFrame(staticFrameRef.current);
+      cancelAnimationFrame(autoScrollRef.current);
     },
     [],
   );
@@ -390,6 +406,62 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     return [Math.min(Math.max(x, 0), m.width), Math.min(Math.max(y, 0), m.height)];
   };
 
+  /**
+   * Add paper at the bottom. `fitted` is dropped on the way: re-fitting a page
+   * that just got taller would shrink the ink mid-stroke, which is exactly the
+   * jump the pen is trying to avoid. The person's zoom (or Fit) decides later.
+   */
+  const growPageTo = (height: number) => {
+    const m = metaRef.current;
+    if (!m) return;
+    const next = Math.min(LIMITS.drawingSideMax, Math.ceil(height));
+    if (next <= m.height) return;
+    fittedRef.current = false;
+    const size = { width: m.width, height: next };
+    metaRef.current = size;
+    setMeta(size);
+    markDirty();
+  };
+
+  /** Ink nearing the bottom edge of the paper pulls more of it into view. */
+  const extendUnder = (clientY: number) => {
+    const canvas = liveCanvasRef.current;
+    const m = metaRef.current;
+    if (!canvas || !m || m.height >= LIMITS.drawingSideMax) return;
+    const rect = canvas.getBoundingClientRect();
+    const y = (clientY - rect.top - viewRef.current.offY) / viewRef.current.scale;
+    if (y > m.height - EXTEND_MARGIN) growPageTo(y + EXTEND_CHUNK);
+  };
+
+  /**
+   * Holding the pen against the bottom of the window keeps the stroke going:
+   * every frame the paper grows, rolls up under the pointer, and takes another
+   * point — a pointer that has stopped moving sends no events of its own.
+   */
+  const rollPage = () => {
+    autoScrollRef.current = 0;
+    const cur = currentRef.current;
+    const p = lastPointerRef.current;
+    const canvas = liveCanvasRef.current;
+    if (!cur || !p || !canvas) return;
+    if (p.y < canvas.getBoundingClientRect().bottom - EXTEND_EDGE) return;
+    extendUnder(p.y);
+    panBy(0, -EXTEND_SPEED);
+    extendUnder(p.y);
+    if (cur.points.length < LIMITS.drawingPointsPerStrokeMax * 2) {
+      const [x, y] = toCanvasPoint({ clientX: p.x, clientY: p.y });
+      const [mx, my] = modelerRef.current.next(x, y);
+      cur.points.push(mx, my);
+    }
+    scheduleLive();
+    autoScrollRef.current = requestAnimationFrame(rollPage);
+  };
+
+  const stopRolling = () => {
+    if (autoScrollRef.current) cancelAnimationFrame(autoScrollRef.current);
+    autoScrollRef.current = 0;
+  };
+
   const eraseAt = (x: number, y: number) => {
     const hits = eraseRef.current;
     if (!hits) return;
@@ -445,6 +517,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
 
   /** Drop whatever gesture is mid-flight (a second finger landed, say). */
   const abandonGesture = () => {
+    stopRolling();
     currentRef.current = null;
     eraseRef.current = null;
     lassoRef.current = null;
@@ -619,6 +692,16 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     }
     const cur = currentRef.current;
     if (!cur) return;
+    // Drawing past the bottom of the paper adds more of it; parking the pen
+    // there hands the job to the frame loop, which keeps the stroke alive.
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    extendUnder(e.clientY);
+    const bottom = e.currentTarget.getBoundingClientRect().bottom;
+    if (e.clientY >= bottom - EXTEND_EDGE) {
+      if (!autoScrollRef.current) autoScrollRef.current = requestAnimationFrame(rollPage);
+    } else {
+      stopRolling();
+    }
     for (const ev of events) {
       if (cur.points.length >= LIMITS.drawingPointsPerStrokeMax * 2) break;
       const [x, y] = toCanvasPoint(ev);
@@ -633,6 +716,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     pointersRef.current.delete(e.pointerId);
+    stopRolling();
     if (pinchRef.current) {
       // The finger left over must not become a stroke: it keeps panning until
       // it lifts too (lifting one finger of a pinch is never a draw gesture).

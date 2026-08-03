@@ -43,8 +43,8 @@ export type DrawingStroke = z.infer<typeof zDrawingStroke>;
 /** The editable vector form of a drawing; the PNG is its rendered export. */
 export const zDrawingData = z.object({
   version: z.literal(1),
-  width: z.number().int().min(16).max(8192),
-  height: z.number().int().min(16).max(8192),
+  width: z.number().int().min(16).max(LIMITS.drawingSideMax),
+  height: z.number().int().min(16).max(LIMITS.drawingSideMax),
   background: zDrawingBackground,
   strokes: z.array(zDrawingStroke).max(LIMITS.drawingStrokesMax),
 });
