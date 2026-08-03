@@ -86,6 +86,51 @@ test('eraser removes a whole stroke; Clear page + undo restore it', async ({ pag
   ).toBeVisible();
 });
 
+test('the lasso picks up a stroke, moves it, and can delete it', async ({ page }) => {
+  await page.getByRole('button', { name: 'New note with drawing' }).click();
+  const canvas = page.locator('canvas[aria-label="Drawing"]');
+  await expect(canvas).toBeVisible();
+  await drawSquiggle(page);
+
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas not laid out');
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  // Loop right around the squiggle (it spans ±120px around the middle).
+  await page.getByRole('button', { name: 'Select', exact: true }).click();
+  await page.mouse.move(cx - 180, cy - 60);
+  await page.mouse.down();
+  for (const [x, y] of [
+    [cx + 180, cy - 60],
+    [cx + 180, cy + 100],
+    [cx - 180, cy + 100],
+  ] as const) {
+    await page.mouse.move(x, y, { steps: 10 });
+  }
+  await page.mouse.up();
+
+  // The loop caught it: the tool's panel now offers to delete the selection.
+  await page.getByRole('button', { name: 'Select', exact: true }).click();
+  const deleteSelection = page.getByRole('button', { name: 'Delete selection' });
+  await expect(deleteSelection).toBeEnabled();
+  await page.keyboard.press('Escape');
+
+  // Dragging from inside the selection moves the ink, and that is undoable.
+  const undoButton = page.getByRole('button', { name: 'Undo' });
+  await page.mouse.move(cx, cy + 20);
+  await page.mouse.down();
+  await page.mouse.move(cx, cy + 90, { steps: 10 });
+  await page.mouse.up();
+  await expect(undoButton).toBeEnabled();
+
+  // Delete empties the page: leaving it now discards the note, Keep-style.
+  await page.getByRole('button', { name: 'Select', exact: true }).click();
+  await deleteSelection.click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByText('Empty note discarded')).toBeVisible();
+});
+
 test('zoom buttons scale the page and Fit to screen puts it back', async ({ page }) => {
   await page.getByRole('button', { name: 'New note with drawing' }).click();
   await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();

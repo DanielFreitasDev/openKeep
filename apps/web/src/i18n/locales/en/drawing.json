@@ -4,6 +4,8 @@
   "marker": "Marker",
   "highlighter": "Highlighter",
   "eraser": "Eraser",
+  "lasso": "Select",
+  "deleteSelection": "Delete selection",
   "clearPage": "Clear page",
   "grid": "Grid",
   "grid_squares": "Squares",

@@ -13,6 +13,7 @@ import inkMarkerSvg from '@material-symbols/svg-700/outlined/ink_marker.svg?raw'
 import inkPenSvg from '@material-symbols/svg-700/outlined/ink_pen.svg?raw';
 import expandMoreSvg from '@material-symbols/svg-700/outlined/keyboard_arrow_down.svg?raw';
 import expandLessSvg from '@material-symbols/svg-700/outlined/keyboard_arrow_up.svg?raw';
+import lassoSelectSvg from '@material-symbols/svg-700/outlined/lasso_select.svg?raw';
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import progressActivitySvg from '@material-symbols/svg-700/outlined/progress_activity.svg?raw';
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
@@ -35,12 +36,17 @@ import {
   DRAWING_COLORS,
   DRAWING_SIZES,
   drawGrid,
+  drawLassoPath,
+  drawSelectionBox,
   drawStroke,
   drawStrokes,
   exportDrawingPng,
+  inkBounds,
   strokeHitsPoint,
+  strokesInPolygon,
   TOOL_DEFAULTS,
   TOOL_WIDTH_FACTOR,
+  translateStroke,
 } from '../../lib/drawing.js';
 import {
   clampView,
@@ -58,9 +64,15 @@ const EMPTY_BINDINGS: Record<string, (e: KeyboardEvent) => void> = {};
 type UndoOp =
   | { kind: 'add'; stroke: DrawingStroke }
   | { kind: 'erase'; entries: { index: number; stroke: DrawingStroke }[] }
+  | { kind: 'move'; strokes: DrawingStroke[]; dx: number; dy: number }
   | { kind: 'clear'; strokes: DrawingStroke[] };
 
-type PanelId = DrawingTool | 'eraser' | 'grid' | null;
+/** The toolbar's tools: three that lay ink down, plus two that act on it. */
+type Tool = DrawingTool | 'eraser' | 'lasso';
+
+const isInkTool = (tool: Tool): tool is DrawingTool => tool !== 'eraser' && tool !== 'lasso';
+
+type PanelId = Tool | 'grid' | null;
 
 const TOOLBAR_H = 56;
 
@@ -93,7 +105,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   useKeyScope('editor', EMPTY_BINDINGS);
   const [, force] = useReducer((n: number) => n + 1, 0);
 
-  const [tool, setTool] = useState<DrawingTool | 'eraser'>('pen');
+  const [tool, setTool] = useState<Tool>('pen');
   const [panel, setPanel] = useState<PanelId>(null);
   const [toolState, setToolState] = useState(TOOL_DEFAULTS);
   const [background, setBackground] = useState<DrawingBackground>('none');
@@ -108,6 +120,12 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const eraseRef = useRef<{ index: number; stroke: DrawingStroke }[] | null>(null);
   const dirtyRef = useRef(false);
   const doneRef = useRef(false);
+
+  // Lasso: the loop being drawn, what it caught, and the drag moving it.
+  const lassoRef = useRef<number[] | null>(null);
+  const selRef = useRef<DrawingStroke[]>([]);
+  const moveRef = useRef<{ x: number; y: number; dx: number; dy: number } | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
 
   // Canvas geometry: a fixed logical page, letterbox-fitted to the viewport.
   const [meta, setMeta] = useState<{ width: number; height: number } | null>(() =>
@@ -223,12 +241,18 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const cur = currentRef.current;
-    if (!cur) return;
+    const lasso = lassoRef.current;
+    const sel = selRef.current;
+    if (!cur && !lasso && sel.length === 0) return;
     const view = applyView(canvas);
     if (!view) return;
+    const { scale } = viewRef.current;
     view.save();
     clipToPage(view);
-    drawStroke(view, cur);
+    if (cur) drawStroke(view, cur);
+    if (lasso) drawLassoPath(view, lasso, scale);
+    const box = sel.length > 0 ? inkBounds(sel) : null;
+    if (box) drawSelectionBox(view, box, scale);
     view.restore();
   };
 
@@ -410,11 +434,67 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     force();
   };
 
+  const clearSelection = () => {
+    if (selRef.current.length === 0 && !lassoRef.current) return;
+    selRef.current = [];
+    lassoRef.current = null;
+    moveRef.current = null;
+    setHasSelection(false);
+    redrawLive();
+  };
+
   /** Drop whatever gesture is mid-flight (a second finger landed, say). */
   const abandonGesture = () => {
     currentRef.current = null;
     eraseRef.current = null;
+    lassoRef.current = null;
+    moveRef.current = null;
     redrawLive();
+  };
+
+  /** The grab area of a selection: its ink box, with the marquee's padding. */
+  const selectionHit = (x: number, y: number): boolean => {
+    const box = selRef.current.length > 0 ? inkBounds(selRef.current) : null;
+    if (!box) return false;
+    const pad = 6 / viewRef.current.scale;
+    return (
+      x >= box.left - pad && x <= box.right + pad && y >= box.top - pad && y <= box.bottom + pad
+    );
+  };
+
+  /** Drag the selection, clamped so ink can never be pushed off the page. */
+  const moveSelection = (x: number, y: number) => {
+    const drag = moveRef.current;
+    const m = metaRef.current;
+    const box = selRef.current.length > 0 ? inkBounds(selRef.current) : null;
+    if (!drag || !m || !box) return;
+    const dx = Math.min(Math.max(x - drag.x, -box.left), m.width - box.right);
+    const dy = Math.min(Math.max(y - drag.y, -box.top), m.height - box.bottom);
+    if (dx === 0 && dy === 0) return;
+    for (const s of selRef.current) translateStroke(s, dx, dy);
+    moveRef.current = { x, y, dx: drag.dx + dx, dy: drag.dy + dy };
+    scheduleStatic();
+    scheduleLive();
+  };
+
+  const deleteSelection = () => {
+    setPanel(null);
+    const sel = selRef.current;
+    if (sel.length === 0) return;
+    const entries: { index: number; stroke: DrawingStroke }[] = [];
+    for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+      const s = strokesRef.current[i];
+      if (s && sel.includes(s)) {
+        entries.push({ index: i, stroke: s });
+        strokesRef.current.splice(i, 1);
+      }
+    }
+    undoRef.current.push({ kind: 'erase', entries });
+    redoRef.current = [];
+    clearSelection();
+    redrawStatic();
+    markDirty();
+    force();
   };
 
   /** Two fingers: zoom+pan together, anchored on the page point they grabbed. */
@@ -473,6 +553,17 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
       eraseAt(x, y);
       return;
     }
+    if (tool === 'lasso') {
+      // Landing on a selection drags it; landing anywhere else starts a loop.
+      if (selectionHit(x, y)) {
+        moveRef.current = { x, y, dx: 0, dy: 0 };
+        return;
+      }
+      clearSelection();
+      lassoRef.current = [x, y];
+      scheduleLive();
+      return;
+    }
     if (strokesRef.current.length >= LIMITS.drawingStrokesMax) return;
     const state = toolState[tool];
     modelerRef.current = createStrokeModeler();
@@ -507,6 +598,23 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
         const [x, y] = toCanvasPoint(ev);
         eraseAt(x, y);
       }
+      return;
+    }
+    if (moveRef.current) {
+      const [x, y] = toCanvasPoint(e);
+      moveSelection(x, y);
+      return;
+    }
+    const lasso = lassoRef.current;
+    if (lasso) {
+      for (const ev of events) {
+        const [x, y] = toCanvasPoint(ev);
+        const lastX = lasso[lasso.length - 2] ?? Number.NaN;
+        const lastY = lasso[lasso.length - 1] ?? Number.NaN;
+        if (Math.hypot(x - lastX, y - lastY) < 2 / viewRef.current.scale) continue;
+        lasso.push(x, y);
+      }
+      scheduleLive();
       return;
     }
     const cur = currentRef.current;
@@ -547,6 +655,30 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
       eraseRef.current = null;
       return;
     }
+    const drag = moveRef.current;
+    if (drag) {
+      moveRef.current = null;
+      if (drag.dx !== 0 || drag.dy !== 0) {
+        undoRef.current.push({
+          kind: 'move',
+          strokes: [...selRef.current],
+          dx: drag.dx,
+          dy: drag.dy,
+        });
+        redoRef.current = [];
+        markDirty();
+        force();
+      }
+      return;
+    }
+    const lasso = lassoRef.current;
+    if (lasso) {
+      lassoRef.current = null;
+      selRef.current = strokesInPolygon(strokesRef.current, lasso);
+      setHasSelection(selRef.current.length > 0);
+      redrawLive();
+      return;
+    }
     const cur = currentRef.current;
     if (cur) {
       // Land exactly where the pointer lifted (the modeler trails behind).
@@ -556,9 +688,11 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     }
   };
 
+  // History rearranges the strokes a selection points at, so it drops it.
   const undo = () => {
     const op = undoRef.current.pop();
     if (!op) return;
+    clearSelection();
     if (op.kind === 'add') {
       const idx = strokesRef.current.lastIndexOf(op.stroke);
       if (idx >= 0) strokesRef.current.splice(idx, 1);
@@ -570,6 +704,8 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
           entry.stroke,
         );
       }
+    } else if (op.kind === 'move') {
+      for (const s of op.strokes) translateStroke(s, -op.dx, -op.dy);
     } else {
       strokesRef.current.push(...op.strokes);
     }
@@ -582,6 +718,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const redo = () => {
     const op = redoRef.current.pop();
     if (!op) return;
+    clearSelection();
     if (op.kind === 'add') {
       strokesRef.current.push(op.stroke);
     } else if (op.kind === 'erase') {
@@ -589,6 +726,8 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
         const idx = strokesRef.current.indexOf(entry.stroke);
         if (idx >= 0) strokesRef.current.splice(idx, 1);
       }
+    } else if (op.kind === 'move') {
+      for (const s of op.strokes) translateStroke(s, op.dx, op.dy);
     } else {
       strokesRef.current = [];
     }
@@ -600,6 +739,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
 
   const clearPage = () => {
     setPanel(null);
+    clearSelection();
     if (strokesRef.current.length === 0) return;
     undoRef.current.push({ kind: 'clear', strokes: strokesRef.current });
     redoRef.current = [];
@@ -743,7 +883,12 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
         setSpaceHeld(true);
       } else if (e.key === 'Escape' && panel === null) {
         e.preventDefault();
-        void saveAndExit();
+        // A selection is the first thing Escape lets go of; the page is next.
+        if (selRef.current.length > 0) clearSelection();
+        else void saveAndExit();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selRef.current.length > 0) {
+        e.preventDefault();
+        deleteSelection();
       } else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
         e.preventDefault();
         zoomBy(ZOOM_STEP);
@@ -782,11 +927,17 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const busy = saving || (drawingId !== null && !meta);
 
   const setToolColor = (color: string) =>
-    setToolState((s) => (tool === 'eraser' ? s : { ...s, [tool]: { ...s[tool], color } }));
+    setToolState((s) => (isInkTool(tool) ? { ...s, [tool]: { ...s[tool], color } } : s));
   const setToolSize = (sizeIndex: number) =>
-    setToolState((s) => (tool === 'eraser' ? s : { ...s, [tool]: { ...s[tool], sizeIndex } }));
+    setToolState((s) => (isInkTool(tool) ? { ...s, [tool]: { ...s[tool], sizeIndex } } : s));
 
-  const toolButton = (id: DrawingTool | 'eraser', svg: string, label: string) => (
+  // Leaving the lasso behind drops what it was holding.
+  const pickTool = (id: Tool) => {
+    if (id !== 'lasso') clearSelection();
+    setTool(id);
+  };
+
+  const toolButton = (id: Tool, svg: string, label: string) => (
     <Popover.Root
       open={panel === id}
       onOpenChange={(open) => {
@@ -795,7 +946,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
           return;
         }
         if (tool === id) setPanel(id);
-        else setTool(id);
+        else pickTool(id);
       }}
     >
       <Popover.Trigger
@@ -810,21 +961,22 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
       <Popover.Portal>
         <Popover.Positioner className="z-[80]" sideOffset={6} align="start">
           <Popover.Popup className="rounded-lg border border-[#dadce0] bg-white p-2 shadow-(--elevation-3)">
-            {id === 'eraser' ? (
-              <button
-                type="button"
-                onClick={clearPage}
-                className="flex h-10 items-center rounded px-3 text-[#202124] text-sm hover:bg-black/5"
-              >
-                {t('clearPage')}
-              </button>
-            ) : (
+            {isInkTool(id) ? (
               <PalettePanel
-                color={toolState[id as DrawingTool].color}
-                sizeIndex={toolState[id as DrawingTool].sizeIndex}
+                color={toolState[id].color}
+                sizeIndex={toolState[id].sizeIndex}
                 onColor={setToolColor}
                 onSize={setToolSize}
               />
+            ) : (
+              <button
+                type="button"
+                onClick={id === 'eraser' ? clearPage : deleteSelection}
+                disabled={id === 'lasso' && !hasSelection}
+                className="flex h-10 items-center rounded px-3 text-[#202124] text-sm hover:bg-black/5 disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                {t(id === 'eraser' ? 'clearPage' : 'deleteSelection')}
+              </button>
             )}
           </Popover.Popup>
         </Popover.Positioner>
@@ -844,7 +996,10 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
           <Icon svg={arrowBackSvg} size={22} />
         </button>
 
-        <div className="ml-2 flex items-center gap-1">
+        {/* Six tools plus the paper picker outgrow a phone; they scroll rather
+            than shove undo/redo/⋮ off the end of the bar. */}
+        <div className="ml-2 flex min-w-0 items-center gap-1 overflow-x-auto">
+          {toolButton('lasso', lassoSelectSvg, t('lasso'))}
           {toolButton('eraser', inkEraserSvg, t('eraser'))}
           {toolButton('pen', inkPenSvg, t('pen'))}
           {toolButton('marker', inkMarkerSvg, t('marker'))}

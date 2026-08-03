@@ -172,6 +172,107 @@ export function strokeHitsPoint(s: DrawingStroke, x: number, y: number, radius: 
   return false;
 }
 
+/** Ray casting against a closed flat polygon [x0, y0, x1, y1, …]. */
+export function pointInPolygon(poly: readonly number[], x: number, y: number): boolean {
+  const n = Math.floor(poly.length / 2);
+  let inside = false;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = poly[i * 2] ?? 0;
+    const yi = poly[i * 2 + 1] ?? 0;
+    const xj = poly[j * 2] ?? 0;
+    const yj = poly[j * 2 + 1] ?? 0;
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * The lasso takes a stroke only when the loop encloses all of it — the same
+ * bargain Keep makes: circle what you mean, and half-crossed neighbours stay
+ * put. The polygon's own box rejects most candidates before any ray casting.
+ */
+export function strokesInPolygon(
+  strokes: readonly DrawingStroke[],
+  poly: readonly number[],
+): DrawingStroke[] {
+  if (poly.length < 6) return [];
+  let pl = Number.POSITIVE_INFINITY;
+  let pt = Number.POSITIVE_INFINITY;
+  let pr = Number.NEGATIVE_INFINITY;
+  let pb = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i + 1 < poly.length; i += 2) {
+    pl = Math.min(pl, poly[i] ?? 0);
+    pr = Math.max(pr, poly[i] ?? 0);
+    pt = Math.min(pt, poly[i + 1] ?? 0);
+    pb = Math.max(pb, poly[i + 1] ?? 0);
+  }
+  const picked: DrawingStroke[] = [];
+  for (const s of strokes) {
+    let outside = s.points.length < 2;
+    for (let i = 0; !outside && i + 1 < s.points.length; i += 2) {
+      const x = s.points[i] ?? 0;
+      const y = s.points[i + 1] ?? 0;
+      outside = x < pl || x > pr || y < pt || y > pb;
+    }
+    if (outside) continue;
+    let all = true;
+    for (let i = 0; all && i + 1 < s.points.length; i += 2) {
+      all = pointInPolygon(poly, s.points[i] ?? 0, s.points[i + 1] ?? 0);
+    }
+    if (all) picked.push(s);
+  }
+  return picked;
+}
+
+/** Move a stroke in place (the lasso drag; undo replays it backwards). */
+export function translateStroke(s: DrawingStroke, dx: number, dy: number): void {
+  for (let i = 0; i + 1 < s.points.length; i += 2) {
+    s.points[i] = (s.points[i] ?? 0) + dx;
+    s.points[i + 1] = (s.points[i + 1] ?? 0) + dy;
+  }
+}
+
+/** Selection chrome is measured in screen pixels, so the zoom divides out. */
+const SELECTION_INK = '#1a73e8';
+
+export function drawLassoPath(
+  ctx: CanvasRenderingContext2D,
+  poly: readonly number[],
+  scale: number,
+): void {
+  if (poly.length < 4) return;
+  ctx.save();
+  ctx.setLineDash([6 / scale, 4 / scale]);
+  ctx.lineWidth = 1.5 / scale;
+  ctx.strokeStyle = SELECTION_INK;
+  ctx.beginPath();
+  ctx.moveTo(poly[0] ?? 0, poly[1] ?? 0);
+  for (let i = 2; i + 1 < poly.length; i += 2) ctx.lineTo(poly[i] ?? 0, poly[i + 1] ?? 0);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawSelectionBox(
+  ctx: CanvasRenderingContext2D,
+  box: { left: number; top: number; right: number; bottom: number },
+  scale: number,
+): void {
+  const pad = 6 / scale;
+  ctx.save();
+  ctx.setLineDash([5 / scale, 4 / scale]);
+  ctx.lineWidth = 1.5 / scale;
+  ctx.strokeStyle = SELECTION_INK;
+  ctx.fillStyle = 'rgba(26, 115, 232, 0.08)';
+  const x = box.left - pad;
+  const y = box.top - pad;
+  const w = box.right - box.left + pad * 2;
+  const h = box.bottom - box.top + pad * 2;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
+}
+
 /** Ink bounding box (stroke widths included), or null for an empty page. */
 export function inkBounds(
   strokes: readonly DrawingStroke[],

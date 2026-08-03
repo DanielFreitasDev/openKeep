@@ -4,6 +4,8 @@
   "marker": "Marcador",
   "highlighter": "Marca-texto",
   "eraser": "Borracha",
+  "lasso": "Selecionar",
+  "deleteSelection": "Excluir seleção",
   "clearPage": "Limpar página",
   "grid": "Grade",
   "grid_squares": "Quadrados",

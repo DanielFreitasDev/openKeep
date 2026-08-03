@@ -5,7 +5,10 @@ import {
   DRAWING_COLORS,
   DRAWING_SIZES,
   inkBounds,
+  pointInPolygon,
   strokeHitsPoint,
+  strokesInPolygon,
+  translateStroke,
 } from './drawing.js';
 
 const stroke = (points: number[], size = 4): DrawingStroke => ({
@@ -54,5 +57,34 @@ describe('drawing engine', () => {
     expect(DRAWING_COLORS).toHaveLength(28);
     expect(new Set(DRAWING_COLORS).size).toBe(28);
     expect(DRAWING_SIZES).toHaveLength(8);
+  });
+});
+
+// A 100×100 loop around the origin corner.
+const square = [0, 0, 100, 0, 100, 100, 0, 100];
+
+describe('lasso selection', () => {
+  it('point-in-polygon ignores what the loop only passes by', () => {
+    expect(pointInPolygon(square, 50, 50)).toBe(true);
+    expect(pointInPolygon(square, 150, 50)).toBe(false);
+  });
+
+  it('takes a stroke only when the loop encloses all of it', () => {
+    const inside = stroke([10, 10, 90, 90]);
+    const halfIn = stroke([90, 90, 190, 90]);
+    const outside = stroke([300, 300, 320, 320]);
+    expect(strokesInPolygon([inside, halfIn, outside], square)).toEqual([inside]);
+  });
+
+  it('a lasso needs three points to enclose anything', () => {
+    expect(strokesInPolygon([stroke([10, 10, 20, 20])], [0, 0, 100, 100])).toEqual([]);
+  });
+
+  it('translating a stroke moves every point and is exactly reversible', () => {
+    const s = stroke([10, 20, 30, 40]);
+    translateStroke(s, 5, -5);
+    expect(s.points).toEqual([15, 15, 35, 35]);
+    translateStroke(s, -5, 5);
+    expect(s.points).toEqual([10, 20, 30, 40]);
   });
 });
