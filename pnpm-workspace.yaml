@@ -10,6 +10,13 @@ allowBuilds:
   esbuild: true
   protobufjs: false
   ssh2: false
+overrides:
+  # GHSA-rgw5-rvv9-x895 (high): brace-expansion <5.0.9 blows up on nested
+  # braces. It reaches us only under minimatch 10 (@fastify/static's glob and
+  # archiver's readdir-glob); older minimatch lines are on the unaffected 2.x,
+  # so the pin is scoped rather than global. Drop it once minimatch ships the
+  # bump itself.
+  minimatch@10>brace-expansion: '>=5.0.9'
 minimumReleaseAgeExclude:
   # MCP TypeScript SDK v2 — spec-day releases (2026-07-28), pinned exact.
   - '@modelcontextprotocol/client@2.0.0'
