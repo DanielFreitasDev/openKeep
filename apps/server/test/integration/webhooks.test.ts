@@ -57,9 +57,9 @@ function startReceiver(): Promise<{
 }
 
 /** Deliveries are fired and forgotten by design — wait for the effect. */
-async function waitFor(check: () => boolean, timeoutMs = 10_000): Promise<void> {
+async function waitFor(check: () => boolean | Promise<boolean>, timeoutMs = 10_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  while (!check()) {
+  while (!(await check())) {
     if (Date.now() > deadline) throw new Error('timed out waiting for delivery');
     await new Promise((r) => setTimeout(r, 25));
   }
@@ -167,7 +167,13 @@ describe('outgoing webhooks', () => {
     // stamp does not verify.
     expect(verifySignature(hook.secret, '1', delivery.raw, signature)).toBe(false);
 
-    const [row] = await t.db.select().from(webhooksTable).where(eq(webhooksTable.id, hook.id));
+    // The row is stamped once the receiver has answered, which is strictly
+    // after it recorded the request — so poll it instead of reading it once.
+    let row: typeof webhooksTable.$inferSelect | undefined;
+    await waitFor(async () => {
+      [row] = await t.db.select().from(webhooksTable).where(eq(webhooksTable.id, hook.id));
+      return row?.lastStatus != null;
+    });
     expect(row?.lastStatus).toBe(200);
     expect(row?.lastError).toBeNull();
   });
