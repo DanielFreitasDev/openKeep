@@ -45,7 +45,8 @@ test('custom date & time with recurrence shows recurring chip in editor', async 
   await dt.fill(
     `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}T09:30`,
   );
-  await page.getByLabel('Repeat').selectOption('FREQ=WEEKLY');
+  await page.getByRole('combobox', { name: 'Repeat' }).click();
+  await page.getByRole('option', { name: 'Weekly' }).click();
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(dialog.getByRole('button', { name: 'Edit reminder' })).toBeVisible();

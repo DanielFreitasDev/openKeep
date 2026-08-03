@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { patchSettings, settingsQuery } from '../../lib/queries.js';
 import { useUiStore } from '../../stores/ui.js';
+import { Select } from '../Select.js';
 import { CalendarFeedSection } from './CalendarFeedSection.js';
 import { DeleteAllNotesSection } from './DeleteAllNotesSection.js';
 import { StorageSection } from './StorageSection.js';
@@ -78,18 +79,21 @@ export function SettingsDialog() {
               checked={settings.richLinkPreviews}
               onChange={toggle('richLinkPreviews')}
             />
-            <label className="flex items-center justify-between py-2.5 text-on-surface text-sm">
+            <div className="flex items-center justify-between py-2.5 text-on-surface text-sm">
               {t('themeLabel')}
-              <select
+              <Select
                 value={theme}
-                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-                className="rounded border border-(--outline) bg-surface px-2 py-1 text-sm"
-              >
-                <option value="system">{t('themeSystem')}</option>
-                <option value="light">{t('themeLight')}</option>
-                <option value="dark">{t('themeDark')}</option>
-              </select>
-            </label>
+                options={[
+                  { value: 'system', label: t('themeSystem') },
+                  { value: 'light', label: t('themeLight') },
+                  { value: 'dark', label: t('themeDark') },
+                ]}
+                label={t('themeLabel')}
+                size="md"
+                className="flex-none"
+                onChange={setTheme}
+              />
+            </div>
           </section>
 
           <section className="mt-4">

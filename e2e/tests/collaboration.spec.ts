@@ -117,7 +117,8 @@ test('view-only: shared content is frozen, own board state is not, promotion unf
     .getByRole('button', { name: 'Collaborator' })
     .click();
   await owner.getByLabel('Person or email to share with').fill(viewerEmail);
-  await owner.getByLabel('Permission', { exact: true }).selectOption('viewer');
+  await owner.getByRole('combobox', { name: 'Permission', exact: true }).click();
+  await owner.getByRole('option', { name: 'Can view' }).click();
   await owner.getByRole('button', { name: 'Share', exact: true }).click();
   await expect(owner.getByText(viewerEmail)).toBeVisible();
   await owner.getByRole('button', { name: 'Done' }).click();
@@ -156,7 +157,8 @@ test('view-only: shared content is frozen, own board state is not, promotion unf
   await cardRootByTitle(owner, 'Read only plan')
     .getByRole('button', { name: 'Collaborator' })
     .click();
-  await owner.getByLabel('Permission for Viewer').selectOption('collaborator');
+  await owner.getByRole('combobox', { name: 'Permission for Viewer' }).click();
+  await owner.getByRole('option', { name: 'Can edit' }).click();
   await owner.getByRole('button', { name: 'Done' }).click();
 
   await cardByTitle(viewer, 'Read only plan').click();

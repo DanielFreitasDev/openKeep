@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useTokenMutations } from '../../hooks/use-token-mutations.js';
 import { tokensQuery } from '../../lib/tokens-api.js';
 import { useUiStore } from '../../stores/ui.js';
+import { Select } from '../Select.js';
 
 const EXPIRY_OPTIONS = [30, 90, 365, 0] as const;
 
@@ -99,18 +100,17 @@ export function ApiTokensDialog() {
                   if (e.key === 'Enter') submit();
                 }}
               />
-              <select
-                value={expiresInDays}
-                aria-label={t('expiryLabel')}
-                className="rounded border border-(--outline) bg-surface px-2 py-2 text-on-surface text-sm outline-none"
-                onChange={(e) => setExpiresInDays(Number(e.target.value))}
-              >
-                {EXPIRY_OPTIONS.map((days) => (
-                  <option key={days} value={days}>
-                    {days === 0 ? t('expiryNever') : t('expiryDays', { days })}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={String(expiresInDays)}
+                options={EXPIRY_OPTIONS.map((days) => ({
+                  value: String(days),
+                  label: days === 0 ? t('expiryNever') : t('expiryDays', { days }),
+                }))}
+                label={t('expiryLabel')}
+                size="md"
+                className="flex-none py-2"
+                onChange={(days) => setExpiresInDays(Number(days))}
+              />
               <button
                 type="button"
                 disabled={name.trim() === '' || create.isPending}

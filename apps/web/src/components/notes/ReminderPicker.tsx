@@ -6,6 +6,7 @@ import { requestPushPermission } from '../../hooks/use-push.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
 import { formatReminderTime } from '../../lib/dates.js';
 import { settingsQuery } from '../../lib/queries.js';
+import { Select } from '../Select.js';
 
 const RECURRENCES: { value: string; key: string }[] = [
   { value: '', key: 'recurNone' },
@@ -16,8 +17,15 @@ const RECURRENCES: { value: string; key: string }[] = [
   { value: 'CUSTOM', key: 'recurCustom' },
 ];
 
-const CUSTOM_FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
-type CustomFreq = (typeof CUSTOM_FREQS)[number];
+const CUSTOM_FREQ_OPTIONS = [
+  { value: 'DAILY', key: 'unitDays' },
+  { value: 'WEEKLY', key: 'unitWeeks' },
+  { value: 'MONTHLY', key: 'unitMonths' },
+  { value: 'YEARLY', key: 'unitYears' },
+] as const;
+
+const CUSTOM_FREQS = CUSTOM_FREQ_OPTIONS.map((o) => o.value);
+type CustomFreq = (typeof CUSTOM_FREQ_OPTIONS)[number]['value'];
 
 /** FREQ=X;INTERVAL=N ⇄ picker state (anything else edits as "custom"). */
 function parseCustomRule(rule: string): { freq: CustomFreq; interval: number } | null {
@@ -143,20 +151,14 @@ export function ReminderPicker({ reminder, onApply, onDelete, onDone }: Reminder
               className="rounded border border-(--outline) bg-transparent px-2 py-1.5 text-on-surface text-sm"
             />
           </label>
-          <label className="flex flex-col gap-1 text-on-surface-variant text-xs">
-            {t('repeat')}
-            <select
-              value={rrule}
-              onChange={(e) => setRrule(e.target.value)}
-              className="rounded border border-(--outline) bg-surface px-2 py-1.5 text-on-surface text-sm"
-            >
-              {RECURRENCES.map((r) => (
-                <option key={r.key} value={r.value}>
-                  {t(r.key)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            value={rrule}
+            options={RECURRENCES.map((r) => ({ value: r.value, label: t(r.key) }))}
+            label={t('repeat')}
+            showLabel
+            size="md"
+            onChange={setRrule}
+          />
           {rrule === 'CUSTOM' && (
             <div className="flex items-center gap-2 text-on-surface-variant text-xs">
               {t('repeatEvery')}
@@ -174,19 +176,17 @@ export function ReminderPicker({ reminder, onApply, onDelete, onDone }: Reminder
                 }
                 className="w-16 rounded border border-(--outline) bg-transparent px-2 py-1.5 text-on-surface text-sm"
               />
-              <select
+              <Select
                 value={customRule.freq}
-                aria-label={t('repeatUnit')}
-                onChange={(e) =>
-                  setCustomRule((c) => ({ ...c, freq: e.target.value as CustomFreq }))
-                }
-                className="flex-1 rounded border border-(--outline) bg-surface px-2 py-1.5 text-on-surface text-sm"
-              >
-                <option value="DAILY">{t('unitDays', { count: customRule.interval })}</option>
-                <option value="WEEKLY">{t('unitWeeks', { count: customRule.interval })}</option>
-                <option value="MONTHLY">{t('unitMonths', { count: customRule.interval })}</option>
-                <option value="YEARLY">{t('unitYears', { count: customRule.interval })}</option>
-              </select>
+                options={CUSTOM_FREQ_OPTIONS.map(({ value, key }) => ({
+                  value,
+                  label: t(key, { count: customRule.interval }),
+                }))}
+                label={t('repeatUnit')}
+                size="md"
+                className="flex-1"
+                onChange={(freq) => setCustomRule((c) => ({ ...c, freq }))}
+              />
             </div>
           )}
           <div className="flex justify-end gap-2">

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCollaboratorMutations } from '../../hooks/use-collaborator-mutations.js';
 import { sessionQuery } from '../../lib/queries.js';
+import { Select } from '../Select.js';
 import { PublicLinkSection } from './PublicLinkSection.js';
 
 interface ShareDialogProps {
@@ -48,8 +49,7 @@ export function ShareDialog({
   const [role, setRole] = useState<InviteRole>('collaborator');
   const myId = session?.user.id;
 
-  const roleSelectClass =
-    'rounded border border-(--outline-variant) bg-transparent px-1.5 py-1 text-on-surface-variant text-xs outline-none focus-visible:border-(--primary)';
+  const roleOptions = ROLES.map((r) => ({ value: r, label: t(`role_${r}`) }));
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -78,18 +78,13 @@ export function ShareDialog({
                 </span>
                 {c.role !== 'owner' &&
                   (isOwner && onRole ? (
-                    <select
-                      value={c.role}
-                      aria-label={t('permissionFor', { name: c.name || c.email })}
-                      className={roleSelectClass}
-                      onChange={(e) => onRole(c.userId, e.target.value as InviteRole)}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {t(`role_${r}`)}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      value={c.role as InviteRole}
+                      options={roleOptions}
+                      label={t('permissionFor', { name: c.name || c.email })}
+                      className="flex-none"
+                      onChange={(next) => onRole(c.userId, next)}
+                    />
                   ) : (
                     <span className="text-on-surface-variant text-xs">{t(`role_${c.role}`)}</span>
                   ))}
@@ -124,18 +119,13 @@ export function ShareDialog({
                   aria-label={t('emailPlaceholder')}
                   className="h-10 w-full border-(--outline-variant) border-b bg-transparent text-on-surface text-sm outline-none focus:border-(--primary)"
                 />
-                <select
+                <Select
                   value={role}
-                  aria-label={t('permission')}
-                  className={roleSelectClass}
-                  onChange={(e) => setRole(e.target.value as InviteRole)}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {t(`role_${r}`)}
-                    </option>
-                  ))}
-                </select>
+                  options={roleOptions}
+                  label={t('permission')}
+                  className="flex-none"
+                  onChange={setRole}
+                />
                 <button
                   type="submit"
                   disabled={inviting || email.trim() === ''}

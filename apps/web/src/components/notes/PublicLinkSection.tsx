@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { formatVersionStamp } from '../../lib/dates.js';
 import { createShareLink, revokeShareLink, shareLinkQuery } from '../../lib/share-link-api.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
+import { Select } from '../Select.js';
 
 /** Never (the default), a week, a month — a picker, not a date field. */
 const EXPIRY_OPTIONS: (number | null)[] = [null, 7, 30];
@@ -57,18 +58,15 @@ export function PublicLinkSection({ noteId }: { noteId: string }) {
 
       {url === null ? (
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <Select
             value={String(expiresInDays)}
-            aria-label={t('linkExpiry')}
-            className="rounded border border-(--outline-variant) bg-transparent px-1.5 py-1 text-on-surface-variant text-xs outline-none focus-visible:border-(--primary)"
-            onChange={(e) => setExpiresInDays(e.target.value === 'null' ? null : +e.target.value)}
-          >
-            {EXPIRY_OPTIONS.map((days) => (
-              <option key={String(days)} value={String(days)}>
-                {days === null ? t('linkExpiryNever') : t('linkExpiryDays', { count: days })}
-              </option>
-            ))}
-          </select>
+            options={EXPIRY_OPTIONS.map((days) => ({
+              value: String(days),
+              label: days === null ? t('linkExpiryNever') : t('linkExpiryDays', { count: days }),
+            }))}
+            label={t('linkExpiry')}
+            onChange={(next) => setExpiresInDays(next === 'null' ? null : +next)}
+          />
           <button
             type="button"
             className={buttonClass}
