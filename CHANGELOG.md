@@ -1,3 +1,21 @@
+# [1.33.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.32.0...v1.33.0) (2026-08-03)
+
+
+### Features
+
+* protect a note with a PIN or password ([b620f3e](https://github.com/DanielFreitasDev/openKeep/commit/b620f3e49f40376285d2c5a1d07664de57720299))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.33.0
+```
+
+Or download `compose.yml` below (image pinned to `1.33.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.33.0/docs/DEPLOYMENT.md).
+
 # [1.32.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.31.0...v1.32.0) (2026-08-03)
 
 
