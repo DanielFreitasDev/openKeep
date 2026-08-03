@@ -1,3 +1,4 @@
+import { Menu } from '@base-ui/react/menu';
 import codeSvg from '@material-symbols/svg-700/outlined/code.svg?raw';
 import codeBlockSvg from '@material-symbols/svg-700/outlined/data_object.svg?raw';
 import bulletListSvg from '@material-symbols/svg-700/outlined/format_list_bulleted.svg?raw';
@@ -5,7 +6,8 @@ import orderedListSvg from '@material-symbols/svg-700/outlined/format_list_numbe
 import quoteSvg from '@material-symbols/svg-700/outlined/format_quote.svg?raw';
 import ruleSvg from '@material-symbols/svg-700/outlined/horizontal_rule.svg?raw';
 import linkSvg from '@material-symbols/svg-700/outlined/link.svg?raw';
-import type { Editor } from '@tiptap/react';
+import tableSvg from '@material-symbols/svg-700/outlined/table.svg?raw';
+import { type Editor, useEditorState } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { applyLink } from '../../lib/tiptap.js';
@@ -132,6 +134,7 @@ export function FormatBar({ editor }: { editor: Editor }) {
         >
           <Icon svg={ruleSvg} size={18} />
         </FormatButton>
+        <TableControl editor={editor} />
         <Divider />
         <FormatButton
           label={t('formatClear')}
@@ -190,9 +193,90 @@ function LinkField({ editor, onClose }: { editor: Editor; onClose: () => void })
   );
 }
 
+/** Row and column edits, in the order Docs lists them (Keep has no tables). */
+const TABLE_ACTIONS: { key: string; run: (editor: Editor) => void }[] = [
+  { key: 'tableRowAbove', run: (e) => e.chain().focus().addRowBefore().run() },
+  { key: 'tableRowBelow', run: (e) => e.chain().focus().addRowAfter().run() },
+  { key: 'tableColumnLeft', run: (e) => e.chain().focus().addColumnBefore().run() },
+  { key: 'tableColumnRight', run: (e) => e.chain().focus().addColumnAfter().run() },
+  { key: 'tableDeleteRow', run: (e) => e.chain().focus().deleteRow().run() },
+  { key: 'tableDeleteColumn', run: (e) => e.chain().focus().deleteColumn().run() },
+  { key: 'tableDelete', run: (e) => e.chain().focus().deleteTable().run() },
+];
+
+/**
+ * One slot in the bar, two controls: outside a table an ordinary button that
+ * inserts one, inside a table the menu of row/column edits. A table is the one
+ * block here that needs more than a toggle, and a permanent strip of seven
+ * grid buttons in a bar that already scrolls sideways on a phone is the wrong
+ * trade. Two controls rather than one button that does both, because the
+ * insert has to keep the caret: a menu trigger takes focus for itself while it
+ * decides whether to open, and the first letters typed into the new cell go
+ * with it.
+ */
+function TableControl({ editor }: { editor: Editor }) {
+  const { t } = useTranslation('editor');
+  const inTable =
+    useEditorState({ editor, selector: ({ editor: ed }) => ed.isActive('table') }) ?? false;
+
+  if (!inTable) {
+    return (
+      <FormatButton
+        label={t('formatTable')}
+        active={false}
+        onClick={() =>
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        }
+      >
+        <Icon svg={tableSvg} size={18} />
+      </FormatButton>
+    );
+  }
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        aria-label={t('tableOptions')}
+        data-tooltip={t('tableOptions')}
+        className={formatButtonClass(true)}
+      >
+        <Icon svg={tableSvg} size={18} />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner className="z-50" sideOffset={4} side="top" align="start">
+          <Menu.Popup
+            // The caret is already back in the cell by the time this closes;
+            // handing focus back to the button would take it out again.
+            finalFocus={false}
+            // The popup is portaled out of the composer, whose click-away
+            // handler would otherwise read a menu click as "done editing".
+            data-composer-popover
+            className="z-50 min-w-52 rounded-lg border border-(--outline-variant) bg-surface py-2 shadow-(--elevation-3)"
+          >
+            {TABLE_ACTIONS.map((action) => (
+              <Menu.Item
+                key={action.key}
+                className="flex cursor-default select-none items-center py-2.5 pr-4 pl-4 text-on-surface text-sm outline-none data-[highlighted]:bg-(--surface-hover)"
+                onClick={() => action.run(editor)}
+              >
+                {t(action.key)}
+              </Menu.Item>
+            ))}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
 function Divider() {
   return <span className="mx-1 h-5 w-px flex-none bg-(--outline-variant)" />;
 }
+
+const formatButtonClass = (active: boolean) =>
+  `flex h-9 min-w-9 flex-none items-center justify-center rounded px-1.5 text-on-surface-variant text-sm hover:bg-(--surface-hover) ${
+    active ? 'bg-(--surface-hover) text-on-surface' : ''
+  }`;
 
 function FormatButton({
   label,
@@ -212,9 +296,7 @@ function FormatButton({
       aria-pressed={active}
       data-tooltip={label}
       onClick={onClick}
-      className={`flex h-9 min-w-9 flex-none items-center justify-center rounded px-1.5 text-on-surface-variant text-sm hover:bg-(--surface-hover) ${
-        active ? 'bg-(--surface-hover) text-on-surface' : ''
-      }`}
+      className={formatButtonClass(active)}
     >
       {children}
     </button>

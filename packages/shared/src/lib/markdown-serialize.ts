@@ -37,6 +37,12 @@ const BLOCK_TAGS = new Set([
   'li',
   'hr',
   'div',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
 ]);
 
 function buildTree(tokens: HtmlToken[]): Node[] {
@@ -176,6 +182,58 @@ function listBlock(node: ElementNode, depth: number): string {
   return rendered.join('\n');
 }
 
+/** Rows of a table, seeing through the `thead`/`tbody` wrappers around them. */
+function tableRows(node: ElementNode): ElementNode[] {
+  const rows: ElementNode[] = [];
+  for (const child of node.children) {
+    if (child.kind !== 'element') continue;
+    if (child.tag === 'tr') rows.push(child);
+    else if (child.tag === 'thead' || child.tag === 'tbody') rows.push(...tableRows(child));
+  }
+  return rows;
+}
+
+/**
+ * One cell, on one line. A markdown table has no syntax for a break inside a
+ * cell, so anything the html stacked in there collapses to spaces, and a pipe
+ * has to be escaped or it would open a column that is not there.
+ */
+function cellOf(node: ElementNode): string {
+  return inlineOf(node.children)
+    .replace(/\s*\n\s*/g, ' ')
+    .replaceAll('|', '\\|')
+    .trim();
+}
+
+/**
+ * A GFM table: header row, `| --- |` row, body. The first row is the header
+ * whether or not it is spelled with `th` — markdown has no headerless table,
+ * and the editor always makes one.
+ */
+function tableBlock(node: ElementNode): string {
+  const rows = tableRows(node);
+  if (rows.length === 0) return '';
+  const cellsOf = (row: ElementNode) =>
+    row.children.filter(
+      (child): child is ElementNode =>
+        child.kind === 'element' && (child.tag === 'th' || child.tag === 'td'),
+    );
+  const width = Math.max(...rows.map((row) => cellsOf(row).length));
+  if (width === 0) return '';
+
+  const line = (row: ElementNode) => {
+    const cells = cellsOf(row);
+    return `| ${Array.from({ length: width }, (_, i) => {
+      const cell = cells[i];
+      return cell ? cellOf(cell) : '';
+    }).join(' | ')} |`;
+  };
+  const [header, ...body] = rows;
+  return [line(header!), `| ${Array.from({ length: width }, () => '---').join(' | ')} |`]
+    .concat(body.map(line))
+    .join('\n');
+}
+
 function blocksOf(nodes: Node[], depth: number, inListItem = false): string {
   const out: string[] = [];
   // Sub-lists of an item hug the line above them — that is what makes the
@@ -224,8 +282,15 @@ function blocksOf(nodes: Node[], depth: number, inListItem = false): string {
     } else if (tag === 'ul' || tag === 'ol') {
       if (inListItem) tight.add(out.length);
       out.push(listBlock(node, depth));
-    } else if (tag === 'li') {
+    } else if (tag === 'table') {
+      const grid = tableBlock(node);
+      if (grid !== '') out.push(grid);
+    } else if (tag === 'li' || tag === 'thead' || tag === 'tbody' || tag === 'tr') {
+      // Also the landing spot for a stray row outside a table: its text is
+      // worth more than the markup it lost.
       out.push(blocksOf(node.children, depth + 1, true));
+    } else if (tag === 'th' || tag === 'td') {
+      out.push(escapeLineStart(inlineOf(node.children)));
     }
   }
   flushLoose();

@@ -29,6 +29,15 @@ describe('htmlToPlainText', () => {
     expect(htmlToPlainText('<p>see <a href="https://e.com">docs</a></p>')).toBe('see docs');
   });
 
+  it('keeps a table readable: one line per row, columns separated', () => {
+    expect(
+      htmlToPlainText(
+        '<p>before</p><table><tbody><tr><th>a</th><th>b</th></tr>' +
+          '<tr><td><p>1</p></td><td><p>x<br>y</p></td></tr></tbody></table><p>after</p>',
+      ),
+    ).toBe('before\na | b\n1 | x y\n\nafter');
+  });
+
   it('keeps code verbatim', () => {
     expect(htmlToPlainText('<pre><code class="language-js">a &lt; b\n  c</code></pre>')).toBe(
       'a < b\n  c',

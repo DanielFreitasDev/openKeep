@@ -4,7 +4,8 @@ The v1.0 scope: full parity with the Google Keep **web** app as researched in Ju
 
 ## Notes
 
-- Text notes with rich formatting. v1.0 shipped exactly Keep web's May-2025 set (**H1, H2, normal**, **bold**, *italic*, underline, clear formatting); post-1.0 it widened to what markdown expresses *(divergence)*: H1–H6, ~~strikethrough~~, `inline code`, code blocks, quotes, dividers, bullet/numbered lists and links. Body only; the title is plain text.
+- Text notes with rich formatting. v1.0 shipped exactly Keep web's May-2025 set (**H1, H2, normal**, **bold**, *italic*, underline, clear formatting); post-1.0 it widened to what markdown expresses *(divergence)*: H1–H6, ~~strikethrough~~, `inline code`, code blocks, quotes, dividers, bullet/numbered lists, links and tables. Body only; the title is plain text.
+- Simple tables *(divergence)*: the formatting bar inserts a 3×3 with a header row and, once the caret is in it, offers the row/column edits; typed or pasted GFM (`| a | b |` over `| --- |`) becomes the same grid. Simple is the contract, not a stage — no merged cells, no column widths, no alignment, because a `|---|` row cannot carry them and every table has to survive the trip to `.md` and back. See DECISIONS #37.
 - Markdown is the note's second language *(divergence)*: the syntax formats as you type it, pasted markdown converts, a note downloads as `.md`, and `.md` files (or a zipped vault) import back — see [ROADMAP.md](ROADMAP.md) §3.1 and DECISIONS #26.
 - Autosave (debounced; flush on close/navigation — per-field blur flush *deferred in v1.0*). No explicit save button.
 - Limits: body 19,999 characters, title ~999 characters.

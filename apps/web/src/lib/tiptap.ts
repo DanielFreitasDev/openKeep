@@ -1,6 +1,8 @@
 import { markdownToHtml, noteLinkHref } from '@openkeep/shared';
+import { TableCell, TableHeader, TableKit } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
 import { Plugin } from '@tiptap/pm/state';
+import { fixTables } from '@tiptap/pm/tables';
 import {
   type Editor,
   Extension,
@@ -216,6 +218,42 @@ const MarkdownPaste = Extension.create({
 });
 
 /**
+ * Cells with no attributes at all — the schema saying what the sanitizer says
+ * (DECISIONS #37). `colspan`/`rowspan` stay in the schema because
+ * prosemirror-tables reads them to build its column map, but they are pinned
+ * at 1 on the way in and never rendered, so a merged cell pasted from a web
+ * page arrives as plain cells instead of as a merge the next save would undo.
+ * `colwidth` and `align` are dropped outright: nothing in the note vocabulary
+ * can carry a width or an alignment.
+ */
+const SIMPLE_CELL_ATTRIBUTES = {
+  colspan: { default: 1, rendered: false, parseHTML: () => 1 },
+  rowspan: { default: 1, rendered: false, parseHTML: () => 1 },
+};
+
+const SimpleTableCell = TableCell.extend({ addAttributes: () => SIMPLE_CELL_ATTRIBUTES });
+const SimpleTableHeader = TableHeader.extend({ addAttributes: () => SIMPLE_CELL_ATTRIBUTES });
+
+/**
+ * Keeps every table rectangular. Un-merging a pasted cell leaves its row a
+ * cell short, and html written straight through the API can be ragged from
+ * the start; `fixTables` fills the holes as soon as either lands, so the grid
+ * on screen is always the grid that serializes back to `|---|`.
+ */
+const RectangularTables = Extension.create({
+  name: 'rectangularTables',
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        appendTransaction: (_transactions, oldState, newState) =>
+          fixTables(newState, oldState)?.setMeta('addToHistory', false),
+      }),
+    ];
+  },
+});
+
+/**
  * The note rich-text feature set: Keep's allowlist plus everything markdown
  * expresses (NOTE_HTML_TAGS on the server sanitizer, DECISIONS #26). Shared so
  * the composer and the editor modal stay identical.
@@ -240,6 +278,16 @@ export function noteExtensions(
         HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer nofollow' },
       },
     }),
+    TableKit.configure({
+      // No resizing and no node view: what the editor shows is the markup the
+      // server stores, minus the colgroup the renderer insists on adding.
+      table: { resizable: false, View: null },
+      tableCell: false,
+      tableHeader: false,
+    }),
+    SimpleTableCell,
+    SimpleTableHeader,
+    RectangularTables,
     Placeholder.configure({ placeholder }),
     QuickLabel.configure({ onQuickLabel }),
     NoteLinkGesture.configure({ onNoteLink }),

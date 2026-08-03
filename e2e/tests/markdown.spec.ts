@@ -143,6 +143,43 @@ test('typing the extended syntax builds blocks', async ({ page }) => {
   await page.keyboard.press('Escape');
 });
 
+test('a table goes in from the bar and survives the round trip', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await body(page).click();
+
+  // One button: the first click inserts, the next opens the row/column edits.
+  await page.getByLabel('Formatting options').click();
+  await page.getByLabel('Insert table').click();
+  await expect(body(page).locator('table th')).toHaveCount(3);
+  await page.keyboard.type('Item');
+
+  await page.getByLabel('Table options').click();
+  await page.getByRole('menuitem', { name: 'Insert row below' }).click();
+  await expect(body(page).locator('table tr')).toHaveCount(4);
+
+  await page.getByLabel('Title', { exact: true }).fill('Table note');
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  // The card preview renders the grid, and so does the reopened note: the
+  // sanitizer keeps the whole vocabulary, merges and widths aside.
+  await expect(cardByTitle(page, 'Table note').locator('table th').first()).toHaveText('Item');
+  await cardByTitle(page, 'Table note').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('table tr')).toHaveCount(4);
+  await expect(dialog.locator('table th').first()).toHaveText('Item');
+  await page.keyboard.press('Escape');
+});
+
+test('pasting a markdown table converts it to a grid', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await body(page).click();
+
+  await pasteText(page, '| Item | Qty |\n| --- | --- |\n| Coffee | 2 |');
+
+  await expect(body(page).locator('table th')).toHaveText(['Item', 'Qty']);
+  await expect(body(page).locator('table td')).toHaveText(['Coffee', '2']);
+});
+
 test('a note downloads as .md and comes back as a note', async ({ page }) => {
   await page.getByLabel('Take a note…').click();
   await body(page).click();

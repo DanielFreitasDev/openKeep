@@ -251,6 +251,43 @@ body {
   font-size: 0.8125rem;
   line-height: 1.25rem;
 }
+/* Tables. `fixed` layout with equal columns is what keeps a table inside a
+   card: the alternative is a horizontal scrollbar on a sticky note, and a
+   cell that wraps costs a line where a cell that scrolls costs the column. */
+.note-body table,
+.note-editor table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 0.375rem 0;
+}
+.note-body th,
+.note-body td,
+.note-editor th,
+.note-editor td {
+  border: 1px solid var(--outline-variant);
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+  text-align: left;
+  overflow-wrap: break-word;
+}
+.note-body th,
+.note-editor th {
+  font-weight: 500;
+  background: var(--surface-container);
+}
+/* The cell range prosemirror-tables paints while a selection spans cells. */
+.note-editor .selectedCell {
+  position: relative;
+}
+.note-editor .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--primary);
+  opacity: 0.12;
+  pointer-events: none;
+}
 .note-body a,
 .note-editor a {
   color: var(--primary);
@@ -547,6 +584,11 @@ body {
   .print-body {
     font-size: 11pt;
     line-height: 1.5;
+  }
+
+  /* A row split across two sheets loses the reading; the table may break. */
+  .print-body tr {
+    break-inside: avoid;
   }
 
   .print-image {

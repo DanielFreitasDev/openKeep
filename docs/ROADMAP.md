@@ -526,12 +526,30 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
   busca — o filtro por tipo já era genérico sobre `attachments.kind` nos dois executores, então
   nenhuma linha de SQL nova. Preview de PDF continua adiado, como previsto aqui.
 
-- [ ] **Tabelas simples** *(impacto baixo · esforço G)*
+- [x] **Tabelas simples** *(impacto baixo · esforço G)* — feito em 2026-08-03
   Pedido clássico, mas pesado: extensão de tabela do TipTap + sanitizador + render no card +
   export. A dependência ("depois do markdown C") caiu — falta o `|---|` no parser/serializer do
-  shared, `table/tr/td` no allowlist e uma UI mínima de linha/coluna. Avaliar se a demanda aparece:
-  é a única parte grande do markdown que ficou de fora, junto de listas de tarefas no corpo (essas
-  esbarram no modelo de uma checklist por nota, ver o item abaixo).
+  shared, `table/tr/td` no allowlist e uma UI mínima de linha/coluna.
+  **Entregue:** exatamente essas quatro peças, e o "simples" do título virou a regra de projeto —
+  quem decidiu o escopo foi o *serializer*, não o editor. GFM não escreve célula mesclada, largura
+  de coluna nem (num vocabulário sem atributos de estilo) alinhamento, então o allowlist ganhou
+  `table/thead/tbody/tr/th/td` e **nenhum atributo**, e as células do TipTap foram estendidas para
+  dizer o mesmo: `colspan`/`rowspan` continuam no schema porque o prosemirror-tables lê os dois
+  para montar o mapa de colunas, mas entram fixos em 1 e nunca são renderizados — tabela colada de
+  uma página web chega desmesclada em vez de chegar com uma mesclagem que o primeiro save desfaria
+  calado. Virou DECISIONS #37.
+  **As duas invariantes que sustentam isso:** toda tabela é retangular (`fixTables` do
+  prosemirror-tables roda a cada transação, e o parser completa/corta cada linha na largura do
+  cabeçalho, como o GFM) e a primeira linha é o cabeçalho, escrita com `th` ou não — markdown não
+  tem tabela sem cabeçalho. O parser exige pipe **nas duas** linhas para enxergar uma tabela:
+  sem isso `a` sobre `---` (regra aqui, setext no CommonMark) viraria tabela de uma coluna e
+  `- a | b` sobre `- | -` deixaria de ser a lista de dois itens que aparenta.
+  **Onde a UI ficou:** um espaço na barra de formatação com dois controles — fora de uma tabela um
+  botão comum que insere 3×3 com cabeçalho, dentro dela o menu de linha/coluna. Dois controles e
+  não um: um gatilho de menu toma o foco enquanto decide se abre, e as primeiras letras digitadas
+  na célula nova iam junto.
+  **De carona:** colar uma tabela markdown já funciona (mesmo parser), e ela sobrevive a export
+  `.md`, import, versões, impressão, link público e MCP sem que nenhum deles aprendesse um nó novo.
 
 - [x] **Contador de palavras/caracteres** *(impacto baixo · esforço P)* — feito em 2026-07-30
   No rodapé do editor (junto do "Edited…"), contagem de palavras/caracteres do corpo — os limites
@@ -1072,8 +1090,7 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
 1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
-2. **Tabelas simples** (3.1) — agora destravado: era "só depois do markdown C", e o parser/serializer
-   compartilhado é onde a sintaxe `|---|` entraria.
+2. ~~**Tabelas simples** (3.1)~~ — saiu em 2026-08-03 (ver abaixo).
 3. ~~**Cotas por usuário** (3.5)~~ — saiu em 2026-08-01 (ver abaixo).
 
 A seção 1.2 fechou: roving tabindex e `/metrics` saíram na rodada de 2026-07-31, e a virtualização
@@ -1137,6 +1154,15 @@ toda nova, sem colidir com nada de pé. O que ele obrigou a decidir não foi ond
 internos viram sete, porque um nome dito a um n8n de estranho é promessa, enquanto um nome dito ao
 nosso próprio cliente é código que viaja junto. Virou DECISIONS #34. Isso muda a fila?
 **Sub-labels/pastas** segue sendo o nº 1, com **tabelas simples** atrás.
+
+**Tabelas simples** saíram em 2026-08-03 e eram o nº 2 desta fila. O que o item obrigou a decidir
+não foi o parser (o `|---|` estava previsto aqui) e sim **quem define o escopo de uma feature de
+editor**: o serializer, não a UI. Markdown não escreve mesclagem, largura nem alinhamento, então
+nada disso existe — e o custo de manter essa promessa foi uma invariante nova (toda tabela é
+retangular, `fixTables` a cada transação), não uma exceção no sanitizador. Virou DECISIONS #37.
+Isso muda a fila? **Sub-labels/pastas** fica sozinho no topo, e a seção 3.1 agora só tem
+texto+checklist na mesma nota — o item que esbarra no modelo de uma checklist por nota, não no
+vocabulário do corpo.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

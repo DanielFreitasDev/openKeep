@@ -5,6 +5,12 @@
  * v1.0 mirrored Keep's May-2025 surface (h1, h2, p, br, strong, em, u). The
  * markdown work widened it to what markdown actually expresses (DECISIONS #26):
  * six heading levels, strikethrough, code, quotes, rules, lists and links.
+ * Tables closed that list (DECISIONS #37) — the last markdown block that was
+ * still missing. They are the *simple* kind, and the vocabulary is what says
+ * so: a grid of `th`/`td` and nothing else. No `colspan`, no `rowspan`, no
+ * alignment, because a cell attribute is exactly what a `|---|` row cannot
+ * carry, and this vocabulary is markdown's.
+ *
  * Everything here still carries zero styling attributes — the only attributes
  * allowed anywhere are a[href], ol[start] and the code language class.
  */
@@ -29,6 +35,12 @@ export const NOTE_HTML_TAGS = [
   'li',
   'hr',
   'a',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
 ] as const;
 
 /** Link schemes the sanitizer keeps; anything else is dropped as a link. */
@@ -73,4 +85,6 @@ export const NOTE_BLOCK_TAGS = new Set([
   'li',
   'hr',
   'div',
+  'table',
+  'tr',
 ]);

@@ -175,6 +175,55 @@ describe('blocks', () => {
   });
 });
 
+describe('tables', () => {
+  it('builds a header row and body rows', () => {
+    expect(renderMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |')).toBe(
+      '<table><tbody><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>',
+    );
+  });
+
+  it('accepts the borderless and aligned forms, dropping the alignment', () => {
+    expect(renderMarkdown('a | b\n---|:-:\n1 | 2')).toBe(
+      '<table><tbody><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>',
+    );
+  });
+
+  it('pads and truncates rows to the header width', () => {
+    expect(renderMarkdown('| a | b |\n|---|---|\n| 1 |\n| 1 | 2 | 3 |')).toBe(
+      '<table><tbody><tr><th>a</th><th>b</th></tr>' +
+        '<tr><td>1</td><td></td></tr><tr><td>1</td><td>2</td></tr></tbody></table>',
+    );
+  });
+
+  it('parses inline markup in cells, and `\\|` as a pipe', () => {
+    expect(renderMarkdown('| a |\n| - |\n| **b** \\| c |')).toBe(
+      '<table><tbody><tr><th>a</th></tr><tr><td><strong>b</strong> | c</td></tr></tbody></table>',
+    );
+  });
+
+  it('interrupts a paragraph and ends at the first non-row', () => {
+    expect(renderMarkdown('intro\n| a |\n| - |\n| 1 |\nafter')).toBe(
+      '<p>intro</p><table><tbody><tr><th>a</th></tr><tr><td>1</td></tr></tbody></table><p>after</p>',
+    );
+  });
+
+  it('needs a pipe on both lines, so a rule under text stays a rule', () => {
+    expect(renderMarkdown('title\n---')).toBe('<p>title</p><hr>');
+    expect(renderMarkdown('a | b\nc | d')).toBe('<p>a | b<br>c | d</p>');
+  });
+
+  it('leaves a list that merely looks like a delimiter alone', () => {
+    expect(renderMarkdown('- a | b\n- | -')).toBe('<ul><li>a | b</li><li>| -</li></ul>');
+  });
+
+  it('nests inside a quote and a list item', () => {
+    expect(renderMarkdown('> | a |\n> | - |\n> | 1 |')).toBe(
+      '<blockquote><table><tbody><tr><th>a</th></tr><tr><td>1</td></tr></tbody></table></blockquote>',
+    );
+    expect(renderMarkdown('- item\n\n  | a |\n  | - |\n  | 1 |')).toContain('<li>item<table>');
+  });
+});
+
 describe('robustness', () => {
   it('survives deeply nested and unbalanced delimiters', () => {
     expect(() => renderMarkdown('*'.repeat(200))).not.toThrow();

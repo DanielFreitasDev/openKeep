@@ -49,6 +49,30 @@ describe('htmlToMarkdown', () => {
     expect(htmlToMarkdown('<p>[x](y)</p>')).toBe('\\[x](y)');
   });
 
+  it('serializes a table, seeing through thead/tbody and cell paragraphs', () => {
+    expect(
+      htmlToMarkdown(
+        '<table><thead><tr><th>a</th><th>b</th></tr></thead>' +
+          '<tbody><tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+      ),
+    ).toBe('| a | b |\n| --- | --- |\n| 1 | 2 |');
+  });
+
+  it('keeps a table row on one line and escapes pipes in cells', () => {
+    expect(htmlToMarkdown('<table><tr><th>a</th></tr><tr><td>x<br>y</td></tr></table>')).toBe(
+      '| a |\n| --- |\n| x y |',
+    );
+    expect(htmlToMarkdown('<table><tr><th>a</th></tr><tr><td>x | y</td></tr></table>')).toBe(
+      '| a |\n| --- |\n| x \\| y |',
+    );
+  });
+
+  it('squares up a ragged table so the columns still line up', () => {
+    expect(htmlToMarkdown('<table><tr><th>a</th><th>b</th></tr><tr><td>1</td></tr></table>')).toBe(
+      '| a | b |\n| --- | --- |\n| 1 |  |',
+    );
+  });
+
   it('is empty for empty html', () => {
     expect(htmlToMarkdown('')).toBe('');
     expect(htmlToMarkdown('<p></p>')).toBe('');
@@ -58,6 +82,7 @@ describe('htmlToMarkdown', () => {
 describe('round trip', () => {
   const cases = [
     '# Title',
+    '| a | b |\n| --- | --- |\n| 1 | 2 |',
     'plain paragraph',
     'a  \nb',
     '**bold** and *italic* and <u>under</u> and ~~gone~~',

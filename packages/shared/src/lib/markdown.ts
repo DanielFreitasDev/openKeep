@@ -6,8 +6,8 @@
  * enforces on the way in, so a general parser would spend bundle weight
  * producing nodes that get dropped. What changed is the size of that
  * vocabulary — headings 1–6, emphasis, strikethrough, inline code, fenced
- * code, quotes, rules, bullet/ordered lists and links — so this file grew from
- * a line rewriter into a real block + inline parser.
+ * code, quotes, rules, bullet/ordered lists, links and GFM tables — so this
+ * file grew from a line rewriter into a real block + inline parser.
  *
  * A CommonMark subset, deliberately: no reference links, no setext headings
  * (`---` under text stays a rule — the surprising reading in a notes app), no
@@ -31,6 +31,8 @@ const RULE_RE = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 const HEADING_RE = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*(?:[ \t]#+[ \t]*)?$/;
 const QUOTE_RE = /^ {0,3}>[ \t]?(.*)$/;
 const ITEM_RE = /^([ \t]*)([-*+]|\d{1,9}[.)])(?:([ \t]+)(.*)|)$/;
+/** A `|---|` row: cells of dashes, with the alignment colons GFM allows. */
+const TABLE_DELIM_RE = /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
 const PUNCT_RE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
 const LANG_RE = /^[\w+#.-]{1,24}$/;
 
@@ -50,11 +52,34 @@ function itemInterrupts(match: RegExpExecArray): boolean {
   return /^[-*+]$/.test(marker) || /^1[.)]$/.test(marker);
 }
 
+/**
+ * A table starts at a header row followed by a `|---|` row. Both lines have to
+ * carry a pipe: without that rule `a` over `---` — a setext heading in
+ * CommonMark, a rule here — would turn into a one-column table, and a line
+ * that already opens another block (a bullet, a quote, a heading) keeps that
+ * reading, so `- a | b` over `- | -` stays the two-item list it looks like.
+ */
+function tableAt(lines: string[], i: number): boolean {
+  const header = lines[i];
+  const delimiter = lines[i + 1];
+  if (header === undefined || delimiter === undefined) return false;
+  if (!header.includes('|') || !delimiter.includes('|')) return false;
+  if (!TABLE_DELIM_RE.test(delimiter)) return false;
+  return !(
+    FENCE_RE.test(header) ||
+    HEADING_RE.test(header) ||
+    QUOTE_RE.test(header) ||
+    ITEM_RE.test(header)
+  );
+}
+
 /** True when the line opens a block and therefore ends the paragraph above it. */
-function startsBlock(line: string): boolean {
+function startsBlock(lines: string[], i: number): boolean {
+  const line = lines[i]!;
   if (FENCE_RE.test(line) || RULE_RE.test(line) || HEADING_RE.test(line) || QUOTE_RE.test(line)) {
     return true;
   }
+  if (tableAt(lines, i)) return true;
   const item = ITEM_RE.exec(line);
   return item !== null && itemInterrupts(item);
 }
@@ -359,7 +384,7 @@ function blockquote(lines: string[], start: number, ctx: Ctx, depth: number) {
       continue;
     }
     // Lazy continuation: plain prose right under a quote stays in the quote.
-    if (isBlank(line) || startsBlock(line)) break;
+    if (isBlank(line) || startsBlock(lines, i)) break;
     inner.push(line.trim());
   }
   ctx.matched = true;
@@ -417,7 +442,7 @@ function list(lines: string[], start: number, ctx: Ctx, depth: number) {
       continue;
     }
     // Lazy continuation of the item's paragraph.
-    if (blanks === 0 && !startsBlock(line)) {
+    if (blanks === 0 && !startsBlock(lines, i)) {
       current.push(line.trim());
       continue;
     }
@@ -430,6 +455,68 @@ function list(lines: string[], start: number, ctx: Ctx, depth: number) {
   ctx.matched = true;
   const openTag = ordered ? `<ol${startNumber !== 1 ? ` start="${startNumber}"` : ''}>` : '<ul>';
   return { html: `${openTag}${body}${ordered ? '</ol>' : '</ul>'}`, next: i };
+}
+
+/**
+ * One table row → its cells, trimmed.
+ *
+ * The leading and trailing pipes are borders rather than empty cells, and
+ * `\|` is a pipe *in* a cell: GFM resolves that escape before any inline
+ * parsing, which is why it is undone here and not left to `inline` — inside a
+ * code span nothing is unescaped, and `` `a|b` `` has to survive as typed.
+ */
+function tableCells(line: string): string[] {
+  const row = line.trim();
+  const cells: string[] = [];
+  let current = '';
+  let pipe = false;
+  for (let i = row.startsWith('|') ? 1 : 0; i < row.length; i++) {
+    const char = row[i]!;
+    const next = row[i + 1];
+    if (char === '\\' && next !== undefined) {
+      current += next === '|' ? '|' : char + next;
+      i++;
+      pipe = false;
+      continue;
+    }
+    if (char === '|') {
+      cells.push(current.trim());
+      current = '';
+      pipe = true;
+      continue;
+    }
+    current += char;
+    pipe = false;
+  }
+  if (!pipe) cells.push(current.trim());
+  return cells;
+}
+
+/**
+ * A GFM table. The header row fixes the width — later rows are padded and
+ * truncated to it, as GFM does — and cells hold inline content only: a table
+ * that can nest a quote or a list stops being one of the simple tables this
+ * note vocabulary has (DECISIONS #37). Alignment colons are read and dropped,
+ * because a cell carries no attributes.
+ */
+function table(lines: string[], start: number, ctx: Ctx, depth: number) {
+  const headers = tableCells(lines[start]!);
+  const rows: string[][] = [];
+  let i = start + 2;
+  for (; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (isBlank(line) || !line.includes('|') || startsBlock(lines, i)) break;
+    rows.push(tableCells(line));
+  }
+
+  const cell = (tag: 'th' | 'td', text: string) =>
+    `<${tag}>${inline(text, ctx, depth + 1)}</${tag}>`;
+  const head = headers.map((text) => cell('th', text)).join('');
+  const body = rows
+    .map((row) => `<tr>${headers.map((_, column) => cell('td', row[column] ?? '')).join('')}</tr>`)
+    .join('');
+  ctx.matched = true;
+  return { html: `<table><tbody><tr>${head}</tr>${body}</tbody></table>`, next: i };
 }
 
 function renderBlocks(lines: string[], ctx: Ctx, depth: number): string {
@@ -479,6 +566,13 @@ function renderBlocks(lines: string[], ctx: Ctx, depth: number): string {
       continue;
     }
 
+    if (tableAt(lines, i)) {
+      const grid = table(lines, i, ctx, depth);
+      out.push(grid.html);
+      i = grid.next;
+      continue;
+    }
+
     const item = ITEM_RE.exec(line);
     if (item && (item[4] ?? '').trim() !== '') {
       const parsed = list(lines, i, ctx, depth);
@@ -491,7 +585,7 @@ function renderBlocks(lines: string[], ctx: Ctx, depth: number): string {
     while (
       i < lines.length &&
       !isBlank(lines[i]!) &&
-      (para.length === 0 || !startsBlock(lines[i]!))
+      (para.length === 0 || !startsBlock(lines, i))
     ) {
       para.push(lines[i]!);
       i++;

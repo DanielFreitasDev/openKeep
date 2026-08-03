@@ -2,8 +2,8 @@
  * Pure text ↔ note-html conversions shared by the server (FTS, export,
  * convert) and the MCP package (plain-text tool surface). The html side is the
  * sanitized allowlist (see NOTE_HTML_TAGS) — markdown structure that carries
- * meaning when flattened (list bullets, code) survives; decoration (headings,
- * emphasis, links, rules) does not.
+ * meaning when flattened (list bullets, table columns, code) survives;
+ * decoration (headings, emphasis, links, rules) does not.
  */
 
 import { NOTE_BLOCK_TAGS } from '../constants/note-html.js';
@@ -24,10 +24,13 @@ function itemMarker(stack: ListFrame[]): string {
   return `${indent}${frame.index}. `;
 }
 
-/** True when this `</p>` (or `</h*>`) is the last thing inside its list item. */
+/** Containers whose own close tag already supplies the line break. */
+const ITEM_TAGS = new Set(['li', 'th', 'td']);
+
+/** True when this `</p>` (or `</h*>`) is the last thing inside its item or cell. */
 function endsItem(tokens: HtmlToken[], i: number): boolean {
   const next = tokens[i + 1];
-  return next?.kind === 'close' && next.tag === 'li';
+  return next?.kind === 'close' && ITEM_TAGS.has(next.tag);
 }
 
 /** Plain text derived from sanitized note html (FTS + .txt export + card previews). */
@@ -39,6 +42,10 @@ export function htmlToPlainText(html: string): string {
   // renders as `- x` instead of a bullet stranded on its own line.
   let pendingMarker: string | null = null;
   let preDepth = 0;
+  // A row is one line: inside a cell every break the html carries becomes a
+  // space, or a paragraph in a cell would tear the columns apart.
+  let cellDepth = 0;
+  let cellIndex = 0;
 
   const write = (text: string) => {
     if (text === '') return;
@@ -47,6 +54,10 @@ export function htmlToPlainText(html: string): string {
       pendingMarker = null;
     }
     out += text;
+  };
+
+  const newline = () => {
+    out += cellDepth > 0 ? ' ' : '\n';
   };
 
   for (let i = 0; i < tokens.length; i++) {
@@ -59,32 +70,42 @@ export function htmlToPlainText(html: string): string {
     if (token.kind === 'open') {
       if (tag === 'br') {
         write('');
-        out += '\n';
+        newline();
       } else if (tag === 'hr') {
-        out += '\n';
+        newline();
       } else if (tag === 'ul' || tag === 'ol') {
         // A nested list starts on its own line, under its parent item's text.
-        if (lists.length > 0) out += '\n';
+        if (lists.length > 0) newline();
         lists.push({ ordered: tag === 'ol', index: Number(token.attrs.start ?? '1') - 1 });
       } else if (tag === 'li') {
         pendingMarker = itemMarker(lists);
       } else if (tag === 'pre') {
         preDepth++;
+      } else if (tag === 'tr') {
+        cellIndex = 0;
+      } else if (tag === 'th' || tag === 'td') {
+        // Columns keep a separator so a flattened row still reads as a row.
+        if (cellIndex > 0) out += ' | ';
+        cellIndex++;
+        cellDepth++;
       }
       continue;
     }
     if (tag === 'ul' || tag === 'ol') {
       lists.pop();
-      out += '\n';
+      newline();
     } else if (tag === 'pre') {
       preDepth = Math.max(0, preDepth - 1);
-      out += '\n';
+      newline();
     } else if (tag === 'li') {
       pendingMarker = null;
-      out += '\n';
+      newline();
+    } else if (tag === 'th' || tag === 'td') {
+      cellDepth = Math.max(0, cellDepth - 1);
     } else if (NOTE_BLOCK_TAGS.has(tag)) {
-      // A paragraph closing an item already got its newline from `</li>`.
-      if (!endsItem(tokens, i)) out += '\n';
+      // A paragraph closing an item or a cell already got its break from the
+      // container's own close tag.
+      if (!endsItem(tokens, i)) newline();
     }
   }
 

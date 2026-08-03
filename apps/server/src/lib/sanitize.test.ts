@@ -73,6 +73,20 @@ describe('sanitizeNoteHtml', () => {
     expect(sanitizeNoteHtml('<p><b>x</b><i>y</i></p>')).toBe('<p><strong>x</strong><em>y</em></p>');
   });
 
+  it('keeps a table, and keeps it simple', () => {
+    const input =
+      '<table><tbody><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>';
+    expect(sanitizeNoteHtml(input)).toBe(input);
+    // Merging, sizing and alignment are exactly what a `|---|` row cannot
+    // carry, so a cell keeps its content and loses the rest.
+    expect(
+      sanitizeNoteHtml(
+        '<table style="width:100%"><colgroup><col style="width:9px"></colgroup>' +
+          '<tr><td colspan="2" rowspan="2" align="center" style="text-align:center">x</td></tr></table>',
+      ),
+    ).toBe('<table><tr><td>x</td></tr></table>');
+  });
+
   it('strips presentation attributes, even on allowed tags', () => {
     expect(sanitizeNoteHtml('<p class="x" data-y="1" id="z">hi</p>')).toBe('<p>hi</p>');
     expect(sanitizeNoteHtml('<ul style="color:red"><li id="a">x</li></ul>')).toBe(
