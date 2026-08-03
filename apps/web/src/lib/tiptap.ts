@@ -312,9 +312,13 @@ export function noteExtensions(
  * flush against the link with nowhere to stand.
  */
 export function insertNoteLink(editor: Editor, noteId: string, label: string): void {
+  // Synchronously, and not through the chain's `.focus()`: that one waits a
+  // frame (TipTap defers `view.focus()` to a rAF), and the picker is being
+  // unmounted in this very click — a frame late is a frame with the caret on
+  // `<body>`, which is a frame of the sentence being thrown away.
+  editor.view.focus();
   editor
     .chain()
-    .focus()
     .insertContent([
       {
         type: 'text',

@@ -31,7 +31,22 @@ test('[[ links a note, the link navigates, and the target lists the backlink', a
   await page.keyboard.type('see [[');
 
   await expect(page.getByText('Link a note')).toBeVisible();
+
+  // Watch the handover itself, not just its outcome. Picking used to drop the
+  // caret on `<body>` for a frame before the editor got it back, and whatever
+  // was typed into that window was discarded — invisible on an idle machine,
+  // a lost sentence on a busy one. Recorded from the events rather than
+  // sampled, so a sub-frame window cannot hide.
+  await page.evaluate(`(() => {
+    window.__focusTrail = [];
+    document.addEventListener(
+      'focusout',
+      (e) => window.__focusTrail.push(e.relatedTarget ? e.relatedTarget.tagName : 'nothing'),
+      true,
+    );
+  })()`);
   await page.getByRole('button', { name: 'Bathroom remodel' }).click();
+  expect(await page.evaluate('window.__focusTrail')).not.toContain('nothing');
 
   const link = body.getByRole('link', { name: 'Bathroom remodel' });
   await expect(link).toBeVisible();

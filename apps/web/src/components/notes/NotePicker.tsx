@@ -8,19 +8,20 @@ import { notesQuery } from '../../lib/notes-api.js';
 import { insertNoteLink } from '../../lib/tiptap.js';
 
 /**
- * Committing a pick: insert on the next task, not this one.
+ * Committing a pick, in the click that made it.
  *
- * The popover is dismissing in the same click, and it hands focus back as it
- * unmounts — inserting straight away would put the caret in the body only for
- * the dismissal to take it a frame later, leaving the writer stranded next to
- * a link they cannot type after. One turn of the loop puts the insert (and its
- * `.focus()`) last, so writing carries on where the link just landed.
+ * This used to be deferred a turn of the event loop, so that its `.focus()`
+ * would land after the dismissing popover had taken focus away. It could not
+ * win that race: the chain's `.focus()` is itself a frame late (TipTap defers
+ * `view.focus()` to a rAF), so both orderings left a window with the popup
+ * gone, the caret on `<body>` and everything typed in it discarded — a frame
+ * idle, hundreds of milliseconds on a loaded machine. `insertNoteLink` now
+ * takes focus synchronously instead, which turns the popup's `focusout` into
+ * a handover to the editor and leaves no window to type into.
  */
 export function pickNoteLink(editor: Editor | null, target: FullNote, untitled: string): void {
-  if (!editor) return;
-  setTimeout(() => {
-    if (!editor.isDestroyed) insertNoteLink(editor, target.id, noteLinkLabel(target, untitled));
-  }, 0);
+  if (!editor || editor.isDestroyed) return;
+  insertNoteLink(editor, target.id, noteLinkLabel(target, untitled));
 }
 
 /** The line a note is offered by: its title, or the first thing it says. */
