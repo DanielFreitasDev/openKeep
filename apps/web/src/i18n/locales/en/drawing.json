@@ -18,5 +18,8 @@
   "size": "Size",
   "moreColors": "More colors",
   "fewerColors": "Fewer colors",
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out",
+  "fitToScreen": "Fit to screen",
   "loadFailed": "Couldn't open the drawing"
 }

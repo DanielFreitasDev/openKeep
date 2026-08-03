@@ -1,7 +1,9 @@
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
+import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
 import arrowBackSvg from '@material-symbols/svg-700/outlined/arrow_back.svg?raw';
 import checkSvg from '@material-symbols/svg-700/outlined/check.svg?raw';
+import fitScreenSvg from '@material-symbols/svg-700/outlined/fit_screen.svg?raw';
 import grainSvg from '@material-symbols/svg-700/outlined/grain.svg?raw';
 import grid4x4Svg from '@material-symbols/svg-700/outlined/grid_4x4.svg?raw';
 import gridOnSvg from '@material-symbols/svg-700/outlined/grid_on.svg?raw';
@@ -14,6 +16,7 @@ import expandLessSvg from '@material-symbols/svg-700/outlined/keyboard_arrow_up.
 import moreSvg from '@material-symbols/svg-700/outlined/more_vert.svg?raw';
 import progressActivitySvg from '@material-symbols/svg-700/outlined/progress_activity.svg?raw';
 import redoSvg from '@material-symbols/svg-700/outlined/redo.svg?raw';
+import removeSvg from '@material-symbols/svg-700/outlined/remove.svg?raw';
 import tableRowsSvg from '@material-symbols/svg-700/outlined/table_rows.svg?raw';
 import undoSvg from '@material-symbols/svg-700/outlined/undo.svg?raw';
 import type { DrawingBackground, DrawingData, DrawingStroke, DrawingTool } from '@openkeep/shared';
@@ -39,6 +42,14 @@ import {
   TOOL_DEFAULTS,
   TOOL_WIDTH_FACTOR,
 } from '../../lib/drawing.js';
+import {
+  clampView,
+  type DrawingView,
+  fitView,
+  panView,
+  ZOOM_STEP,
+  zoomAt,
+} from '../../lib/drawing-view.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 
@@ -115,8 +126,21 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const containerRef = useRef<HTMLDivElement | null>(null);
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const liveCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const viewRef = useRef({ scale: 1, offX: 0, offY: 0 });
+  const viewRef = useRef<DrawingView>({ scale: 1, offX: 0, offY: 0 });
   const frameRef = useRef(0);
+  const staticFrameRef = useRef(0);
+
+  // Pan/zoom. The view stays fit-to-viewport (and re-fits on resize) until the
+  // person takes it over; from then on a resize only re-clamps what they chose.
+  const vpRef = useRef({ w: 0, h: 0 });
+  const fittedRef = useRef(true);
+  const [zoom, setZoom] = useState(1);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const panRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const pinchRef = useRef<{ dist: number; scale: number; px: number; py: number } | null>(null);
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const spaceRef = useRef(false);
+  spaceRef.current = spaceHeld;
 
   // Re-editing: load the stored strokes once.
   const existing = useQuery({
@@ -216,6 +240,64 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     });
   };
 
+  // Panning repaints every stroke, so it goes through a frame too.
+  const scheduleStatic = () => {
+    if (staticFrameRef.current) return;
+    staticFrameRef.current = requestAnimationFrame(() => {
+      staticFrameRef.current = 0;
+      redrawStatic();
+    });
+  };
+
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(frameRef.current);
+      cancelAnimationFrame(staticFrameRef.current);
+    },
+    [],
+  );
+
+  const commitView = (next: DrawingView) => {
+    const m = metaRef.current;
+    if (!m) return;
+    viewRef.current = clampView(next, m, vpRef.current.w, vpRef.current.h);
+    setZoom(viewRef.current.scale);
+    scheduleStatic();
+    scheduleLive();
+  };
+
+  /** Zoom about a container point (the pointer), or about the middle. */
+  const zoomBy = (factor: number, cx?: number, cy?: number) => {
+    const m = metaRef.current;
+    if (!m) return;
+    const { w, h } = vpRef.current;
+    fittedRef.current = false;
+    const at = zoomAt(
+      viewRef.current,
+      m,
+      w,
+      h,
+      viewRef.current.scale * factor,
+      cx ?? w / 2,
+      cy ?? h / 2,
+    );
+    commitView(at);
+  };
+
+  const panBy = (dx: number, dy: number) => {
+    const m = metaRef.current;
+    if (!m) return;
+    fittedRef.current = false;
+    commitView(panView(viewRef.current, m, vpRef.current.w, vpRef.current.h, dx, dy));
+  };
+
+  const fitToScreen = () => {
+    const m = metaRef.current;
+    if (!m) return;
+    fittedRef.current = true;
+    commitView(fitView(m, vpRef.current.w, vpRef.current.h));
+  };
+
   // Fit the logical page to the viewport (letterboxed, centered).
   // biome-ignore lint/correctness/useExhaustiveDependencies: relayout when the page size becomes known
   useLayoutEffect(() => {
@@ -226,12 +308,11 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
       const vh = el.clientHeight;
       if (vw === 0 || vh === 0) return;
       const dpr = window.devicePixelRatio || 1;
-      const scale = Math.min(vw / meta.width, vh / meta.height);
-      viewRef.current = {
-        scale,
-        offX: (vw - meta.width * scale) / 2,
-        offY: (vh - meta.height * scale) / 2,
-      };
+      vpRef.current = { w: vw, h: vh };
+      viewRef.current = fittedRef.current
+        ? fitView(meta, vw, vh)
+        : clampView(viewRef.current, meta, vw, vh);
+      setZoom(viewRef.current.scale);
       for (const canvas of [staticCanvasRef.current, liveCanvasRef.current]) {
         if (!canvas) continue;
         canvas.width = Math.round(vw * dpr);
@@ -252,6 +333,27 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   useEffect(() => {
     redrawStatic();
   }, [background, meta]);
+
+  // Wheel: ctrl/⌘ zooms at the pointer, bare scroll pans (Figma's bargain).
+  // Attached by hand because React's onWheel is passive — it cannot stop the
+  // browser from zooming the whole page out from under the canvas.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handlers read refs
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? vpRef.current.h : 1;
+      if (e.ctrlKey || e.metaKey) {
+        const rect = el.getBoundingClientRect();
+        zoomBy(Math.exp((-e.deltaY * unit) / 260), e.clientX - rect.left, e.clientY - rect.top);
+      } else {
+        panBy(-e.deltaX * unit, -e.deltaY * unit);
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const toCanvasPoint = (e: { clientX: number; clientY: number }): [number, number] => {
     const canvas = liveCanvasRef.current;
@@ -308,10 +410,63 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     force();
   };
 
+  /** Drop whatever gesture is mid-flight (a second finger landed, say). */
+  const abandonGesture = () => {
+    currentRef.current = null;
+    eraseRef.current = null;
+    redrawLive();
+  };
+
+  /** Two fingers: zoom+pan together, anchored on the page point they grabbed. */
+  const startPinch = () => {
+    const m = metaRef.current;
+    const [a, b] = [...pointersRef.current.values()];
+    if (!m || !a || !b) return;
+    abandonGesture();
+    panRef.current = null;
+    fittedRef.current = false;
+    const rect = liveCanvasRef.current?.getBoundingClientRect();
+    const mx = (a.x + b.x) / 2 - (rect?.left ?? 0);
+    const my = (a.y + b.y) / 2 - (rect?.top ?? 0);
+    const { scale, offX, offY } = viewRef.current;
+    pinchRef.current = {
+      dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      scale,
+      px: (mx - offX) / scale,
+      py: (my - offY) / scale,
+    };
+  };
+
+  const applyPinch = () => {
+    const m = metaRef.current;
+    const p = pinchRef.current;
+    const [a, b] = [...pointersRef.current.values()];
+    if (!m || !p || !a || !b) return;
+    const rect = liveCanvasRef.current?.getBoundingClientRect();
+    const mx = (a.x + b.x) / 2 - (rect?.left ?? 0);
+    const my = (a.y + b.y) / 2 - (rect?.top ?? 0);
+    const scale = p.scale * (Math.hypot(a.x - b.x, a.y - b.y) / p.dist);
+    // Keep the pinched page point under the fingers' midpoint as it travels.
+    commitView({ scale, offX: mx - p.px * scale, offY: my - p.py * scale });
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (saving || !metaRef.current) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (pointersRef.current.size === 2) {
+      startPinch();
+      return;
+    }
+    if (pointersRef.current.size > 2) return;
+    // Middle drag and space-drag pan, the way every canvas app does it.
+    if (e.button === 1 || spaceRef.current) {
+      e.preventDefault();
+      abandonGesture();
+      panRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      return;
+    }
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const [x, y] = toCanvasPoint(e);
     if (tool === 'eraser') {
       eraseRef.current = [];
@@ -332,6 +487,19 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinchRef.current) {
+      applyPinch();
+      return;
+    }
+    const p = panRef.current;
+    if (p) {
+      panBy(e.clientX - p.x, e.clientY - p.y);
+      panRef.current = { pointerId: p.pointerId, x: e.clientX, y: e.clientY };
+      return;
+    }
     const events =
       'getCoalescedEvents' in e.nativeEvent ? e.nativeEvent.getCoalescedEvents() : [e.nativeEvent];
     if (eraseRef.current) {
@@ -356,6 +524,19 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pinchRef.current) {
+      // The finger left over must not become a stroke: it keeps panning until
+      // it lifts too (lifting one finger of a pinch is never a draw gesture).
+      pinchRef.current = null;
+      const rest = [...pointersRef.current.entries()][0];
+      if (rest) panRef.current = { pointerId: rest[0], x: rest[1].x, y: rest[1].y };
+      return;
+    }
+    if (panRef.current?.pointerId === e.pointerId) {
+      panRef.current = null;
+      return;
+    }
     if (eraseRef.current) {
       if (eraseRef.current.length > 0) {
         undoRef.current.push({ kind: 'erase', entries: eraseRef.current });
@@ -551,14 +732,27 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     else exitTo();
   };
 
-  // Escape saves-and-closes; Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y drive history.
+  // Escape saves-and-closes; Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y drive history;
+  // Ctrl +/-/0 drive the zoom and space is the pan modifier.
   // biome-ignore lint/correctness/useExhaustiveDependencies: handlers read refs
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      if (e.key === 'Escape' && panel === null) {
+      if (e.key === ' ' && !e.repeat) {
+        e.preventDefault();
+        setSpaceHeld(true);
+      } else if (e.key === 'Escape' && panel === null) {
         e.preventDefault();
         void saveAndExit();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        zoomBy(ZOOM_STEP);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        zoomBy(1 / ZOOM_STEP);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        fitToScreen();
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undo();
@@ -570,8 +764,19 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
         redo();
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') setSpaceHeld(false);
+    };
+    // A tab-away swallows the keyup, and a stuck space would eat every stroke.
+    const onBlur = () => setSpaceHeld(false);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
   }, [panel, saving]);
 
   const busy = saving || (drawingId !== null && !meta);
@@ -754,7 +959,7 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
         <canvas ref={staticCanvasRef} className="absolute inset-0" aria-hidden />
         <canvas
           ref={liveCanvasRef}
-          className="absolute inset-0 cursor-crosshair touch-none"
+          className={`absolute inset-0 touch-none ${spaceHeld ? 'cursor-grab' : 'cursor-crosshair'}`}
           aria-label={t('drawing')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -762,6 +967,16 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
           onPointerCancel={onPointerUp}
           onContextMenu={(e) => e.preventDefault()}
         />
+
+        <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-full border border-[#dadce0] bg-white p-1 shadow-(--elevation-2)">
+          <ZoomButton svg={removeSvg} label={t('zoomOut')} onClick={() => zoomBy(1 / ZOOM_STEP)} />
+          <span className="w-12 text-center text-[#444746] text-xs tabular-nums">
+            {Math.round(zoom * 100)}%
+          </span>
+          <ZoomButton svg={addSvg} label={t('zoomIn')} onClick={() => zoomBy(ZOOM_STEP)} />
+          <ZoomButton svg={fitScreenSvg} label={t('fitToScreen')} onClick={fitToScreen} />
+        </div>
+
         {busy && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/50">
             <span className="animate-spin text-[#444746] motion-reduce:animate-none">
@@ -771,6 +986,20 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
         )}
       </div>
     </div>
+  );
+}
+
+function ZoomButton({ svg, label, onClick }: { svg: string; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      data-tooltip={label}
+      onClick={onClick}
+      className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full text-[#444746] outline-none hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-(--primary)"
+    >
+      <Icon svg={svg} size={18} />
+    </button>
   );
 }
 

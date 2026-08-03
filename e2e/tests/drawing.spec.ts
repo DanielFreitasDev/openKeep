@@ -86,6 +86,27 @@ test('eraser removes a whole stroke; Clear page + undo restore it', async ({ pag
   ).toBeVisible();
 });
 
+test('zoom buttons scale the page and Fit to screen puts it back', async ({ page }) => {
+  await page.getByRole('button', { name: 'New note with drawing' }).click();
+  await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();
+
+  // A fresh page is created viewport-sized, so it opens fitted at 100%.
+  const readout = page.locator('canvas[aria-label="Drawing"]').locator('..').getByText('%');
+  await expect(readout).toHaveText('100%');
+
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  await expect(readout).toHaveText('125%');
+
+  // The floor is the fit scale: zooming out past the whole page is refused.
+  await page.getByRole('button', { name: 'Zoom out' }).click();
+  await page.getByRole('button', { name: 'Zoom out' }).click();
+  await expect(readout).toHaveText('100%');
+
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  await page.getByRole('button', { name: 'Fit to screen' }).click();
+  await expect(readout).toHaveText('100%');
+});
+
 test('the editor ⋮ menu offers Add drawing', async ({ page }) => {
   // A note created through the composer…
   await page.getByLabel('Take a note…').click();

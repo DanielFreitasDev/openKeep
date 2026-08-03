@@ -18,5 +18,8 @@
   "size": "Tamanho",
   "moreColors": "Mais cores",
   "fewerColors": "Menos cores",
+  "zoomIn": "Aumentar zoom",
+  "zoomOut": "Diminuir zoom",
+  "fitToScreen": "Ajustar à tela",
   "loadFailed": "Não foi possível abrir o desenho"
 }
