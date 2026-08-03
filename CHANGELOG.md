@@ -1,3 +1,24 @@
+# [1.32.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.31.0...v1.32.0) (2026-08-03)
+
+
+### Features
+
+* draw on top of a photo ([1ba7b2a](https://github.com/DanielFreitasDev/openKeep/commit/1ba7b2aec698df2b01ea692a13cb6b469267eb33)), closes [24/#35](https://github.com/DanielFreitasDev/openKeep/issues/35)
+* lasso select and move strokes in a drawing ([7d53b3a](https://github.com/DanielFreitasDev/openKeep/commit/7d53b3a076671f567a9d9f278d7456a425ef1f03))
+* the drawing canvas grows under the pen ([738b27f](https://github.com/DanielFreitasDev/openKeep/commit/738b27f03575b3325f88ecfb8f296b644d526503))
+* zoom and pan the drawing canvas ([99acf9e](https://github.com/DanielFreitasDev/openKeep/commit/99acf9e86d30db4268dd3c68122632cd3986df25))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.32.0
+```
+
+Or download `compose.yml` below (image pinned to `1.32.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.32.0/docs/DEPLOYMENT.md).
+
 # [1.31.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.30.1...v1.31.0) (2026-08-03)
 
 
