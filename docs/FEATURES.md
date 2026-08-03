@@ -104,7 +104,9 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 
 ## Keyboard shortcuts
 
-Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `?` help dialog: `j/k`, `Shift+J/K`, `c`, `l`, `/`, `Ctrl+A`, `?`, `e`, `#`, `f`, `x`, `Enter`, `Ctrl+G`, `Esc`/`Ctrl+Enter`, `Ctrl+Shift+8`, `Ctrl+]`/`[`, `Ctrl+B/I/U`. Keep's list-item shortcuts `n/p`/`Shift+N/P` are *deferred in v1.0* (they need a non-typing "selected item" editor state).
+Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `?` help dialog: `j/k`, `Shift+J/K`, `c`, `l`, `/`, `Ctrl+A`, `?`, `e`, `#`, `f`, `x`, `Enter`, `Ctrl+G`, `Esc`/`Ctrl+Enter`, `Ctrl+Shift+8`, `Ctrl+]`/`[`, `Ctrl+B/I/U`, and inside a list `n/p` + `Shift+N/P`.
+
+The list-item four need an item that holds focus without typing: `Esc` inside an item steps out of the field onto the item (the next `Esc`, from the item, closes the note as usual), `n/p` walk the selection, `Shift+N/P` move it one slot inside its display group, and `Enter` puts the cursor back in the field.
 
 ## Settings
 

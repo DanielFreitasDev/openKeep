@@ -17,6 +17,11 @@ test('keyboard-only journey: ? help, j/k focus, Enter open, Ctrl+Enter close, e 
   // ? opens the shortcuts dialog straight from the shared registry.
   await page.keyboard.press('Shift+Slash');
   await expect(page.getByRole('dialog').getByText('Keyboard shortcuts')).toBeVisible();
+  // The list-item keys are advertised again now that they exist.
+  await expect(page.getByRole('dialog').getByText('Navigate to next list item')).toBeVisible();
+  await expect(
+    page.getByRole('dialog').getByText('Move list item to previous position'),
+  ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 

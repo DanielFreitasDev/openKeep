@@ -216,6 +216,82 @@ test('convert text ↔ list from the card menu', async ({ page }) => {
   await page.keyboard.press('Escape');
 });
 
+test('n/p select a list item and Shift+N/Shift+P move it', async ({ page }) => {
+  await page.getByRole('button', { name: 'New list' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Keys');
+  const alpha = page.getByRole('textbox', { name: 'List item' }).last();
+  await alpha.fill('Alpha');
+  await alpha.press('Enter');
+  const bravo = page.getByRole('textbox', { name: 'List item' }).last();
+  await bravo.fill('Bravo');
+  await bravo.press('Enter');
+  await page.getByRole('textbox', { name: 'List item' }).last().fill('Charlie');
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  await cardByTitle(page, 'Keys').click();
+  const dialog = await settledEditor(page);
+  const items = dialog.getByRole('textbox', { name: 'List item' });
+  const selected = dialog.locator('[data-selected="true"]');
+  await expect(items).toHaveCount(3);
+
+  // Editors open with a field focused, where every bare letter is a letter:
+  // Escape steps out of the field onto the item it was in.
+  await items.nth(0).click();
+  await page.keyboard.press('Escape');
+  await expect(selected.getByRole('textbox')).toHaveValue('Alpha');
+  await expect(dialog).toBeVisible();
+
+  // n walks down and stops at the bottom; p walks back.
+  await page.keyboard.press('n');
+  await page.keyboard.press('n');
+  await expect(selected.getByRole('textbox')).toHaveValue('Charlie');
+  await page.keyboard.press('n');
+  await expect(selected.getByRole('textbox')).toHaveValue('Charlie');
+  await page.keyboard.press('p');
+  await expect(selected.getByRole('textbox')).toHaveValue('Bravo');
+
+  // Shift+N moves the selected item down, and the selection travels with it.
+  const moved = page.waitForResponse(
+    (r) => r.request().method() === 'PATCH' && r.url().includes('/items/'),
+  );
+  await page.keyboard.press('Shift+N');
+  await expect(items.nth(1)).toHaveValue('Charlie');
+  await expect(items.nth(2)).toHaveValue('Bravo');
+  await expect(selected.getByRole('textbox')).toHaveValue('Bravo');
+  await moved;
+
+  // Shift+P twice takes it to the top; the third press has nowhere to go.
+  await page.keyboard.press('Shift+P');
+  await page.keyboard.press('Shift+P');
+  await expect(items.nth(0)).toHaveValue('Bravo');
+  await page.keyboard.press('Shift+P');
+  await expect(items.nth(0)).toHaveValue('Bravo');
+  await expect(items.nth(1)).toHaveValue('Alpha');
+
+  // Enter hands the keystrokes back to the row's own field, where n is a letter
+  // again — the whole reason the selection is a focus of its own.
+  await page.keyboard.press('Enter');
+  await expect(selected).toHaveCount(0);
+  await page.keyboard.type('n');
+  await expect(items.nth(0)).toHaveValue('Bravon');
+
+  // And from the field, Escape is still one step from closing the note.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  // The moves were the server's, not just the open editor's.
+  await page.reload();
+  await cardByTitle(page, 'Keys').click();
+  await settledEditor(page);
+  const reopened = page.getByRole('dialog').getByRole('textbox', { name: 'List item' });
+  await expect(reopened.nth(0)).toHaveValue('Bravon');
+  await expect(reopened.nth(1)).toHaveValue('Alpha');
+  await expect(reopened.nth(2)).toHaveValue('Charlie');
+  await page.keyboard.press('Escape');
+});
+
 test('settings dialog toggles move-checked behavior', async ({ page }) => {
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();

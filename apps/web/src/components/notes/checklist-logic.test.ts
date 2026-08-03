@@ -6,8 +6,11 @@ import {
   DRAG_INDENT_PX,
   displayGroups,
   indentFromDragX,
+  moveWithinGroup,
+  nextSelectedKey,
   positionAfterRow,
   positionAtIndex,
+  selectableRows,
   splitText,
 } from './checklist-logic.js';
 
@@ -96,5 +99,61 @@ describe('checklist logic', () => {
     const inline = displayGroups(rows, false);
     expect(inline.unchecked.map((r) => r.position)).toEqual(['a0', 'a1']);
     expect(inline.checked).toEqual([]);
+  });
+});
+
+describe('item selection (n / p)', () => {
+  it('walks the completed group only while it is expanded', () => {
+    const rows = [row({ position: 'a0' }), row({ position: 'a1', checked: true })];
+    const groups = displayGroups(rows, true);
+    expect(selectableRows(groups, false).map((r) => r.position)).toEqual(['a0', 'a1']);
+    expect(selectableRows(groups, true).map((r) => r.position)).toEqual(['a0']);
+  });
+
+  it('starts at the end the key comes from', () => {
+    const rows = [row({}), row({}), row({})];
+    expect(nextSelectedKey(rows, null, 1)).toBe(rows[0]!.key);
+    expect(nextSelectedKey(rows, null, -1)).toBe(rows[2]!.key);
+    // A selection that no longer exists reads as no selection at all.
+    expect(nextSelectedKey(rows, 'gone', 1)).toBe(rows[0]!.key);
+  });
+
+  it('stops at both ends instead of wrapping', () => {
+    const rows = [row({}), row({})];
+    expect(nextSelectedKey(rows, rows[0]!.key, 1)).toBe(rows[1]!.key);
+    expect(nextSelectedKey(rows, rows[1]!.key, 1)).toBe(rows[1]!.key);
+    expect(nextSelectedKey(rows, rows[0]!.key, -1)).toBe(rows[0]!.key);
+    expect(nextSelectedKey([], null, 1)).toBeNull();
+  });
+});
+
+describe('item move (Shift+N / Shift+P)', () => {
+  it('swaps with the neighbouring slot and refuses to leave the list', () => {
+    const rows = [row({ position: 'a0' }), row({ position: 'a1' }), row({ position: 'a2' })];
+    const down = moveWithinGroup(rows, rows, rows[0]!.key, 1);
+    expect(down?.position).toSatisfy((p: string) => p > 'a1' && p < 'a2');
+    const up = moveWithinGroup(rows, rows, rows[2]!.key, -1);
+    expect(up?.position).toSatisfy((p: string) => p > 'a0' && p < 'a1');
+
+    expect(moveWithinGroup(rows, rows, rows[0]!.key, -1)).toBeNull();
+    expect(moveWithinGroup(rows, rows, rows[2]!.key, 1)).toBeNull();
+  });
+
+  it('un-indents a row it lifts to the top, like the drag gesture does', () => {
+    const rows = [row({ position: 'a0' }), row({ position: 'a1', indent: 1 })];
+    expect(moveWithinGroup(rows, rows, rows[1]!.key, -1)?.indent).toBe(0);
+  });
+
+  it('treats the completed divider as a wall', () => {
+    const rows = [
+      row({ position: 'a0' }),
+      row({ position: 'a1' }),
+      row({ position: 'a2', checked: true }),
+    ];
+    const { unchecked, checked } = displayGroups(rows, true);
+    // The last unchecked row has nowhere to go: the checked one is not a slot.
+    expect(moveWithinGroup(rows, unchecked, rows[1]!.key, 1)).toBeNull();
+    // And the lone checked row moves nowhere inside its own group.
+    expect(moveWithinGroup(rows, checked, rows[2]!.key, -1)).toBeNull();
   });
 });

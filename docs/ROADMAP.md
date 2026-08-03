@@ -72,11 +72,26 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   o ícone de lembrete é `max-md:hidden` e vira item do menu "Mais" abaixo de `md` — o e2e mede a
   barra e falha se ela voltar a estourar.
 
-- [ ] **Atalhos de item de lista `n`/`p`/`Shift+N`/`Shift+P`** *(impacto baixo · esforço M/G)*
+- [x] **Atalhos de item de lista `n`/`p`/`Shift+N`/`Shift+P`** *(impacto baixo · esforço M/G)* — feito em 2026-08-03
   **O quê:** navegar/mover o "item selecionado" do checklist pelo teclado, como no Keep.
   **Como:** exige um estado de foco de item que não digita (hoje cada item é um `textarea`
   nativo). Criar um "modo seleção de item" no editor de checklist; devolver os atalhos ao
   diálogo `?` (foram removidos de lá para não anunciar atalho morto).
+  **Entregue:** a seleção é um **foco de verdade** — a caixa da linha, e não o `textarea` dentro
+  dela, é que fica com o foco do DOM. É o que faz `n` continuar sendo a letra n enquanto se
+  digita (o motor já entrega qualquer tecla que produza texto ao campo, `lib/keyboard.ts`) e
+  virar atalho assim que a linha assume; de quebra, focar a linha é o que rola a lista até ela.
+  Os quatro atalhos entram pelo **escopo `editor` que já existia** no `EditorModal`, através do
+  handle do checklist: um segundo `useKeyScope('editor', …)` seria um escopo modal a mais na
+  pilha e calaria o `Ctrl+F` do próprio editor.
+  **A porta de entrada é o Escape**, como no editor de desenho: o editor abre com um campo focado,
+  então sem ela os atalhos só seriam alcançáveis dando Tab até sair do texto. Escape dentro de um
+  item sai do campo *para o item*; o Escape seguinte, já na linha, fecha a nota como sempre.
+  Enter devolve o cursor ao campo, no fim do texto.
+  **Mover é o mesmo gesto do arrasto, só que discreto:** anda uma casa **dentro do próprio grupo
+  de exibição** (o divisor "Itens concluídos" é parede) e reaplica o mesmo grampo do arrasto — a
+  linha que sobe para o topo perde o recuo, porque o primeiro item nunca é recuado. Um passo de
+  undo por movimento, e um `PATCH` só (`position` + `indent`).
 
 - [x] **Indentar item de checklist arrastando para a direita** *(impacto baixo · esforço P/M)* — feito em 2026-07-31
   **O quê:** além de `Tab`/`Ctrl+]`, arrastar o item ~24px à direita indenta (paridade Keep).

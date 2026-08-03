@@ -37,6 +37,22 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: 'navigation',
   },
   {
+    id: 'nav-next-item',
+    keys: ['n'],
+    display: 'n',
+    scope: 'editor',
+    labelKey: 'navNextItem',
+    group: 'navigation',
+  },
+  {
+    id: 'nav-prev-item',
+    keys: ['p'],
+    display: 'p',
+    scope: 'editor',
+    labelKey: 'navPrevItem',
+    group: 'navigation',
+  },
+  {
     // Owned by the card itself (roving tabindex), not by the engine: arrows
     // must keep scrolling the page whenever no card holds focus.
     id: 'nav-arrows',
@@ -62,9 +78,25 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'moveNoteUp',
     group: 'navigation',
   },
-  // Keep also lists n/p + Shift+N/P for list-item navigation, but those only
-  // work in an editor with a non-typing "selected item" focus state, which our
-  // native-textarea checklist doesn't have — deferred (see docs/PARITY.md).
+  // The four above have list-item twins inside the editor: they steer the
+  // checklist's non-typing "selected item" (n/p pick it, Shift+N/P move it),
+  // which is why they are editor-scoped while reading as navigation.
+  {
+    id: 'move-item-down',
+    keys: ['shift+n'],
+    display: 'Shift + n',
+    scope: 'editor',
+    labelKey: 'moveItemDown',
+    group: 'navigation',
+  },
+  {
+    id: 'move-item-up',
+    keys: ['shift+p'],
+    display: 'Shift + p',
+    scope: 'editor',
+    labelKey: 'moveItemUp',
+    group: 'navigation',
+  },
   // Application
   {
     id: 'compose-note',

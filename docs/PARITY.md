@@ -62,7 +62,7 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Public read-only link | Keep has none (sharing needs a Google account) | ✅ 🔀 the owner mints one address per note in the Share dialog (optional 7/30-day expiry); `/s/<token>` renders the note — title, body or checklist, images, drawings, audio — with no session anywhere on the path, `noindex` in the response and in robots.txt. Only shared content travels: no labels, reminder, pin or anyone's name. Re-issuing replaces the address, revoking deletes it, and trashing the note takes it dark until the note is restored (DECISIONS #30) | post-1.0 |
 | Per-user pin/archive/color/labels/reminders/order on shared notes | ✓ | ✅ WS isolation integration-tested | M7 |
 | ~1s realtime propagation | ✓ | ✅ <1s asserted; echo suppression via X-Client-Id | M7 |
-| Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; n/p item shortcuts deferred (see below) | M8 |
+| Keyboard shortcuts (map + ? dialog) | ✓ | ✅ scope-stack engine; registry = shared constant; the list-item four (`n`/`p`/`Shift+N`/`Shift+P`) reach their non-typing "selected item" via `Esc` out of the field — post-1.0 | M8 |
 | Grid keyboard focus | j/k + Tab through cards | ✅ 🔀 roving tabindex — one tab stop per grid, arrows move it geometrically (masonry columns), j/k keep reading order | post-1.0 |
 | Multi-select: hover check, marquee, top bar, bulk ops | ✓ | ✅ 🔀 hover check, mouse marquee (both buttons, add-only), background click clears, x, Ctrl+A, bulk pin/color/archive/trash/copy/remind/labels (tri-state) — plus bulk collaborator and bulk merge, which Keep has neither of | M8 |
 | Drag reorder notes (per-user, synced) | ✓ | ✅ fractional positions; cross-section drag flips pin | M8 |
@@ -84,9 +84,6 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 Planned (or Keep-parity) items consciously not shipped in v1.0 — tracked here so
 the table above stays honest. Roughly in order of user impact:
 
-- **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing
-  "selected item" editor focus state our native-textarea checklist doesn't
-  have; removed from the "?" dialog rather than advertised dead.
 - **Offline media** — composer image files live only in memory: an
   offline-composed note restores its text/labels/reminder after a reload, but
   not unsaved images. Attachment uploads pause while offline and resume within

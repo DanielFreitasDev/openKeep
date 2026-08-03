@@ -306,7 +306,21 @@ function EditorBody({
   // the one key the editor claims for itself (assigned below, through a ref, so
   // the binding registered here stays stable for the editor's whole life).
   const openFindRef = useRef<() => void>(() => {});
-  const editorBindings = useMemo(() => ({ 'mod+f': () => openFindRef.current() }), []);
+  const checklistRef = useRef<ChecklistHandle | null>(null);
+  // Keep's list-item keys. They reach the engine only when the focus is not
+  // typing — inside the title, the body or an item's textarea `n` is still the
+  // letter n — so the checklist's own "selected item" is what they steer. On a
+  // note that is not a list there is no handle to ask, and they do nothing.
+  const editorBindings = useMemo(
+    () => ({
+      'mod+f': () => openFindRef.current(),
+      n: () => checklistRef.current?.selectItem(1),
+      p: () => checklistRef.current?.selectItem(-1),
+      'shift+n': () => checklistRef.current?.moveItem(1),
+      'shift+p': () => checklistRef.current?.moveItem(-1),
+    }),
+    [],
+  );
   useKeyScope('editor', editorBindings);
 
   // Keep's "Add drawing": the full-screen drawing editor takes over; back
@@ -362,7 +376,6 @@ function EditorBody({
   const [showShare, setShowShare] = useState(false);
   const [sheet, setSheet] = useState<MobileSheet>(null);
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
-  const checklistRef = useRef<ChecklistHandle | null>(null);
   /** Which of the two histories the toolbar buttons should reach for first. */
   const lastSurfaceRef = useRef<'body' | 'fields'>('fields');
   const fileInputRef = useRef<HTMLInputElement | null>(null);

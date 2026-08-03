@@ -40,8 +40,11 @@ import {
   canIndent,
   displayGroups,
   indentFromDragX,
+  moveWithinGroup,
+  nextSelectedKey,
   positionAfterRow,
   positionAtIndex,
+  selectableRows,
   splitText,
 } from './checklist-logic.js';
 
@@ -62,6 +65,10 @@ export interface ChecklistHandle {
   snapshot: () => HistoryItem[];
   /** Put the rows back the way a step remembers them (undo/redo). */
   restore: (items: readonly HistoryItem[]) => void;
+  /** `n` / `p`: walk the non-typing item selection (1 = down, -1 = up). */
+  selectItem: (delta: 1 | -1) => void;
+  /** `Shift+N` / `Shift+P`: move the selected item one slot. */
+  moveItem: (delta: 1 | -1) => void;
 }
 
 /** Rows → the shape an undo step remembers (no server ids: see field-history). */
@@ -133,9 +140,18 @@ export function ChecklistEditor({
   rowsRef.current = rows;
 
   const [collapsed, setCollapsed] = useState(false);
+  /**
+   * The "selected item" `n`/`p`/`Shift+N`/`Shift+P` operate on — a focus that
+   * does NOT type: the row's own box holds it, not the textarea inside it, so
+   * the letters stay shortcuts instead of becoming text (see keyboard.ts).
+   */
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const selectedKeyRef = useRef(selectedKey);
+  selectedKeyRef.current = selectedKey;
   const creations = useRef(new Map<string, Promise<string | null>>());
   const textTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const inputRefs = useRef(new Map<string, HTMLTextAreaElement>());
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const focusRequest = useRef<{ key: string; caret: number } | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   /** Rows with a PATCH in flight — the remote merge must not revert them. */
@@ -411,6 +427,63 @@ export function ChecklistEditor({
     [changeText, removeRow],
   );
 
+  // ------------------------------------------------------------- selection
+
+  /** The rows on screen right now, in screen order — what `n`/`p` walk. */
+  const selectableNow = useCallback(
+    () => selectableRows(displayGroups(rowsRef.current, moveCheckedToBottom), collapsed),
+    [moveCheckedToBottom, collapsed],
+  );
+
+  const selectItem = useCallback(
+    (delta: 1 | -1) => {
+      const selectable = selectableNow();
+      setSelectedKey((current) => nextSelectedKey(selectable, current, delta));
+    },
+    [selectableNow],
+  );
+
+  const moveItem = useCallback(
+    (delta: 1 | -1) => {
+      const key = selectedKeyRef.current;
+      if (readOnly || !key) return;
+      const rows = rowsRef.current;
+      const row = rows.find((r) => r.key === key);
+      if (!row) return;
+      // A row moves inside the group it is displayed in; `Shift+N` on the last
+      // unchecked row does not push it under the completed divider.
+      const groups = displayGroups(rows, moveCheckedToBottom);
+      const group = groups.checked.some((r) => r.key === key) ? groups.checked : groups.unchecked;
+      const patch = moveWithinGroup(rows, group, key, delta);
+      if (!patch) return;
+      dirtiedRef.current = true;
+      pendingStepRef.current = { key: null };
+      setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+      patchServer(key, patch);
+    },
+    [readOnly, moveCheckedToBottom, patchServer],
+  );
+
+  /**
+   * Escape inside an item's textarea: step out of the field onto the item
+   * itself. Without it the selection would be unreachable from where people
+   * actually are — the editor opens with a field focused, and every bare
+   * letter belongs to that field.
+   */
+  const selectRow = useCallback((key: string) => setSelectedKey(key), []);
+
+  /** Enter on a selected row: hand the keystrokes back to its textarea. */
+  const editSelected = useCallback((key: string) => {
+    const row = rowsRef.current.find((r) => r.key === key);
+    if (!row) return;
+    focusRequest.current = { key, caret: row.text.length };
+    setSelectedKey(null);
+  }, []);
+
+  const deselect = useCallback((key: string) => {
+    setSelectedKey((current) => (current === key ? null : current));
+  }, []);
+
   /**
    * Put the rows back the way an undo/redo step remembers them. Rows are
    * matched by local key, so a row the step brings back is created afresh
@@ -500,6 +573,8 @@ export function ChecklistEditor({
       hasChecked: () => rowsRef.current.some((r) => r.checked),
       snapshot: () => toHistoryItems(rowsRef.current),
       restore,
+      selectItem,
+      moveItem,
       uncheckAll: () => {
         dirtiedRef.current = true;
         pendingStepRef.current = { key: null };
@@ -517,7 +592,7 @@ export function ChecklistEditor({
         );
       },
     }),
-    [noteId, queryClient, restore],
+    [noteId, queryClient, restore, selectItem, moveItem],
   );
 
   // ---------------------------------------------------------------- dnd
@@ -657,6 +732,19 @@ export function ChecklistEditor({
     }
   });
 
+  // The selection IS a DOM focus — that is what keeps the next keystroke away
+  // from any textarea, and what scrolls a row far down the list into view.
+  useLayoutEffect(() => {
+    if (selectedKey === null) return;
+    rowRefs.current.get(selectedKey)?.focus();
+  }, [selectedKey]);
+
+  // A row that goes away (deleted here, or by a collaborator) takes the
+  // selection with it rather than leaving `n` pointing at nothing.
+  useEffect(() => {
+    if (selectedKey !== null && !rows.some((r) => r.key === selectedKey)) setSelectedKey(null);
+  }, [rows, selectedKey]);
+
   const groups = useMemo(
     () => displayGroups(rows, moveCheckedToBottom),
     [rows, moveCheckedToBottom],
@@ -691,6 +779,8 @@ export function ChecklistEditor({
           indent={dragKey === row.key && dragIndent !== null ? dragIndent : row.indent}
           onDragStart={() => setDragKey(row.key)}
           inputRefs={inputRefs}
+          rowRefs={rowRefs}
+          selected={selectedKey === row.key}
           find={find}
           onText={changeText}
           onCheck={toggleCheck}
@@ -698,6 +788,9 @@ export function ChecklistEditor({
           onRemove={removeRow}
           onSplit={splitRow}
           onMergePrev={mergeIntoPrevious}
+          onEdit={editSelected}
+          onSelect={selectRow}
+          onDeselect={deselect}
         />
       ))}
       {!readOnly && addItemsToBottom && addPlaceholder}
@@ -730,6 +823,8 @@ export function ChecklistEditor({
                 indent={row.indent}
                 onDragStart={() => {}}
                 inputRefs={inputRefs}
+                rowRefs={rowRefs}
+                selected={selectedKey === row.key}
                 find={find}
                 onText={changeText}
                 onCheck={toggleCheck}
@@ -737,6 +832,9 @@ export function ChecklistEditor({
                 onRemove={removeRow}
                 onSplit={splitRow}
                 onMergePrev={mergeIntoPrevious}
+                onEdit={editSelected}
+                onSelect={selectRow}
+                onDeselect={deselect}
               />
             ))}
         </div>
@@ -754,6 +852,9 @@ interface RowProps {
   indent: 0 | 1;
   onDragStart: () => void;
   inputRefs: React.RefObject<Map<string, HTMLTextAreaElement>>;
+  rowRefs: React.RefObject<Map<string, HTMLDivElement>>;
+  /** Holds the non-typing item focus (`n`/`p`). */
+  selected: boolean;
   find?: ChecklistFind;
   onText: (key: string, text: string) => void;
   onCheck: (key: string, checked: boolean) => void;
@@ -761,6 +862,9 @@ interface RowProps {
   onRemove: (key: string, focusPrev?: boolean) => void;
   onSplit: (key: string, caret: number) => void;
   onMergePrev: (key: string) => void;
+  onEdit: (key: string) => void;
+  onSelect: (key: string) => void;
+  onDeselect: (key: string) => void;
 }
 
 function Row({
@@ -771,6 +875,8 @@ function Row({
   indent,
   onDragStart,
   inputRefs,
+  rowRefs,
+  selected,
   find,
   onText,
   onCheck,
@@ -778,6 +884,9 @@ function Row({
   onRemove,
   onSplit,
   onMergePrev,
+  onEdit,
+  onSelect,
+  onDeselect,
 }: RowProps) {
   const { t } = useTranslation('editor');
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -829,13 +938,38 @@ function Row({
   const hit = row.id !== null && find?.hits.has(row.id) === true;
   const currentHit = hit && find?.current === row.id;
   return (
+    /* biome-ignore lint/a11y/noStaticElementInteractions: the row is where the n/p selection parks — a focus destination, not a control (its checkbox, text and delete button are the controls) */
     <div
-      ref={rootRef}
+      ref={(el) => {
+        rootRef.current = el;
+        if (el) rowRefs.current.set(row.key, el);
+        else rowRefs.current.delete(row.key);
+      }}
       data-find-current={currentHit ? 'true' : undefined}
       data-indent={indent}
-      className={`group/row flex items-start gap-1 border-transparent border-b py-0.5 motion-safe:transition-[margin-left] motion-safe:duration-100 ${
-        indent === 1 ? 'ml-7' : ''
-      } ${dragging ? 'opacity-40' : ''} ${
+      data-selected={selected ? 'true' : undefined}
+      // Reachable by script, never by Tab: Tab belongs to the fields inside.
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        // Only while the row itself holds the focus; once the textarea has it,
+        // every key is text again.
+        if (e.target !== e.currentTarget) return;
+        // Enter goes back into the field; Escape is left alone, so it reaches
+        // the modal and closes the note — one step further out, as expected.
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onEdit(row.key);
+        }
+      }}
+      onBlur={(e) => {
+        if (e.target === e.currentTarget) onDeselect(row.key);
+      }}
+      // The ring follows the selection, not the DOM focus — a row is only ever
+      // focused because it was selected, and it must not look picked while the
+      // caret is in the field inside it.
+      className={`group/row flex items-start gap-1 border-transparent border-b py-0.5 outline-offset-1 outline-(--primary) motion-safe:transition-[margin-left] motion-safe:duration-100 ${
+        selected ? 'outline-2' : ''
+      } ${indent === 1 ? 'ml-7' : ''} ${dragging ? 'opacity-40' : ''} ${
         hit ? (currentHit ? 'find-field find-field-current' : 'find-field') : ''
       }`}
     >
@@ -877,7 +1011,13 @@ function Row({
         onKeyDown={(e) => {
           if (readOnly || row.checked) return;
           const el = e.currentTarget;
-          if (e.key === 'Enter') {
+          if (e.key === 'Escape') {
+            // Step out of the field onto the item — the note stays open, and
+            // the next Escape (from the item) closes it as usual.
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(row.key);
+          } else if (e.key === 'Enter') {
             e.preventDefault();
             onSplit(row.key, el.selectionStart ?? row.text.length);
           } else if (e.key === 'Backspace' && el.selectionStart === 0 && el.selectionEnd === 0) {

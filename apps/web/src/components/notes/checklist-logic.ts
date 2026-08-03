@@ -124,3 +124,53 @@ export function displayGroups(rows: ChecklistRow[], moveCheckedToBottom: boolean
     checked: ordered.filter((r) => r.checked),
   };
 }
+
+/**
+ * The rows `n`/`p` walk: exactly what is on screen, in screen order. A
+ * collapsed "Completed items" group is nothing to land on.
+ */
+export function selectableRows(groups: DisplayGroups, collapsed: boolean): ChecklistRow[] {
+  return collapsed ? groups.unchecked : [...groups.unchecked, ...groups.checked];
+}
+
+/**
+ * Where `n` (delta 1) / `p` (delta -1) put the selection. With nothing selected
+ * yet — or with a selection that just went away — the walk starts at the end
+ * the key is coming from, so `n` opens on the first row and `p` on the last.
+ */
+export function nextSelectedKey(
+  selectable: readonly ChecklistRow[],
+  current: string | null,
+  delta: 1 | -1,
+): string | null {
+  if (selectable.length === 0) return null;
+  const idx = current === null ? -1 : selectable.findIndex((r) => r.key === current);
+  if (idx === -1) return (delta > 0 ? selectable[0] : selectable.at(-1))?.key ?? null;
+  const next = selectable[idx + delta];
+  // Both ends are walls: Keep does not wrap around.
+  return next ? next.key : current;
+}
+
+/**
+ * The patch `Shift+N`/`Shift+P` apply: the neighbouring slot inside the row's
+ * own display group (the "Completed items" divider is a wall), plus the same
+ * first-item indent clamp the drag gesture applies — a row shifted to the top
+ * of the list cannot stay indented. Null when there is nowhere to go.
+ */
+export function moveWithinGroup(
+  rows: readonly ChecklistRow[],
+  group: readonly ChecklistRow[],
+  key: string,
+  delta: 1 | -1,
+): { position: string; indent?: 0 | 1 } | null {
+  const ordered = [...group].sort(byPosition);
+  const idx = ordered.findIndex((r) => r.key === key);
+  const row = ordered[idx];
+  if (!row) return null;
+  const to = idx + delta;
+  if (to < 0 || to >= ordered.length) return null;
+
+  const position = positionAtIndex(ordered, key, to);
+  const landed = rows.map((r) => (r.key === key ? { ...r, position } : r));
+  return row.indent === 1 && !canIndent(landed, key) ? { position, indent: 0 } : { position };
+}
