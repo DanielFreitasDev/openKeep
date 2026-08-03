@@ -1,5 +1,21 @@
-import type { Collaborator, FullNote, NoteSort, SearchType } from '@openkeep/shared';
+import type { Attachment, Collaborator, FullNote, NoteSort, SearchType } from '@openkeep/shared';
 import { comparePositions, noteLinkHref, parseSearchQuery } from '@openkeep/shared';
+
+/**
+ * The picture stack a note shows: images and drawings, in order — minus any
+ * photo a drawing was drawn over. That one is already inside the drawing's
+ * render, so showing it too would put the same picture on the note twice, once
+ * with the ink and once without. It stays attached (and comes back if the
+ * drawing is deleted) because it is what makes the drawing re-editable.
+ */
+export function selectImageStack(attachments: readonly Attachment[]): Attachment[] {
+  const backgrounds = new Set(
+    attachments.map((a) => a.photoAttachmentId).filter((id) => id !== null),
+  );
+  return attachments.filter(
+    (a) => (a.kind === 'image' || a.kind === 'drawing') && !backgrounds.has(a.id),
+  );
+}
 
 export interface MainSections {
   pinned: FullNote[];

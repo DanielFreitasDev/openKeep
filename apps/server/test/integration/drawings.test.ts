@@ -217,4 +217,104 @@ describe('drawings', () => {
     expect(data.statusCode).toBe(200);
     expect((data.json() as DrawingData).strokes).toHaveLength(1);
   });
+
+  describe('over a photo', () => {
+    /** Upload a plain image and return it — the thing a drawing is drawn over. */
+    const uploadPhoto = async (targetNote: string) => {
+      const boundary = `----okboundary${Math.random().toString(36).slice(2)}`;
+      const payload = Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="photo.png"\r\nContent-Type: image/png\r\n\r\n`,
+        ),
+        await makePng(240, 160),
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
+      const res = await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${targetNote}/attachments`,
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}`, cookie },
+        payload,
+      });
+      return res.json() as Attachment;
+    };
+
+    const makeJpeg = () =>
+      sharp({ create: { width: 240, height: 160, channels: 3, background: '#c83c3c' } })
+        .jpeg()
+        .toBuffer();
+
+    it('stores the composite as JPEG and reports the photo it covers', async () => {
+      const photo = await uploadPhoto(noteId);
+      const body = { ...drawing([PEN_STROKE]), photoAttachmentId: photo.id };
+      const { payload, headers } = drawingMultipart(await makeJpeg(), body);
+      const res = await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${noteId}/drawings`,
+        headers: { ...headers, cookie },
+        payload,
+      });
+      expect(res.statusCode).toBe(201);
+      const att = res.json() as Attachment;
+      expect(att.mime).toBe('image/jpeg');
+      // The DTO carries the link, so clients hide the bare photo without
+      // having to fetch every drawing's vectors first.
+      expect(att.photoAttachmentId).toBe(photo.id);
+      expect(photo.photoAttachmentId).toBeNull();
+
+      const file = await t.app.inject({
+        method: 'GET',
+        url: `/api/attachments/${att.id}/file`,
+        headers: { cookie },
+      });
+      expect(file.headers['content-type']).toBe('image/jpeg');
+    });
+
+    it('a copy points at its own photo, not the original note′s', async () => {
+      const fresh = await t.app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        headers: { cookie },
+        payload: { title: 'Photo drawing source' },
+      });
+      const srcId = (fresh.json() as FullNote).id;
+      const photo = await uploadPhoto(srcId);
+      const { payload, headers } = drawingMultipart(await makeJpeg(), {
+        ...drawing([PEN_STROKE]),
+        photoAttachmentId: photo.id,
+      });
+      await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${srcId}/drawings`,
+        headers: { ...headers, cookie },
+        payload,
+      });
+
+      const copy = await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${srcId}/copy`,
+        headers: { cookie },
+      });
+      const copied = copy.json() as FullNote;
+      const copiedDrawing = copied.attachments.find((a) => a.kind === 'drawing');
+      const copiedPhoto = copied.attachments.find((a) => a.kind === 'image');
+      expect(copiedDrawing?.photoAttachmentId).toBe(copiedPhoto?.id);
+      expect(copiedDrawing?.photoAttachmentId).not.toBe(photo.id);
+    });
+
+    it('refuses a render that is neither PNG nor JPEG', async () => {
+      const webp = await sharp({
+        create: { width: 32, height: 32, channels: 3, background: '#ffffff' },
+      })
+        .webp()
+        .toBuffer();
+      const { payload, headers } = drawingMultipart(webp, drawing([PEN_STROKE]));
+      const res = await t.app.inject({
+        method: 'POST',
+        url: `/api/notes/${noteId}/drawings`,
+        headers: { ...headers, cookie },
+        payload,
+      });
+      expect(res.statusCode).toBe(415);
+    });
+  });
 });

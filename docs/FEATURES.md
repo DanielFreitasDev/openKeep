@@ -84,6 +84,10 @@ Real Keep migrated reminders to Google Tasks (Oct 2025). OpenKeep implements the
 - Full-screen Keep-style drawing editor: pen / marker / highlighter with Keep's 28-color palette and 8 stroke sizes, whole-stroke eraser (+ Clear page), grid paper (squares / dots / rules), undo/redo, and New drawing / Export as image / Delete current drawing.
 - Entry points: composer "New note with drawing", editor menu / mobile add sheet, FAB "Drawing"; tapping a drawing in the editor re-opens it with its strokes (vectors stored server-side next to the PNG render).
 - The note shows the render cropped to the ink, Keep-style; an untouched drawing is discarded ("Empty note discarded").
+- **Select** tool: loop around strokes to pick them up (it takes only strokes the loop encloses whole), drag to move them, Delete — or the tool's panel — to remove them; Escape lets the selection go.
+- **Zoom and pan**: ctrl/⌘ + wheel zooms at the pointer, a bare wheel pans, two fingers pinch, and middle-drag or space-drag grabs the paper. The pill by the canvas shows the level with −/+/Fit to screen (also Ctrl +/-/0); zooming out stops where the whole page is visible.
+- **The page grows under the pen** 🔀: ink reaching the bottom edge lengthens the paper, and holding the pen there rolls it up so the stroke keeps going (up to 8192px).
+- **Draw on image** 🔀: an image in the editor offers to be drawn on. The drawing takes the photo's shape, the note then shows the annotated version in the photo's place, and the original stays attached so the ink can always be re-edited (delete the drawing and the photo comes back).
 
 ## Link previews
 
@@ -140,7 +144,7 @@ Complete Keep map (see `packages/shared/src/constants/shortcuts.ts`), with the `
 
 ## Post-1.0 roadmap
 
-Drawing extras (lasso select, draw on image, zoom/pan + auto-extending canvas) · optional audio transcription · OCR "Grab image text" · "Things" auto-classification · optional LLM "Help me create a list" · native `display: grid-lanes` masonry when cross-browser · full local-first offline.
+Optional audio transcription · OCR "Grab image text" · "Things" auto-classification · optional LLM "Help me create a list" · native `display: grid-lanes` masonry when cross-browser · full local-first offline.
 
 ## Out of scope
 

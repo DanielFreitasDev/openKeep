@@ -16,6 +16,12 @@ export const zAttachment = z.object({
   createdAt: z.iso.datetime(),
   /** Bumped when a drawing is re-saved — clients cache-bust file/thumb URLs with it. */
   updatedAt: z.iso.datetime(),
+  /**
+   * For a drawing made over a photo: the image attachment it uses as its
+   * background. That image is not shown on its own — this render already
+   * contains it — but it stays on the note so the drawing remains editable.
+   */
+  photoAttachmentId: zId.nullable(),
 });
 export type Attachment = z.infer<typeof zAttachment>;
 
@@ -40,13 +46,19 @@ export const zDrawingStroke = z.object({
 });
 export type DrawingStroke = z.infer<typeof zDrawingStroke>;
 
-/** The editable vector form of a drawing; the PNG is its rendered export. */
+/** The editable vector form of a drawing; the image is its rendered export. */
 export const zDrawingData = z.object({
   version: z.literal(1),
   width: z.number().int().min(16).max(LIMITS.drawingSideMax),
   height: z.number().int().min(16).max(LIMITS.drawingSideMax),
   background: zDrawingBackground,
   strokes: z.array(zDrawingStroke).max(LIMITS.drawingStrokesMax),
+  /**
+   * An image attachment of the same note, drawn under the ink; the page then
+   * takes its proportions. Absent on the plain-paper drawings that came first,
+   * which is why it is optional rather than a second `version`.
+   */
+  photoAttachmentId: zId.nullish(),
 });
 export type DrawingData = z.infer<typeof zDrawingData>;
 

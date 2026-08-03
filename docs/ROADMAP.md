@@ -97,13 +97,33 @@ Eram 16 na v1.0; os concluídos saem de lá e ficam marcados `[x]` aqui.
   coluna do editor, sobre o scrim). O teste também precisou esperar o **morph** do editor assentar:
   medir a caixa do diálogo no meio da animação dava larguras diferentes a cada execução.
 
-- [ ] **Extras do editor de desenho** *(impacto médio · esforço G)*
+- [x] **Extras do editor de desenho** *(impacto médio · esforço G)* — feito em 2026-08-03
   **O quê:** ferramenta de laço (mover seleção de traços), zoom/pan do canvas, desenhar sobre
   fotos e canvas auto-extensível (hoje o tamanho é fixo na criação).
   **Como:** os traços já são vetores (`drawing_data` jsonb, DECISIONS #24), então laço/zoom são
   transformações client-side; desenhar sobre foto = novo `kind` ligando a um attachment de
   imagem como fundo. Fatiar em 4 entregas independentes, nessa ordem: zoom/pan → laço →
   auto-extend → sobre fotos.
+  **Entregue:** nas quatro entregas planejadas, uma por commit. A aritmética da vista virou
+  módulo próprio (`lib/drawing-view.ts`), testado à parte: o piso do zoom é a escala que mostra
+  a página inteira (sair além disso só acrescenta margem) e o pan é grampeado para o papel nunca
+  ficar meio fora da tela. A vista só se re-ajusta sozinha até a pessoa assumir o controle.
+  **O laço leva o traço inteiro ou nada:** um vizinho meio cruzado fica onde está, então um
+  círculo folgado em volta de uma palavra não arrasta a de trás junto. Mover é um passo de undo
+  só, e qualquer undo/redo **solta** a seleção — o histórico remexe exatamente nos traços que ela
+  aponta. Escape agora solta a seleção antes de fechar o editor.
+  **O auto-extend precisou de um loop de frames:** um ponteiro parado na borda inferior não manda
+  evento nenhum, então quem alimenta a linha e rola o papel é um `requestAnimationFrame`. Crescer
+  derruba o "fitted" de propósito: re-ajustar uma página que acabou de ficar mais alta encolheria
+  a tinta no meio da linha, que é justamente o solavanco que se quer evitar.
+  **A foto de fundo é referência, não bytes:** `drawing_data` ganhou `photoAttachmentId` (campo
+  opcional, sem `version: 2` — linha antiga continua válida), o DTO de attachment o expõe para o
+  cliente não ter que buscar os vetores de todo desenho, e a foto some da pilha da nota (uma
+  função só, `selectImageStack`, usada pelo card, pelo editor, pelo print e pela página pública).
+  Ela continua anexada porque é o que mantém o desenho editável — e volta se o desenho for
+  apagado. Composto sobre foto sai em **JPEG**: a mesma imagem em PNG custaria megabytes da cota
+  de alguém. Copiar a nota remapeia o id para a foto da cópia, senão apagar a original levaria o
+  fundo da cópia junto.
 
 ### 1.2 Robustez e infraestrutura
 

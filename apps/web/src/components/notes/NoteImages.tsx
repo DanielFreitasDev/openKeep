@@ -1,9 +1,11 @@
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
+import drawSvg from '@material-symbols/svg-700/outlined/draw.svg?raw';
 import type { Attachment, FullNote } from '@openkeep/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { attachmentFileUrl, attachmentThumbUrl } from '../../lib/attachments-api.js';
+import { selectImageStack } from '../../lib/note-selectors.js';
 import { IconButton } from '../IconButton.js';
 
 /**
@@ -15,14 +17,22 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useAttachmentMutations();
-  const images = note.attachments.filter((a) => a.kind === 'image' || a.kind === 'drawing');
+  const images = selectImageStack(note.attachments);
   const audios = note.attachments.filter((a) => a.kind === 'audio');
   if (images.length === 0 && audios.length === 0) return null;
 
   const editDrawing = (att: Attachment) =>
     void navigate({
       to: '.',
-      search: (old: Record<string, unknown>) => ({ ...old, drawing: att.id }),
+      search: (old: Record<string, unknown>) => ({ ...old, drawing: att.id, photo: undefined }),
+      resetScroll: false,
+    });
+
+  /** Open a fresh drawing over this photo; the photo itself stays attached. */
+  const drawOnImage = (att: Attachment) =>
+    void navigate({
+      to: '.',
+      search: (old: Record<string, unknown>) => ({ ...old, drawing: 'new', photo: att.id }),
       resetScroll: false,
     });
 
@@ -63,7 +73,20 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
             picture(att)
           )}
           {editable && (
-            <div className="absolute right-1 bottom-1 opacity-0 transition-opacity group-hover/img:opacity-100">
+            <div className="absolute right-1 bottom-1 flex gap-1 opacity-0 transition-opacity group-hover/img:opacity-100">
+              {att.kind === 'image' && (
+                <IconButton
+                  svg={drawSvg}
+                  label={t('drawing:drawOnImage')}
+                  size={32}
+                  iconSize={16}
+                  className="bg-(--scrim) text-white hover:bg-black/70"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    drawOnImage(att);
+                  }}
+                />
+              )}
               <IconButton
                 svg={closeSvg}
                 label={t('removeImage')}

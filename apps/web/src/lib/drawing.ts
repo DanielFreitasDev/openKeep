@@ -295,15 +295,31 @@ export function inkBounds(
   return left === Number.POSITIVE_INFINITY ? null : { left, top, right, bottom };
 }
 
+export interface DrawingRender {
+  blob: Blob;
+  mime: string;
+  ext: string;
+}
+
 /**
- * The note-facing PNG render: ink bounds + padding cropped out of the page
- * (Keep shows the drawing, not the whole canvas), on white, at 2× for
- * crispness. An empty page renders the full canvas.
+ * The note-facing render.
+ *
+ * Ink on paper is cropped to its bounds plus padding (Keep shows the drawing,
+ * not the whole canvas), drawn on white at 2× for crispness, and saved as PNG.
+ *
+ * Ink on a photo is the whole page at 1×, because the page *is* the photo:
+ * cropping would hand the note a fragment of the picture, doubling it would
+ * only invent pixels, and JPEG is what a photograph belongs in — as a PNG the
+ * same composite costs megabytes of somebody's quota.
  */
-export async function exportDrawingPng(data: DrawingData): Promise<Blob> {
+export async function renderDrawing(
+  data: DrawingData,
+  photo: CanvasImageSource | null,
+): Promise<DrawingRender> {
+  const overPhoto = Boolean(data.photoAttachmentId && photo);
   const PAD = 32;
-  const SCALE = 2;
-  const b = inkBounds(data.strokes);
+  const scale = overPhoto ? 1 : 2;
+  const b = overPhoto ? null : inkBounds(data.strokes);
   const left = b ? Math.max(0, Math.floor(b.left - PAD)) : 0;
   const top = b ? Math.max(0, Math.floor(b.top - PAD)) : 0;
   const right = b ? Math.min(data.width, Math.ceil(b.right + PAD)) : data.width;
@@ -312,20 +328,25 @@ export async function exportDrawingPng(data: DrawingData): Promise<Blob> {
   const h = Math.max(1, bottom - top);
 
   const canvas = document.createElement('canvas');
-  canvas.width = w * SCALE;
-  canvas.height = h * SCALE;
+  canvas.width = w * scale;
+  canvas.height = h * scale;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('canvas 2d unavailable');
-  ctx.scale(SCALE, SCALE);
+  ctx.scale(scale, scale);
   ctx.translate(-left, -top);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(left, top, w, h);
-  drawGrid(ctx, data.background, data.width, data.height);
+  if (overPhoto && photo) ctx.drawImage(photo, 0, 0, data.width, data.height);
+  else drawGrid(ctx, data.background, data.width, data.height);
   drawStrokes(ctx, data.strokes);
-  return new Promise<Blob>((resolve, reject) => {
+
+  const mime = overPhoto ? 'image/jpeg' : 'image/png';
+  const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('drawing export failed'))),
-      'image/png',
+      (out) => (out ? resolve(out) : reject(new Error('drawing export failed'))),
+      mime,
+      overPhoto ? 0.9 : undefined,
     );
   });
+  return { blob, mime, ext: overPhoto ? 'jpg' : 'png' };
 }

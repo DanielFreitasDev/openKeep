@@ -1,6 +1,12 @@
 import { expect, type Page, test } from '@playwright/test';
 import { signUpFreshUser } from './helpers.js';
 
+// 120x80 flat red PNG — big enough to be a believable page to draw over.
+const PHOTO = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAHgAAABQCAIAAABd+SbeAAAAgUlEQVR42u3QQQkAAAgEsAt2/TGWLcTHYAmWaTkQBaJFI1q0aAuiRSNatGgLokUjWrRoRItGtGjRiBaNaNGiES0a0aJFI1o0okWLRrRoRIsWjWjRohEtGtGiRSNaNKJFi0a0aET/sem24rNkIybRAAAAAElFTkSuQmCC',
+  'base64',
+);
+
 test.beforeEach(async ({ context, page }) => {
   await signUpFreshUser(context);
   await page.goto('/');
@@ -178,6 +184,46 @@ test('drawing against the bottom edge grows the page', async ({ page }) => {
   await expect(
     page.getByRole('dialog').getByRole('button', { name: 'Edit drawing' }),
   ).toBeVisible();
+});
+
+test('drawing on a photo replaces it in the stack and stays re-editable', async ({ page }) => {
+  await page.getByLabel('Take a note…').click();
+  await page.getByLabel('Title').fill('Annotated');
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Annotated' }).click();
+
+  const dialog = page.getByRole('dialog');
+  const chooser = page.waitForEvent('filechooser');
+  await dialog.getByRole('button', { name: 'Add image' }).click();
+  await (await chooser).setFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PHOTO });
+  const photo = dialog.locator('img[src*="/api/attachments/"]');
+  await expect(photo).toBeVisible();
+  const photoSrc = await photo.getAttribute('src');
+
+  // The image's own "Draw on image" opens the canvas with the photo as paper.
+  await photo.hover();
+  await dialog.getByRole('button', { name: 'Draw on image' }).click();
+  await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();
+  // Paper is the photo's, so there is no ruling to pick.
+  await expect(page.getByRole('button', { name: 'Grid' })).toHaveCount(0);
+  await drawSquiggle(page);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+
+  // The note shows the annotated render *instead of* the bare photo — the
+  // photo is still attached (it is what makes the drawing re-editable).
+  await expect(dialog.getByRole('button', { name: 'Edit drawing' })).toBeVisible();
+  await expect(dialog.locator('img[src*="/api/attachments/"]')).toHaveCount(1);
+  await expect(dialog.locator('img[src*="/api/attachments/"]')).not.toHaveAttribute(
+    'src',
+    photoSrc ?? 'missing',
+  );
+
+  // Re-opening it puts the photo back under the ink, not a blank page.
+  await dialog.getByRole('button', { name: 'Edit drawing' }).click();
+  await expect(page.locator('canvas[aria-label="Drawing"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Grid' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Edit drawing' })).toBeVisible();
 });
 
 test('the editor ⋮ menu offers Add drawing', async ({ page }) => {

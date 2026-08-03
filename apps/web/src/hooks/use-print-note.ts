@@ -5,6 +5,7 @@ import { displayGroups } from '../components/notes/checklist-logic.js';
 import { attachmentFileUrl } from '../lib/attachments-api.js';
 import { formatEdited } from '../lib/dates.js';
 import { labelsQuery } from '../lib/labels-api.js';
+import { selectImageStack } from '../lib/note-selectors.js';
 import { printNote } from '../lib/print-note.js';
 import { settingsQuery } from '../lib/queries.js';
 
@@ -33,8 +34,7 @@ export function usePrintNote(): (note: FullNote) => void {
       title: note.title,
       bodyHtml: note.type === 'list' ? '' : note.bodyHtml,
       items: rows.map(({ text, checked, indent }) => ({ text, checked, indent })),
-      imageUrls: note.attachments
-        .filter((att) => att.kind === 'image' || att.kind === 'drawing')
+      imageUrls: selectImageStack(note.attachments)
         // Originals, not thumbs: the thumbnail is sized for a 240px card.
         .map((att) => attachmentFileUrl(att.id, att.updatedAt)),
       meta: [...labelNames, t('edited', { time: formatEdited(note.updatedAt, i18n.language) })],

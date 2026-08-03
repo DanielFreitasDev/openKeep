@@ -512,6 +512,7 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       height: 1,
       filename: null,
       hasThumb: true,
+      photoAttachmentId: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

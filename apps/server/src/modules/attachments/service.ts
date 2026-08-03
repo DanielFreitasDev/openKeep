@@ -27,6 +27,7 @@ export function toAttachmentDto(row: AttachmentRow): Attachment {
     hasThumb: row.thumbKey !== null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    photoAttachmentId: (row.drawingData as DrawingData | null)?.photoAttachmentId ?? null,
   };
 }
 
@@ -365,16 +366,26 @@ export async function uploadImage(
   return toAttachmentDto(created!);
 }
 
-/** Drawings arrive as canvas-rendered PNGs: verify, re-encode, thumbnail. */
-async function processDrawingPng(
-  data: Buffer,
-): Promise<{ stored: Buffer; thumb: Buffer; width: number; height: number }> {
+/**
+ * Drawings arrive as canvas renders: verify, re-encode, thumbnail. Ink on
+ * paper is PNG — flat colour, and lossless costs nothing. Ink on a photo is
+ * JPEG, because a photo re-encoded as PNG is megabytes of a person's quota
+ * for a picture that was never lossless to begin with.
+ */
+async function processDrawingImage(data: Buffer): Promise<{
+  stored: Buffer;
+  thumb: Buffer;
+  width: number;
+  height: number;
+  mime: string;
+  ext: string;
+}> {
   if (data.length > LIMITS.imageMaxBytes) {
     throw errors.payloadTooLarge(`Images can be at most ${LIMITS.imageMaxBytes / 1024 / 1024} MB`);
   }
-  const png = MAGIC.find((m) => m.mime === 'image/png');
-  if (!png?.match(data)) {
-    throw errors.unsupportedMediaType('Drawings must be PNG images');
+  const format = MAGIC.find((m) => m.match(data));
+  if (!format || (format.mime !== 'image/png' && format.mime !== 'image/jpeg')) {
+    throw errors.unsupportedMediaType('Drawings must be PNG or JPEG images');
   }
   let meta: Metadata;
   try {
@@ -387,12 +398,15 @@ async function processDrawingPng(
   if (width * height > LIMITS.imageMaxPixels) {
     throw errors.payloadTooLarge('Image exceeds 25 megapixels');
   }
-  const stored = await sharp(data, { failOn: 'none' }).png().toBuffer();
+  const pipeline = sharp(data, { failOn: 'none' });
+  const stored = await (format.mime === 'image/png'
+    ? pipeline.png().toBuffer()
+    : pipeline.jpeg({ quality: 88 }).toBuffer());
   const thumb = await sharp(data, { failOn: 'none' })
     .resize({ width: 512, withoutEnlargement: true })
     .webp({ quality: 78 })
     .toBuffer();
-  return { stored, thumb, width, height };
+  return { stored, thumb, width, height, mime: format.mime, ext: format.ext };
 }
 
 /** Create a drawing attachment: stroke vectors + their PNG render. */
@@ -417,8 +431,8 @@ export async function uploadDrawing(
     throw new AppError(400, 'attachment_limit_reached', 'Attachment limit reached');
   }
 
-  const { stored, thumb, width, height } = await processDrawingPng(data);
-  const storageKey = storage.newKey('png');
+  const { stored, thumb, width, height, mime, ext } = await processDrawingImage(data);
+  const storageKey = storage.newKey(ext);
   const thumbKey = storage.newKey('webp');
   await storage.write('attachments', storageKey, stored);
   await storage.write('thumbs', thumbKey, thumb);
@@ -430,7 +444,7 @@ export async function uploadDrawing(
       kind: 'drawing',
       storageKey,
       thumbKey,
-      mime: 'image/png',
+      mime,
       size: stored.length,
       width,
       height,
@@ -459,8 +473,8 @@ export async function updateDrawing(
   // in the sum, so re-saving a drawing that got simpler never trips the cap.
   await assertStorageQuota(db, quota, note.ownerId, data.length - att.size);
 
-  const { stored, thumb, width, height } = await processDrawingPng(data);
-  const storageKey = storage.newKey('png');
+  const { stored, thumb, width, height, mime, ext } = await processDrawingImage(data);
+  const storageKey = storage.newKey(ext);
   const thumbKey = storage.newKey('webp');
   await storage.write('attachments', storageKey, stored);
   await storage.write('thumbs', thumbKey, thumb);
@@ -470,7 +484,7 @@ export async function updateDrawing(
     .set({
       storageKey,
       thumbKey,
-      mime: 'image/png',
+      mime,
       size: stored.length,
       width,
       height,
@@ -738,6 +752,8 @@ export async function copyAttachments(
       await assertStorageQuota(db, quota, target.ownerId, incoming);
     }
   }
+  const newIdOf = new Map<string, string>();
+  const overPhoto: { id: string; data: DrawingData }[] = [];
   for (const row of rows) {
     const newKey = storage.newKey(row.storageKey.split('.').pop() ?? 'bin');
     const buf = await readAll(storage.createReadStream('attachments', row.storageKey)).catch(
@@ -753,20 +769,37 @@ export async function copyAttachments(
         await storage.write('thumbs', newThumb, tb);
       }
     }
-    await db.insert(attachments).values({
-      noteId: toNoteId,
-      kind: row.kind,
-      storageKey: newKey,
-      thumbKey: newThumb,
-      mime: row.mime,
-      size: row.size,
-      width: row.width,
-      height: row.height,
-      // Copied drawings stay editable in the copy.
-      drawingData: row.drawingData,
-      // A file's name is its identity; the copy is not called something else.
-      filename: row.filename,
-    });
+    const [copied] = await db
+      .insert(attachments)
+      .values({
+        noteId: toNoteId,
+        kind: row.kind,
+        storageKey: newKey,
+        thumbKey: newThumb,
+        mime: row.mime,
+        size: row.size,
+        width: row.width,
+        height: row.height,
+        // Copied drawings stay editable in the copy.
+        drawingData: row.drawingData,
+        // A file's name is its identity; the copy is not called something else.
+        filename: row.filename,
+      })
+      .returning({ id: attachments.id });
+    if (!copied) continue;
+    newIdOf.set(row.id, copied.id);
+    const data = row.drawingData as DrawingData | null;
+    if (data?.photoAttachmentId) overPhoto.push({ id: copied.id, data });
+  }
+  // A drawing over a photo must point at the copy's photo, not the original's:
+  // deleting the source note would otherwise take the copy's background with it.
+  for (const { id, data } of overPhoto) {
+    const photoAttachmentId = newIdOf.get(data.photoAttachmentId as string);
+    if (!photoAttachmentId) continue;
+    await db
+      .update(attachments)
+      .set({ drawingData: { ...data, photoAttachmentId } })
+      .where(eq(attachments.id, id));
   }
 }
 

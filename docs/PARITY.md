@@ -49,7 +49,8 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Find inside an open note (Ctrl+F) | Keep has none (missing for 13 years) | ✅ 🔀 bar over the editor, whole note in reading order (title + body/items), accent- and case-insensitive, `1/3` counter with wrapping Enter/Shift+Enter; the body marks the matched words, the native textareas (title, items) are highlighted whole | post-1.0 |
 | Images: multi-upload, stack above title, delete | ✓ | ✅ magic-byte validation, EXIF strip, thumbs | M5 |
 | Any other file attached to a note | Keep has none (images and audio only) | ✅ 🔀 `POST /api/notes/:id/files` accepts PDF, OOXML/ODF documents, legacy Office, zip/epub and text (≤ 25 MB, ≤ 25 per note); the bytes prove the container and the extension names the format inside it, so a declared mime is still worth nothing (DECISIONS #31). Download chips sit with the link previews on the card, in the editor and on the public link page, and every file is served `Content-Disposition: attachment` — never rendered on our origin. Findable with `has:file` and the "Files" search tile | post-1.0 |
-| Drawings: full-screen editor (pen/marker/highlighter, 28 colors × 8 sizes, stroke eraser + Clear page, grid paper, undo/redo, New drawing / Export as image / Delete current drawing), re-editable | ✓ | ✅ 🔀 vector strokes + ink-cropped PNG render, in-place re-save cache-busted; lasso/zoom/draw-on-image deferred (below) | post-1.0 |
+| Drawings: full-screen editor (pen/marker/highlighter, 28 colors × 8 sizes, stroke eraser + Clear page, grid paper, undo/redo, New drawing / Export as image / Delete current drawing), re-editable | ✓ | ✅ 🔀 vector strokes + ink-cropped PNG render, in-place re-save cache-busted | post-1.0 |
+| Drawing extras: lasso select, canvas zoom/pan, drawing over a photo, auto-extending canvas | ✓ | ✅ 🔀 the lasso takes strokes it encloses whole and moves them in one undo step; ctrl+wheel/pinch/space-drag plus a zoom pill whose floor is the fit scale; the page grows under a pen held at the bottom edge; "Draw on image" opens a drawing over a photo of the same note (`drawing_data.photoAttachmentId`), which the note then shows in the photo's place — the original stays attached, and the composite is stored as JPEG rather than megabytes of PNG | post-1.0 |
 | Audio attachment playback | ✓ | ✅ player; Takeout import ingests audio (3gp/m4a/mp3/ogg/aac/amr/wav, magic-sniffed) | M5 |
 | Audio recording in the browser | Keep web cannot record (Android only) | ✅ 🔀 `MediaRecorder` from the editor toolbar, the mobile "Add to note" sheet and the FAB; a bar over the note shows the elapsed time with Stop / Discard, and the take stops itself at 10 min. The container is negotiated per engine (Opus in WebM, Opus in Ogg, AAC in MP4) and lands on `POST /api/notes/:id/audio`, where magic bytes decide the type as everywhere else — a WebM declaring a video track is refused | post-1.0 |
 | Link preview chips + setting | ✓ | ✅ SSRF-safe pinned-IP fetch; browser loads images | M5 |
@@ -82,10 +83,6 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 Planned (or Keep-parity) items consciously not shipped in v1.0 — tracked here so
 the table above stays honest. Roughly in order of user impact:
 
-- **Drawing tool extras** — the lasso select tool, canvas zoom/pan (Keep's
-  fit button), drawing on top of photos and the auto-extending canvas are not
-  in the drawing editor; the page size is fixed at creation and the grid
-  choice is saved per drawing.
 - **List-item shortcuts `n`/`p`/`Shift+N`/`Shift+P`** — require a non-typing
   "selected item" editor focus state our native-textarea checklist doesn't
   have; removed from the "?" dialog rather than advertised dead.

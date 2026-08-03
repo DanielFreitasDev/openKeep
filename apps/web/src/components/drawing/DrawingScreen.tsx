@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
-import { fetchDrawingData } from '../../lib/attachments-api.js';
+import { attachmentFileUrl, fetchDrawingData } from '../../lib/attachments-api.js';
 import {
   createStrokeModeler,
   DRAWING_CANVAS_BG,
@@ -40,8 +40,8 @@ import {
   drawSelectionBox,
   drawStroke,
   drawStrokes,
-  exportDrawingPng,
   inkBounds,
+  renderDrawing,
   strokeHitsPoint,
   strokesInPolygon,
   TOOL_DEFAULTS,
@@ -87,6 +87,22 @@ const EXTEND_CHUNK = 220;
 const EXTEND_EDGE = 44;
 const EXTEND_SPEED = 9;
 
+/**
+ * A page over a photo is the photo's shape, but no bigger than this on its
+ * long side: the surface is redrawn on every pan, and the composite is what
+ * the note ends up storing. The untouched original stays on the note either
+ * way, so nothing is actually lost to the cap.
+ */
+const PHOTO_PAGE_MAX = 2048;
+
+function photoPageSize(width: number, height: number): { width: number; height: number } {
+  const k = Math.min(1, PHOTO_PAGE_MAX / Math.max(width, height));
+  return {
+    width: Math.max(16, Math.round(width * k)),
+    height: Math.max(16, Math.round(height * k)),
+  };
+}
+
 const GRID_OPTIONS: { id: DrawingBackground; svg: string | null }[] = [
   { id: 'squares', svg: grid4x4Svg },
   { id: 'dots', svg: grainSvg },
@@ -96,18 +112,32 @@ const GRID_OPTIONS: { id: DrawingBackground; svg: string | null }[] = [
 
 /** Route-driven: mounted when `?drawing=new|<attachmentId>` is present. */
 export function DrawingScreen() {
-  const search = useSearch({ strict: false }) as { note?: string; drawing?: string };
+  const search = useSearch({ strict: false }) as {
+    note?: string;
+    drawing?: string;
+    photo?: string;
+  };
   if (!search.drawing) return null;
   return (
     <DrawingEditor
-      key={`${search.note ?? 'pending'}:${search.drawing}`}
+      key={`${search.note ?? 'pending'}:${search.drawing}:${search.photo ?? ''}`}
       noteId={search.note}
       drawingId={search.drawing === 'new' ? null : search.drawing}
+      newPhotoId={search.drawing === 'new' ? (search.photo ?? null) : null}
     />
   );
 }
 
-function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: string | null }) {
+function DrawingEditor({
+  noteId,
+  drawingId,
+  newPhotoId,
+}: {
+  noteId?: string;
+  drawingId: string | null;
+  /** `?photo=<id>`: start a drawing over that image of the note. */
+  newPhotoId: string | null;
+}) {
   const { t } = useTranslation('drawing');
   const navigate = useNavigate();
   const show = useSnackbarStore((s) => s.show);
@@ -142,9 +172,10 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const autoScrollRef = useRef(0);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Canvas geometry: a fixed logical page, letterbox-fitted to the viewport.
+  // Canvas geometry, letterbox-fitted to the viewport. A blank page opens the
+  // size of the window; one over a photo waits for the photo to say how big.
   const [meta, setMeta] = useState<{ width: number; height: number } | null>(() =>
-    drawingId
+    drawingId || newPhotoId
       ? null
       : {
           width: Math.max(320, Math.round(window.innerWidth)),
@@ -155,6 +186,12 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   metaRef.current = meta;
   const backgroundRef = useRef(background);
   backgroundRef.current = background;
+
+  // The photo drawn under the ink, once it has decoded.
+  const [photoId, setPhotoId] = useState<string | null>(newPhotoId);
+  const photoRef = useRef<HTMLImageElement | null>(null);
+  const photoIdRef = useRef(photoId);
+  photoIdRef.current = photoId;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -188,7 +225,12 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const exitTo = (extra: Record<string, unknown> = {}) =>
     void navigate({
       to: '.',
-      search: (old: Record<string, unknown>) => ({ ...old, drawing: undefined, ...extra }),
+      search: (old: Record<string, unknown>) => ({
+        ...old,
+        drawing: undefined,
+        photo: undefined,
+        ...extra,
+      }),
       replace: true,
       resetScroll: false,
     });
@@ -197,8 +239,37 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     if (!existing.data || metaRef.current) return;
     strokesRef.current = existing.data.strokes.map((s) => ({ ...s, points: [...s.points] }));
     setBackground(existing.data.background);
+    setPhotoId(existing.data.photoAttachmentId ?? null);
     setMeta({ width: existing.data.width, height: existing.data.height });
   }, [existing.data]);
+
+  /**
+   * Decode the background photo. A new drawing takes its page size from the
+   * picture (capped, so a 24-megapixel holiday snap does not become a canvas
+   * that has to be rescaled on every pan); a re-opened one already has it.
+   * A photo that will not load is not fatal: the ink is still the drawing.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: paints through refs
+  useEffect(() => {
+    if (!photoId) return;
+    let live = true;
+    const img = new Image();
+    img.src = attachmentFileUrl(photoId);
+    img.onload = () => {
+      if (!live) return;
+      photoRef.current = img;
+      if (!metaRef.current) setMeta(photoPageSize(img.naturalWidth, img.naturalHeight));
+      redrawStatic();
+    };
+    img.onerror = () => {
+      if (!live) return;
+      photoRef.current = null;
+      if (!metaRef.current) setMeta(photoPageSize(1024, 768));
+    };
+    return () => {
+      live = false;
+    };
+  }, [photoId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: exits once, on load error only
   useEffect(() => {
@@ -240,7 +311,8 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     if (!view) return;
     view.fillStyle = DRAWING_CANVAS_BG;
     view.fillRect(0, 0, m.width, m.height);
-    drawGrid(view, backgroundRef.current, m.width, m.height);
+    if (photoRef.current) view.drawImage(photoRef.current, 0, 0, m.width, m.height);
+    else drawGrid(view, backgroundRef.current, m.width, m.height);
     view.save();
     clipToPage(view);
     drawStrokes(view, strokesRef.current);
@@ -427,7 +499,8 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   const extendUnder = (clientY: number) => {
     const canvas = liveCanvasRef.current;
     const m = metaRef.current;
-    if (!canvas || !m || m.height >= LIMITS.drawingSideMax) return;
+    // A photo is the page: it has an edge of its own and cannot grow one.
+    if (!canvas || !m || photoIdRef.current || m.height >= LIMITS.drawingSideMax) return;
     const rect = canvas.getBoundingClientRect();
     const y = (clientY - rect.top - viewRef.current.offY) / viewRef.current.scale;
     if (y > m.height - EXTEND_MARGIN) growPageTo(y + EXTEND_CHUNK);
@@ -841,14 +914,17 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
       height: m.height,
       background: backgroundRef.current,
       strokes: strokesRef.current.slice(0, LIMITS.drawingStrokesMax),
+      photoAttachmentId: photoIdRef.current,
     };
   };
+
+  const render = () => renderDrawing(snapshot(), photoRef.current);
 
   /** Render + upload; returns the note that owns the drawing (created if needed). */
   const persist = async (): Promise<{ noteId: string }> => {
     const data = snapshot();
-    const blob = await exportDrawingPng(data);
-    const file = new File([blob], 'drawing.png', { type: 'image/png' });
+    const { blob, ext, mime } = await render();
+    const file = new File([blob], `drawing.${ext}`, { type: mime });
     if (drawingId && noteId) {
       await attachmentM.updateDrawing.mutateAsync({
         noteId,
@@ -927,6 +1003,8 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
           ...old,
           note: target.noteId,
           drawing: 'new',
+          // "New drawing" starts on blank paper, not on the photo just left.
+          photo: undefined,
         }),
         replace: true,
         resetScroll: false,
@@ -938,11 +1016,11 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
   };
 
   const exportAsImage = async () => {
-    const blob = await exportDrawingPng(snapshot());
+    const { blob, ext } = await render();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'drawing.png';
+    a.download = `drawing.${ext}`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   };
@@ -1008,7 +1086,8 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
     };
   }, [panel, saving]);
 
-  const busy = saving || (drawingId !== null && !meta);
+  // No page yet means the strokes (or the photo behind them) are still coming.
+  const busy = saving || !meta;
 
   const setToolColor = (color: string) =>
     setToolState((s) => (isInkTool(tool) ? { ...s, [tool]: { ...s[tool], color } } : s));
@@ -1089,51 +1168,54 @@ function DrawingEditor({ noteId, drawingId }: { noteId?: string; drawingId: stri
           {toolButton('marker', inkMarkerSvg, t('marker'))}
           {toolButton('highlighter', inkHighlighterSvg, t('highlighter'))}
 
-          <Popover.Root
-            open={panel === 'grid'}
-            onOpenChange={(open) => setPanel(open ? 'grid' : null)}
-          >
-            <Popover.Trigger
-              aria-label={t('grid')}
-              data-tooltip={t('grid')}
-              className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-[#444746] outline-none transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-(--primary)"
+          {/* The photo is the paper when there is one: no ruling to choose. */}
+          {!photoId && (
+            <Popover.Root
+              open={panel === 'grid'}
+              onOpenChange={(open) => setPanel(open ? 'grid' : null)}
             >
-              <Icon svg={gridOnSvg} size={22} />
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Positioner className="z-[80]" sideOffset={6} align="start">
-                <Popover.Popup className="rounded-lg bg-[#2e2f31] p-3 text-white shadow-(--elevation-3)">
-                  <div className="flex items-start gap-3">
-                    {GRID_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => {
-                          setBackground(opt.id);
-                          markDirty();
-                        }}
-                        className="group flex w-16 flex-col items-center gap-1.5 outline-none"
-                      >
-                        <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#444746] group-focus-visible:ring-2 group-focus-visible:ring-(--primary)">
-                          {opt.svg && <Icon svg={opt.svg} size={24} />}
-                          {background === opt.id && (
-                            <span className="-top-0.5 -right-0.5 absolute flex h-5 w-5 items-center justify-center rounded-full bg-(--primary) text-white">
-                              <Icon svg={checkSvg} size={14} />
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          className={`text-xs ${background === opt.id ? 'font-semibold' : 'text-white/85'}`}
+              <Popover.Trigger
+                aria-label={t('grid')}
+                data-tooltip={t('grid')}
+                className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-[#444746] outline-none transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-(--primary)"
+              >
+                <Icon svg={gridOnSvg} size={22} />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Positioner className="z-[80]" sideOffset={6} align="start">
+                  <Popover.Popup className="rounded-lg bg-[#2e2f31] p-3 text-white shadow-(--elevation-3)">
+                    <div className="flex items-start gap-3">
+                      {GRID_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setBackground(opt.id);
+                            markDirty();
+                          }}
+                          className="group flex w-16 flex-col items-center gap-1.5 outline-none"
                         >
-                          {t(`grid_${opt.id}`)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </Popover.Popup>
-              </Popover.Positioner>
-            </Popover.Portal>
-          </Popover.Root>
+                          <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#444746] group-focus-visible:ring-2 group-focus-visible:ring-(--primary)">
+                            {opt.svg && <Icon svg={opt.svg} size={24} />}
+                            {background === opt.id && (
+                              <span className="-top-0.5 -right-0.5 absolute flex h-5 w-5 items-center justify-center rounded-full bg-(--primary) text-white">
+                                <Icon svg={checkSvg} size={14} />
+                              </span>
+                            )}
+                          </span>
+                          <span
+                            className={`text-xs ${background === opt.id ? 'font-semibold' : 'text-white/85'}`}
+                          >
+                            {t(`grid_${opt.id}`)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-1">

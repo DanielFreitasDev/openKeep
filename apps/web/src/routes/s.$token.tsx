@@ -9,6 +9,7 @@ import { EmptyView } from '../components/EmptyView.js';
 import { Icon } from '../components/Icon.js';
 import { FileChip } from '../components/notes/NoteFileChips.js';
 import { formatEdited } from '../lib/dates.js';
+import { selectImageStack } from '../lib/note-selectors.js';
 import { publicAttachmentUrl, publicNoteQuery } from '../lib/share-link-api.js';
 
 export const Route = createFileRoute('/s/$token')({ component: PublicNotePage });
@@ -56,7 +57,7 @@ function PublicNotePage() {
 
 function PublicNoteCard({ note, token, lang }: { note: PublicNote; token: string; lang: string }) {
   const { t } = useTranslation('sharing');
-  const images = note.attachments.filter((a) => a.kind === 'image' || a.kind === 'drawing');
+  const images = selectImageStack(note.attachments);
   const audios = note.attachments.filter((a) => a.kind === 'audio');
   const files = note.attachments.filter((a) => a.kind === 'file');
 
