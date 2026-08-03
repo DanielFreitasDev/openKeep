@@ -17,6 +17,15 @@ overrides:
   # so the pin is scoped rather than global. Drop it once minimatch ships the
   # bump itself.
   minimatch@10>brace-expansion: '>=5.0.9'
+  # GHSA-7p8r-x3mc-p8w7 (high): fast-uri reads a backslash as an authority
+  # introducer, so a URL parsed here and fetched elsewhere can disagree about
+  # the host. It arrives under fastify, its ajv compiler and @fastify/swagger,
+  # and both release lines are affected — hence two pins rather than one range.
+  # Patch-level bumps of a parser, so they need no coordination with fastify —
+  # but each pin keeps its own major ceiling, or an unbounded `>=3.1.5` hands
+  # ajv (which asks for ^3.0.1) the v4 API instead of the patch it needs.
+  fast-uri@3: '>=3.1.5 <4'
+  fast-uri@4: '>=4.1.2 <5'
 minimumReleaseAgeExclude:
   # MCP TypeScript SDK v2 — spec-day releases (2026-07-28), pinned exact.
   - '@modelcontextprotocol/client@2.0.0'
