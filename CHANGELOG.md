@@ -1,3 +1,21 @@
+# [1.36.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.35.0...v1.36.0) (2026-08-03)
+
+
+### Features
+
+* simple tables in the note body ([225fa63](https://github.com/DanielFreitasDev/openKeep/commit/225fa63d3bd43f601e3a3d6a019c46dff94ccb9a))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.36.0
+```
+
+Or download `compose.yml` below (image pinned to `1.36.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.36.0/docs/DEPLOYMENT.md).
+
 # [1.35.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.34.0...v1.35.0) (2026-08-03)
 
 
