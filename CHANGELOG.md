@@ -1,3 +1,21 @@
+# [1.31.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.30.1...v1.31.0) (2026-08-03)
+
+
+### Features
+
+* drop the browser's dropdowns for ones in the app's palette ([28368dd](https://github.com/DanielFreitasDev/openKeep/commit/28368ddcacb57e5cd22db0785a026e488abff421))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.31.0
+```
+
+Or download `compose.yml` below (image pinned to `1.31.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.31.0/docs/DEPLOYMENT.md).
+
 ## [1.30.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.30.0...v1.30.1) (2026-08-02)
 
 
