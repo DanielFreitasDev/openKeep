@@ -1,3 +1,21 @@
+# [1.34.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.33.0...v1.34.0) (2026-08-03)
+
+
+### Features
+
+* undo and redo the title and list items too ([12f5649](https://github.com/DanielFreitasDev/openKeep/commit/12f56496dbe2e649dd57b8a5e62029f410411eaf))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.34.0
+```
+
+Or download `compose.yml` below (image pinned to `1.34.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.34.0/docs/DEPLOYMENT.md).
+
 # [1.33.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.32.0...v1.33.0) (2026-08-03)
 
 
