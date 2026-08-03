@@ -1,3 +1,21 @@
+# [1.35.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.34.0...v1.35.0) (2026-08-03)
+
+
+### Features
+
+* navigate and move checklist items with n/p/Shift+N/Shift+P ([2bccaa8](https://github.com/DanielFreitasDev/openKeep/commit/2bccaa8fb5c5396f7fe27d155dda3ef36f86ef54))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.35.0
+```
+
+Or download `compose.yml` below (image pinned to `1.35.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.35.0/docs/DEPLOYMENT.md).
+
 # [1.34.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.33.0...v1.34.0) (2026-08-03)
 
 
