@@ -1,10 +1,17 @@
+import {
+  draggable,
+  dropTargetForElements,
+  monitorForElements,
+} from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
+import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
 import addAlertSvg from '@material-symbols/svg-700/outlined/add_alert.svg?raw';
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
 import brushSvg from '@material-symbols/svg-700/outlined/brush.svg?raw';
 import checkboxSvg from '@material-symbols/svg-700/outlined/check_box.svg?raw';
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
+import dragSvg from '@material-symbols/svg-700/outlined/drag_indicator.svg?raw';
 import formatSvg from '@material-symbols/svg-700/outlined/format_color_text.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
 import pinSvg from '@material-symbols/svg-700/outlined/keep.svg?raw';
@@ -19,7 +26,7 @@ import type { Collaborator, NoteBackground, NoteColor, SetReminder } from '@open
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useCollaboratorMutations } from '../../hooks/use-collaborator-mutations.js';
@@ -31,7 +38,7 @@ import type { DraftInvite } from '../../lib/drafts.js';
 import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
 import { selectHasTemplates } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
-import { sessionQuery } from '../../lib/queries.js';
+import { sessionQuery, settingsQuery } from '../../lib/queries.js';
 import { NOTE_INPUT_RULES, noteExtensions, returnCaretOnCancel } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
@@ -74,6 +81,7 @@ export function Composer() {
   const collaboratorM = useCollaboratorMutations();
   const show = useSnackbarStore((s) => s.show);
   const { data: session } = useQuery(sessionQuery);
+  const { data: settings } = useQuery(settingsQuery);
   const navigate = useNavigate();
 
   const [expanded, setExpanded] = useState(false);
@@ -105,6 +113,68 @@ export function Composer() {
   const collapsedRef = useRef<HTMLInputElement | null>(null);
   const newNoteImageRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ------------------------------------------------------------- list rows
+  /** The row that should hold the caret after the next render (a new one). */
+  const focusRowRef = useRef<string | null>(null);
+  const listInputRefs = useRef(new Map<string, HTMLInputElement>());
+  /** The row being dragged right now — it dims while it travels. */
+  const [dragRowKey, setDragRowKey] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    const key = focusRowRef.current;
+    if (key === null) return;
+    const el = listInputRefs.current.get(key);
+    if (!el) return;
+    focusRowRef.current = null;
+    el.focus();
+  });
+
+  /** Insert an empty row after `afterKey` (null = at the top) and focus it. */
+  const addListRow = useCallback((afterKey: string | null) => {
+    const key = crypto.randomUUID();
+    focusRowRef.current = key;
+    setListRows((rows) => {
+      const idx = afterKey === null ? -1 : rows.findIndex((r) => r.key === afterKey);
+      const next = [...rows];
+      next.splice(idx + 1, 0, { key, text: '' });
+      return next;
+    });
+  }, []);
+
+  const removeListRow = useCallback((key: string) => {
+    setListRows((rows) => rows.filter((r) => r.key !== key));
+  }, []);
+
+  // Reorder by dragging a row's handle. Rows here are plain array order (the
+  // note does not exist yet, so there are no fractional positions to patch) —
+  // the drop just splices the row into the slot the pointer is over.
+  useEffect(() => {
+    return monitorForElements({
+      canMonitor: ({ source }) => source.data.composerRow === true,
+      onDrop: ({ source, location }) => {
+        setDragRowKey(null);
+        const key = source.data.rowKey;
+        const target = location.current.dropTargets[0];
+        const overKey = target?.data.rowKey;
+        if (typeof key !== 'string' || !target || typeof overKey !== 'string') return;
+        if (overKey === key) return;
+        const rect = (target.element as HTMLElement).getBoundingClientRect();
+        const before = location.current.input.clientY < rect.top + rect.height / 2;
+        setListRows((rows) => {
+          const from = rows.findIndex((r) => r.key === key);
+          const over = rows.findIndex((r) => r.key === overKey);
+          if (from === -1 || over === -1) return rows;
+          const to = before ? over : over + 1;
+          const next = [...rows];
+          const [moved] = next.splice(from, 1);
+          if (!moved) return rows;
+          next.splice(from < to ? to - 1 : to, 0, moved);
+          return next;
+        });
+      },
+    });
+  }, []);
 
   // Draft mirror: the note id is fixed on the first mirrored write so a
   // create that never lands can be replayed (or deduped via 409) at next boot.
@@ -272,8 +342,11 @@ export function Composer() {
   };
 
   const startList = () => {
+    const key = crypto.randomUUID();
     setMode('list');
-    setListRows([{ key: crypto.randomUUID(), text: '' }]);
+    setListRows([{ key, text: '' }]);
+    // Keep opens a new list with the caret already in its first item.
+    focusRowRef.current = key;
     setExpanded(true);
   };
 
@@ -377,6 +450,18 @@ export function Composer() {
       role: inv.role,
     })),
   ];
+
+  const addItemsToBottom = settings?.addItemsToBottom ?? true;
+  const addListRowButton = (
+    <button
+      type="button"
+      className="flex w-full items-center gap-2 px-1 py-2 text-on-surface-variant hover:text-on-surface"
+      onClick={() => addListRow(addItemsToBottom ? (listRows.at(-1)?.key ?? null) : null)}
+    >
+      <Icon svg={addSvg} size={20} />
+      <span className="text-sm">{t('editor:listItemPlaceholder')}</span>
+    </button>
+  );
 
   return (
     <div className="mx-auto mt-8 mb-6 w-full max-w-[600px] px-4">
@@ -500,53 +585,29 @@ export function Composer() {
               </div>
             ) : (
               <div className="max-h-[60vh] overflow-y-auto px-3 pb-3">
-                {listRows.map((row, i) => (
-                  <div key={row.key} className="group/crow flex items-center gap-2 py-0.5">
-                    <input type="checkbox" disabled className="h-4 w-4 flex-none opacity-60" />
-                    <input
-                      // biome-ignore lint/a11y/noAutofocus: Keep focuses the first list row on entry
-                      autoFocus={i === listRows.length - 1}
-                      type="text"
-                      value={row.text}
-                      placeholder={t('editor:listItemPlaceholder')}
-                      aria-label={t('editor:listItemPlaceholder')}
-                      className="w-full border-transparent border-b bg-transparent px-1 py-1 text-[0.875rem] text-on-surface outline-none focus:border-(--outline)"
-                      onChange={(e) =>
-                        setListRows((rows) =>
-                          rows.map((r) => (r.key === row.key ? { ...r, text: e.target.value } : r)),
-                        )
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          setListRows((rows) => {
-                            const idx = rows.findIndex((r) => r.key === row.key);
-                            const next = [...rows];
-                            next.splice(idx + 1, 0, { key: crypto.randomUUID(), text: '' });
-                            return next;
-                          });
-                        } else if (
-                          e.key === 'Backspace' &&
-                          row.text === '' &&
-                          listRows.length > 1
-                        ) {
-                          e.preventDefault();
-                          setListRows((rows) => rows.filter((r) => r.key !== row.key));
-                        }
-                      }}
-                    />
-                    {listRows.length > 1 && (
-                      <IconButton
-                        svg={closeSvg}
-                        label={t('editor:deleteItem')}
-                        size={28}
-                        iconSize={16}
-                        className="opacity-0 group-hover/crow:opacity-100"
-                        onClick={() => setListRows((rows) => rows.filter((r) => r.key !== row.key))}
-                      />
-                    )}
-                  </div>
+                {!addItemsToBottom && addListRowButton}
+                {listRows.map((row) => (
+                  <ComposerListRow
+                    key={row.key}
+                    row={row}
+                    dragging={dragRowKey === row.key}
+                    canRemove={listRows.length > 1}
+                    inputRefs={listInputRefs}
+                    onDragStart={() => setDragRowKey(row.key)}
+                    onText={(key, text) =>
+                      setListRows((rows) => rows.map((r) => (r.key === key ? { ...r, text } : r)))
+                    }
+                    onEnter={(key) => addListRow(key)}
+                    onBackspace={(key) => {
+                      const idx = listRows.findIndex((r) => r.key === key);
+                      const prev = listRows[idx - 1];
+                      if (prev) focusRowRef.current = prev.key;
+                      removeListRow(key);
+                    }}
+                    onRemove={removeListRow}
+                  />
                 ))}
+                {addItemsToBottom && addListRowButton}
               </div>
             )}
 
@@ -810,6 +871,107 @@ export function Composer() {
         )}
       </div>
       <TemplatePickerDialog open={showTemplates} onOpenChange={setShowTemplates} />
+    </div>
+  );
+}
+
+interface ComposerListRowProps {
+  row: { key: string; text: string };
+  dragging: boolean;
+  /** The last row keeps its close button hidden: a list is never empty here. */
+  canRemove: boolean;
+  inputRefs: React.RefObject<Map<string, HTMLInputElement>>;
+  onDragStart: () => void;
+  onText: (key: string, text: string) => void;
+  onEnter: (key: string) => void;
+  onBackspace: (key: string) => void;
+  onRemove: (key: string) => void;
+}
+
+/**
+ * One row of the composer's list. The checkbox is inert (nothing is checkable
+ * before the note exists) — the handle beside it is not: it reorders the row,
+ * the same gesture the editor's checklist uses once the note is real.
+ */
+function ComposerListRow({
+  row,
+  dragging,
+  canRemove,
+  inputRefs,
+  onDragStart,
+  onText,
+  onEnter,
+  onBackspace,
+  onRemove,
+}: ComposerListRowProps) {
+  const { t } = useTranslation('notes');
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const handleRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    const handle = handleRef.current;
+    if (!el || !handle) return;
+    const cleanups = [
+      dropTargetForElements({ element: el, getData: () => ({ rowKey: row.key }) }),
+      draggable({
+        element: el,
+        dragHandle: handle,
+        getInitialData: () => ({ rowKey: row.key, composerRow: true }),
+        onDragStart,
+      }),
+    ];
+    return () => {
+      for (const c of cleanups) c();
+    };
+  }, [row.key, onDragStart]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`group/crow flex items-center gap-1 py-0.5 ${dragging ? 'opacity-40' : ''}`}
+    >
+      <button
+        ref={handleRef}
+        type="button"
+        aria-label={t('editor:dragItem')}
+        className="cursor-grab text-on-surface-variant opacity-60 hover:opacity-100"
+        tabIndex={-1}
+      >
+        <Icon svg={dragSvg} size={18} />
+      </button>
+      <input type="checkbox" disabled className="h-4 w-4 flex-none opacity-60" />
+      <input
+        ref={(el) => {
+          if (el) inputRefs.current.set(row.key, el);
+          else inputRefs.current.delete(row.key);
+        }}
+        type="text"
+        value={row.text}
+        placeholder={t('editor:listItemPlaceholder')}
+        aria-label={t('editor:listItemPlaceholder')}
+        className="w-full border-transparent border-b bg-transparent px-1 py-1 text-[0.875rem] text-on-surface outline-none focus:border-(--outline)"
+        onChange={(e) => onText(row.key, e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onEnter(row.key);
+          } else if (e.key === 'Backspace' && row.text === '' && canRemove) {
+            e.preventDefault();
+            onBackspace(row.key);
+          }
+        }}
+      />
+      {canRemove && (
+        <IconButton
+          svg={closeSvg}
+          label={t('editor:deleteItem')}
+          size={28}
+          iconSize={16}
+          className="opacity-0 group-hover/crow:opacity-100"
+          onClick={() => onRemove(row.key)}
+        />
+      )}
     </div>
   );
 }

@@ -319,3 +319,32 @@ test('settings dialog toggles move-checked behavior', async ({ page }) => {
   await expect(editor.getByRole('textbox', { name: 'List item' })).toHaveValue('inline item');
   await page.keyboard.press('Escape');
 });
+
+test('composer list: the add row appends an item and the handle reorders rows', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'New list' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Packing');
+  const rows = page.getByRole('textbox', { name: 'List item' });
+  await rows.last().fill('Alpha');
+
+  // The "List item" add row appends an empty row and takes the caret with it.
+  await page.getByRole('button', { name: 'List item' }).click();
+  await expect(rows).toHaveCount(2);
+  await page.keyboard.type('Bravo');
+  await expect(rows.nth(1)).toHaveValue('Bravo');
+
+  // Drag Bravo's handle onto Alpha's top half: it lands above.
+  const handles = page.getByRole('button', { name: 'Drag item' });
+  await handles.nth(1).dragTo(rows.first(), { targetPosition: { x: 10, y: 2 } });
+  await expect(rows.first()).toHaveValue('Bravo');
+  await expect(rows.nth(1)).toHaveValue('Alpha');
+
+  // The saved note keeps the dragged order.
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+  await cardByTitle(page, 'Packing').click();
+  const items = page.getByRole('dialog').getByRole('textbox', { name: 'List item' });
+  await expect(items.nth(0)).toHaveValue('Bravo');
+  await expect(items.nth(1)).toHaveValue('Alpha');
+  await page.keyboard.press('Escape');
+});
