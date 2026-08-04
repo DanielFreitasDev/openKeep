@@ -1,3 +1,21 @@
+# [1.37.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.36.2...v1.37.0) (2026-08-04)
+
+
+### Features
+
+* drag handles and an add-item row in the list composer ([b6faa5e](https://github.com/DanielFreitasDev/openKeep/commit/b6faa5e73c1a146996e28563cd11953a4959d39b))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.37.0
+```
+
+Or download `compose.yml` below (image pinned to `1.37.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.37.0/docs/DEPLOYMENT.md).
+
 ## [1.36.2](https://github.com/DanielFreitasDev/openKeep/compare/v1.36.1...v1.36.2) (2026-08-04)
 
 
