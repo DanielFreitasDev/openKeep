@@ -1,12 +1,19 @@
 # MCP — connect AI assistants to OpenKeep
 
-OpenKeep ships a full [Model Context Protocol](https://modelcontextprotocol.io) server: AI clients (Claude Code, Claude Desktop, the Claude API, or anything MCP-capable) can do **everything the UI does** — notes, checklists, colors, pin/archive, labels, reminders with recurrence, search, version history, collaborators, image attachments, import/export and settings.
+OpenKeep ships a full [Model Context Protocol](https://modelcontextprotocol.io) server: AI clients (claude.ai, ChatGPT, Claude Code, Claude Desktop, the Claude API, or anything MCP-capable) can do **everything the UI does** — notes, checklists, colors, pin/archive, labels, reminders with recurrence, search, version history, collaborators, image attachments, import/export and settings.
 
 Every mutation goes through the same REST layer as the browser (validation, sanitization, authorization, versioning), and fans out over WebSocket — changes made by an AI appear **live** in your open tabs.
 
+Two credentials reach the server, and which one you need depends on the client:
+
+- **OAuth 2.1** — for hosted apps you cannot hand a secret to (claude.ai, ChatGPT). Nothing to create in advance: point the connector at your instance and sign in. Jump to [claude.ai and ChatGPT](#claudeai-and-chatgpt-custom-connector-oauth).
+- **A personal access token** — for clients you configure yourself (Claude Code, Claude Desktop, the APIs). Create one first, below.
+
 ## 1. Create an API token
 
-Settings menu (gear icon) → **API tokens** → name it, pick an expiration, **Create**. The `okp_…` secret is shown exactly once — copy it immediately. Treat it like a password: it grants full access to your notes (up to 10 tokens per account; revoke any time in the same dialog).
+Settings menu (gear icon) → **API tokens** → name it, pick an expiration, **Create**. The `okp_…` secret is shown exactly once — copy it immediately. Treat it like a password: it grants full access to your notes (up to 10 tokens per account; revoke any time in the same dialog). The same dialog lists **Connected apps** — anything authorized over OAuth — and disconnects them.
+
+Skip this step entirely if you are connecting claude.ai or ChatGPT.
 
 ## 2. Connect a client
 
@@ -14,6 +21,8 @@ Two transports, same tools:
 
 - **Streamable HTTP** (recommended): the server is already mounted at `https://your-openkeep/api/mcp` — nothing to install.
 - **stdio**: a local process (`packages/mcp`, bin `openkeep-mcp`) that talks to your instance over HTTP. Adds two extra tools that touch your local disk (`import_takeout`, `download_export`) and lets `upload_image` read a local `path`.
+
+The HTTP endpoint serves the **2026-07-28** protocol revision (stateless core: no `initialize` handshake, no `Mcp-Session-Id`, `server/discover`, cacheable `tools/list`) and falls back to per-request stateless serving for 2025-era clients, so old and new clients both work. Legacy session operations (`GET`/`DELETE` for the 2025 SSE stream) answer `405` — nothing in the tool surface needs them.
 
 ### Claude Code
 
@@ -49,6 +58,57 @@ claude mcp add openkeep \
       }
     }
   }
+}
+```
+
+### claude.ai and ChatGPT (custom connector, OAuth)
+
+The hosted apps — claude.ai, Claude Desktop, Cowork, ChatGPT in Developer Mode — cannot hold an `okp_` token: ChatGPT accepts only OAuth 2.1 or no auth at all, and Claude's static-header option is a gradual beta. OpenKeep is therefore its **own OAuth 2.1 authorization server**, and both connect the same way:
+
+1. Add a custom connector pointing at `https://keep.example.com/api/mcp` — that is the whole configuration; leave client id and secret blank.
+2. The client discovers the authorization server, registers itself, and sends you to OpenKeep to sign in.
+3. A consent screen names the app and the hostname it will send you back to. **Allow** finishes the connection.
+
+Nothing to paste, and the grant is per-user: two people on the same instance connect their own accounts.
+
+Requirements and caveats:
+
+- The URL must be **public HTTPS**; `localhost` will not resolve from Anthropic's or OpenAI's servers. Tunnel it (Cloudflare Tunnel, ngrok) to try it against a dev instance.
+- **Registration is open**, as the discovery flow requires — so the consent screen is shown for *every* authorization, and says plainly that OpenKeep has not verified the app. Read the callback hostname before allowing; that is the part a stranger cannot fake.
+- Access tokens last an hour, refresh tokens a week; **Settings → API tokens → Connected apps** lists what is connected and disconnects it. Disconnecting deletes the grant *and* its live tokens, so access stops at once rather than at expiry.
+- Protected notes stay invisible over OAuth exactly as they do over a PAT.
+- On Team/Enterprise an Owner adds the connector under **Admin settings → Connectors**; members then hit **Connect**.
+- Claude's **request headers** beta also works, if your account has it: set `authorization` to `Bearer okp_…` (including the word `Bearer` and the space — Claude sends the value verbatim). That is a shared credential rather than a per-user login, so prefer OAuth.
+
+The endpoints, all discoverable from the two documents at the origin root:
+
+| Document / endpoint | Path |
+|---|---|
+| Authorization server metadata (RFC 8414) | `/.well-known/oauth-authorization-server` |
+| Protected resource metadata (RFC 9728) | `/.well-known/oauth-protected-resource` (and `…/api/mcp`) |
+| Dynamic client registration (RFC 7591) | `/api/auth/mcp/register` |
+| Authorization (PKCE S256 required) | `/api/auth/mcp/authorize` |
+| Token | `/api/auth/mcp/token` |
+
+An unauthenticated call to `/api/mcp` answers `401` with `WWW-Authenticate: Bearer … resource_metadata="…"`, which is the handshake that starts all of this.
+
+### ChatGPT via the Responses API
+
+For automation rather than the ChatGPT UI, OpenAI's **Responses API** takes arbitrary headers, so a PAT works with no OAuth round trip:
+
+```json
+{
+  "model": "gpt-5",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "openkeep",
+      "server_url": "https://keep.example.com/api/mcp",
+      "headers": { "Authorization": "Bearer okp_…" },
+      "require_approval": "never"
+    }
+  ],
+  "input": "Crie uma nota fixada cor mint com uma checklist de compras"
 }
 ```
 
@@ -118,7 +178,8 @@ HTML appears only on request — `get_note`/`list_notes` accept `include_html`, 
 
 ## Limitations
 
-- **claude.ai custom connectors need OAuth** — OpenKeep v1 authenticates MCP with PATs only, so the hosted claude.ai "custom connector" flow is not supported. Use Claude Code, Claude Desktop or the API connector above.
+- **OAuth grants are all-or-nothing.** The scopes are OIDC's (`openid`, `profile`, `email`, `offline_access`); none of them narrows what a connected app can do, so allowing one is equivalent to handing it a PAT. Read-only connectors would need per-area scopes, which v1 does not have.
+- **`ADMIN_EMAILS` surfaces stay closed to OAuth**, like they are to PATs: the admin panel and token management reject both (#19, #32).
 - **PATs do not open WebSockets** and cannot access `/api/auth/*` — they authenticate REST + MCP only.
 - **PATs cannot manage PATs**: `/api/tokens` requires a browser session (a leaked token cannot mint more tokens).
 - **Protected notes are invisible to MCP.** A note you protect arrives with its title, body, checklist and images empty and never appears in `search_notes`; every tool that would read or write its content answers 423 `note_locked`. Unlocking means retyping the account password or PIN, which a token cannot be asked to do — so the protection holds for agents by construction, not by policy.
