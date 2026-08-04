@@ -1,0 +1,25 @@
+{
+  "consentTitle": "Conectar {{app}} ao OpenKeep?",
+  "consentSubtitle": "O {{app}} está pedindo acesso à sua conta do OpenKeep.",
+  "signedInAs": "Conectado como {{email}}",
+  "grantsTitle": "Se você permitir, ele poderá:",
+  "grantRead": "Ler todas as notas, marcadores, lembretes e anexos da sua conta",
+  "grantWrite": "Criar, editar, arquivar e excluir notas em seu nome",
+  "grantSettings": "Ler e alterar as configurações da sua conta",
+  "protectedNotesSafe": "Notas protegidas continuam ocultas — desbloquear uma exige sua senha ou PIN, que nunca é pedido a um aplicativo conectado.",
+  "unverifiedTitle": "O OpenKeep não verificou este aplicativo",
+  "unverifiedBody": "Tudo abaixo foi escrito por quem o registrou. Só continue se você iniciou isto a partir de um aplicativo em que confia.",
+  "redirectHosts": "Envia você de volta para",
+  "allow": "Permitir",
+  "deny": "Negar",
+  "invalidRequest": "Este link de autorização é inválido ou expirou. Inicie a conexão novamente pelo aplicativo.",
+  "error": "Algo deu errado. Inicie a conexão novamente pelo aplicativo.",
+
+  "connectionsTitle": "Aplicativos conectados",
+  "connectionsDescription": "Aplicativos que você autorizou a acessar suas notas via OAuth. Revogar um corta o acesso imediatamente.",
+  "connectionsEmpty": "Nenhum aplicativo conectado.",
+  "connectedOn": "Conectado em {{date}}",
+  "disconnect": "Desconectar",
+  "disconnectConfirm": "Desconectar {{app}}? Ele perderá o acesso às suas notas imediatamente.",
+  "disconnected": "{{app}} desconectado"
+}

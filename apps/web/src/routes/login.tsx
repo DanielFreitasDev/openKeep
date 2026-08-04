@@ -8,13 +8,26 @@ import { metaQuery, sessionQuery } from '../lib/queries.js';
 
 const loginSearch = z.object({
   redirect: z.string().optional(),
+  /**
+   * Present when an OAuth client sent an unauthenticated visitor here: Better
+   * Auth forwards the whole authorization request as query params so it can be
+   * replayed once the session exists.
+   */
+  client_id: z.string().optional(),
 });
 
 export const Route = createFileRoute('/login')({
   validateSearch: loginSearch,
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, search }) => {
     const session = await context.queryClient.ensureQueryData(sessionQuery);
-    if (session) throw redirect({ to: '/' });
+    if (!session) return;
+    // Already signed in with an authorization waiting: resume it rather than
+    // dropping the visitor on the notes grid with no way back.
+    if (search.client_id) {
+      window.location.href = `/api/auth/mcp/authorize${window.location.search}`;
+      return;
+    }
+    throw redirect({ to: '/' });
   },
   component: LoginPage,
 });
@@ -40,6 +53,13 @@ function LoginPage() {
     // Hard-remove the cached null session; the shell guard's ensureQueryData
     // returns any cached value (even null) without refetching.
     queryClient.removeQueries({ queryKey: sessionQuery.queryKey });
+    // An interrupted OAuth authorization resumes by replaying the original
+    // request against the authorization endpoint — a full navigation, since
+    // what follows is a redirect chain out of the SPA.
+    if (search.client_id) {
+      window.location.href = `/api/auth/mcp/authorize${window.location.search}`;
+      return;
+    }
     const target = search.redirect?.startsWith('/') ? search.redirect : '/';
     await navigate({ to: target, replace: true });
   };
@@ -91,7 +111,12 @@ function LoginPage() {
   };
 
   const oauth = async (provider: 'google' | 'github') => {
-    await authClient.signIn.social({ provider, callbackURL: window.location.origin });
+    // Same resume rule as the password path, except the provider performs the
+    // navigation for us, so the authorize URL goes in as the callback.
+    const callbackURL = search.client_id
+      ? `${window.location.origin}/api/auth/mcp/authorize${window.location.search}`
+      : window.location.origin;
+    await authClient.signIn.social({ provider, callbackURL });
   };
 
   const hasOauth = meta?.oauth.google || meta?.oauth.github;

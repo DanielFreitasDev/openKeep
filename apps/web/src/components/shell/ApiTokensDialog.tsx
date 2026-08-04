@@ -1,11 +1,12 @@
 import { Dialog } from '@base-ui/react/dialog';
 import type { ApiTokenWithSecret } from '@openkeep/shared';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { enUS, ptBR } from 'date-fns/locale';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTokenMutations } from '../../hooks/use-token-mutations.js';
+import { oauthConnectionsQuery, revokeConnectionApi } from '../../lib/oauth-api.js';
 import { tokensQuery } from '../../lib/tokens-api.js';
 import { useUiStore } from '../../stores/ui.js';
 import { Select } from '../Select.js';
@@ -184,6 +185,8 @@ export function ApiTokensDialog() {
             </ul>
           </section>
 
+          <OAuthConnections open={activeDialog === 'api-tokens'} stamp={stamp} />
+
           <div className="mt-6 flex justify-end">
             <Dialog.Close className="rounded px-4 py-2 font-medium text-primary text-sm hover:bg-(--surface-hover)">
               {t('common:done')}
@@ -192,5 +195,78 @@ export function ApiTokensDialog() {
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * OAuth connectors live beside the tokens because they are the same thing to a
+ * user — something out there holding a key to their notes. Disconnecting drops
+ * the grant and every token issued under it, server-side.
+ */
+function OAuthConnections({ open, stamp }: { open: boolean; stamp: (iso: string) => string }) {
+  const { t } = useTranslation('oauth');
+  const queryClient = useQueryClient();
+  const connections = useQuery({ ...oauthConnectionsQuery, enabled: open });
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const revoke = useMutation({
+    mutationFn: revokeConnectionApi,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: oauthConnectionsQuery.queryKey }),
+  });
+
+  // Nothing connected and nothing pending: stay out of the way entirely.
+  if (!connections.data || connections.data.length === 0) return null;
+
+  return (
+    <section className="mt-6 border-(--outline-variant) border-t pt-4">
+      <h3 className="font-medium text-on-surface text-sm">{t('connectionsTitle')}</h3>
+      <p className="mt-1 text-on-surface-variant text-xs">{t('connectionsDescription')}</p>
+      <ul className="mt-2 space-y-2">
+        {connections.data.map((conn) => (
+          <li
+            key={conn.clientId}
+            className="flex items-center gap-3 rounded-lg border border-(--outline-variant) p-3"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-on-surface text-sm">{conn.name}</p>
+              <p className="mt-0.5 truncate text-on-surface-variant text-xs">
+                {conn.redirectHosts.join(', ')}
+                {conn.redirectHosts.length > 0 && ' · '}
+                {t('connectedOn', { date: stamp(conn.grantedAt) })}
+              </p>
+            </div>
+            {confirmId === conn.clientId ? (
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded px-3 py-2 font-medium text-red-600 text-sm hover:bg-(--surface-hover) dark:text-red-400"
+                  onClick={() => {
+                    revoke.mutate(conn.clientId);
+                    setConfirmId(null);
+                  }}
+                >
+                  {t('disconnect')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-3 py-2 font-medium text-primary text-sm hover:bg-(--surface-hover)"
+                  onClick={() => setConfirmId(null)}
+                >
+                  {t('common:cancel')}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="shrink-0 rounded px-3 py-2 font-medium text-on-surface text-sm hover:bg-(--surface-hover)"
+                onClick={() => setConfirmId(conn.clientId)}
+              >
+                {t('disconnect')}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

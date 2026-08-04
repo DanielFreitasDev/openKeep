@@ -1,0 +1,25 @@
+{
+  "consentTitle": "Connect {{app}} to OpenKeep?",
+  "consentSubtitle": "{{app}} is asking for access to your OpenKeep account.",
+  "signedInAs": "Signed in as {{email}}",
+  "grantsTitle": "If you allow, it will be able to:",
+  "grantRead": "Read every note, label, reminder and attachment in your account",
+  "grantWrite": "Create, edit, archive and delete notes on your behalf",
+  "grantSettings": "Read and change your account settings",
+  "protectedNotesSafe": "Protected notes stay hidden — unlocking one needs your password or PIN, which a connected app is never asked for.",
+  "unverifiedTitle": "OpenKeep has not verified this app",
+  "unverifiedBody": "Anything below was written by whoever registered it. Only continue if you started this from an app you trust.",
+  "redirectHosts": "Sends you back to",
+  "allow": "Allow",
+  "deny": "Deny",
+  "invalidRequest": "This authorization link is invalid or has expired. Start the connection again from the app.",
+  "error": "Something went wrong. Start the connection again from the app.",
+
+  "connectionsTitle": "Connected apps",
+  "connectionsDescription": "Apps you authorized to reach your notes over OAuth. Revoking one cuts its access immediately.",
+  "connectionsEmpty": "No connected apps.",
+  "connectedOn": "Connected {{date}}",
+  "disconnect": "Disconnect",
+  "disconnectConfirm": "Disconnect {{app}}? It will lose access to your notes right away.",
+  "disconnected": "{{app}} disconnected"
+}

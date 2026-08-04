@@ -5,6 +5,7 @@ export * from './instance.js';
 export * from './jobs.js';
 export * from './labels.js';
 export * from './notes.js';
+export * from './oauth.js';
 export * from './reminders.js';
 export * from './settings.js';
 export * from './sharing.js';

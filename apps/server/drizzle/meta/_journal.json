@@ -148,6 +148,13 @@
       "when": 1785785039778,
       "tag": "0020_note-lock",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785861159660,
+      "tag": "0021_opposite_paladin",
+      "breakpoints": true
     }
   ]
 }

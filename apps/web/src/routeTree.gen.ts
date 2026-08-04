@@ -19,6 +19,7 @@ import { Route as ShellSearchRouteImport } from './routes/_shell/search'
 import { Route as ShellShareRouteImport } from './routes/_shell/share'
 import { Route as ShellTemplatesRouteImport } from './routes/_shell/templates'
 import { Route as ShellTrashRouteImport } from './routes/_shell/trash'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as ShellLabelLabelNameRouteImport } from './routes/_shell/label.$labelName'
 
@@ -71,6 +72,11 @@ const ShellTrashRoute = ShellTrashRouteImport.update({
   path: '/trash',
   getParentRoute: () => ShellRoute,
 } as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const STokenRoute = STokenRouteImport.update({
   id: '/s/$token',
   path: '/s/$token',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/share': typeof ShellShareRoute
   '/templates': typeof ShellTemplatesRoute
   '/trash': typeof ShellTrashRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/s/$token': typeof STokenRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
 }
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/share': typeof ShellShareRoute
   '/templates': typeof ShellTemplatesRoute
   '/trash': typeof ShellTrashRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/s/$token': typeof STokenRoute
   '/': typeof ShellIndexRoute
   '/label/$labelName': typeof ShellLabelLabelNameRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/_shell/share': typeof ShellShareRoute
   '/_shell/templates': typeof ShellTemplatesRoute
   '/_shell/trash': typeof ShellTrashRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/s/$token': typeof STokenRoute
   '/_shell/': typeof ShellIndexRoute
   '/_shell/label/$labelName': typeof ShellLabelLabelNameRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/share'
     | '/templates'
     | '/trash'
+    | '/oauth/consent'
     | '/s/$token'
     | '/label/$labelName'
   fileRoutesByTo: FileRoutesByTo
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/share'
     | '/templates'
     | '/trash'
+    | '/oauth/consent'
     | '/s/$token'
     | '/'
     | '/label/$labelName'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/_shell/share'
     | '/_shell/templates'
     | '/_shell/trash'
+    | '/oauth/consent'
     | '/s/$token'
     | '/_shell/'
     | '/_shell/label/$labelName'
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   ShellRoute: typeof ShellRouteWithChildren
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   STokenRoute: typeof STokenRoute
 }
 
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellTrashRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/s/$token': {
       id: '/s/$token'
       path: '/s/$token'
@@ -290,6 +310,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShellRoute: ShellRouteWithChildren,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  OauthConsentRoute: OauthConsentRoute,
   STokenRoute: STokenRoute,
 }
 export const routeTree = rootRouteImport

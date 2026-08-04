@@ -4,8 +4,11 @@ import { createMcpHandler } from '@modelcontextprotocol/server';
 import type { OpenKeepClient } from '@openkeep/mcp';
 import { createOpenKeepMcpServer, FetchClient } from '@openkeep/mcp';
 import type { App } from '../app.js';
+import type { Auth } from '../auth/auth.js';
+import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
 import { verifyApiToken } from '../modules/api-tokens/service.js';
+import { verifyOAuthToken } from '../modules/oauth/service.js';
 import { toWebHeaders } from './auth.js';
 
 /** Base64 of a 10 MB image plus JSON-RPC envelope headroom. */
@@ -60,12 +63,19 @@ function injectClientFor(app: App, secret: string, clientId: string): OpenKeepCl
 }
 
 /**
- * Mounts the Streamable HTTP MCP endpoint at /api/mcp. Auth is our own PAT
- * gate, re-verified on EVERY request (revocation applies immediately); the
- * SDK handler is auth-pass-through by design. The route is hidden from the
- * OpenAPI spec and rate limited independently of the JSON API.
+ * Mounts the Streamable HTTP MCP endpoint at /api/mcp.
+ *
+ * Two credentials reach it: an `okp_` PAT (Claude Code, Claude Desktop, the
+ * request-header connector) and an OAuth 2.1 access token (claude.ai and
+ * ChatGPT, which cannot present a fixed secret). Both are re-verified on EVERY
+ * request, so revocation applies immediately; the SDK handler is
+ * auth-pass-through by design. Whichever one arrives is forwarded verbatim to
+ * the injected REST calls, where `requireAuth` recognizes both.
+ *
+ * The route is hidden from the OpenAPI spec and rate limited independently of
+ * the JSON API.
  */
-export function registerMcp(app: App, db: Db): void {
+export function registerMcp(app: App, config: Config, auth: Auth, db: Db): void {
   const handler = createMcpHandler((ctx) => {
     const auth = ctx.authInfo;
     // The route below always sets authInfo; a missing one is a programming error.
@@ -88,14 +98,41 @@ export function registerMcp(app: App, db: Db): void {
     handler: async (req, reply) => {
       const header = req.headers.authorization;
       const secret =
-        typeof header === 'string' && header.startsWith('Bearer okp_')
+        typeof header === 'string' && header.startsWith('Bearer ')
           ? header.slice('Bearer '.length)
           : null;
-      const verified = secret ? await verifyApiToken(db, secret) : null;
-      if (!secret || !verified) {
+
+      // Stable realtime origin — browser tabs drop echoes of "their" client id.
+      // Keyed by the PAT for a token, by the connector for an OAuth grant.
+      let authInfo: AuthInfo | null = null;
+      if (secret?.startsWith('okp_')) {
+        const verified = await verifyApiToken(db, secret);
+        if (verified) {
+          authInfo = { token: secret, clientId: `mcp:${verified.tokenId}`, scopes: [] };
+        }
+      } else if (secret) {
+        const granted = await verifyOAuthToken(db, auth, toWebHeaders(req));
+        if (granted) {
+          authInfo = {
+            token: secret,
+            clientId: `mcp:oauth:${granted.clientId}`,
+            scopes: granted.scopes,
+          };
+        }
+      }
+
+      if (!authInfo) {
+        // RFC 9728: point an unauthenticated client at the protected-resource
+        // document so it can find the authorization server on its own. This is
+        // the handshake that makes claude.ai and ChatGPT connectors work.
+        const resourceMetadata = `${config.APP_URL}/.well-known/oauth-protected-resource/api/mcp`;
         return reply
           .status(401)
-          .header('www-authenticate', 'Bearer realm="OpenKeep MCP", error="invalid_token"')
+          .header(
+            'www-authenticate',
+            `Bearer realm="OpenKeep MCP", error="invalid_token", resource_metadata="${resourceMetadata}"`,
+          )
+          .header('access-control-expose-headers', 'WWW-Authenticate')
           .header('content-type', 'application/problem+json; charset=utf-8')
           .send({
             type: 'about:blank',
@@ -103,16 +140,9 @@ export function registerMcp(app: App, db: Db): void {
             status: 401,
             code: 'unauthorized',
             detail:
-              'Provide a valid API token: Authorization: Bearer okp_… (Settings → API tokens)',
+              'Provide a valid API token (Authorization: Bearer okp_… — Settings → API tokens) or complete the OAuth flow advertised in WWW-Authenticate',
           });
       }
-
-      const authInfo: AuthInfo = {
-        token: secret,
-        // Stable realtime origin — browser tabs drop echoes of "their" client id.
-        clientId: `mcp:${verified.tokenId}`,
-        scopes: [],
-      };
 
       const hasBody = req.body !== undefined && req.body !== null;
       const webResponse = await handler.fetch(

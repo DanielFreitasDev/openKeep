@@ -24,6 +24,7 @@ import { registerItemRoutes } from './modules/items/routes.js';
 import { registerLabelRoutes } from './modules/labels/routes.js';
 import { registerLinkPreviewRoutes } from './modules/link-preview/routes.js';
 import { registerNotesRoutes } from './modules/notes/routes.js';
+import { registerOAuthRoutes } from './modules/oauth/routes.js';
 import { registerProtectionRoutes } from './modules/protection/routes.js';
 import { registerReminderRoutes } from './modules/reminders/routes.js';
 import { registerSearchRoutes } from './modules/search/routes.js';
@@ -145,6 +146,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
 
   registerSettingsRoutes(app, deps.db, realtime, config);
   registerApiTokenRoutes(app, deps.db);
+  registerOAuthRoutes(app, deps.db);
   registerWebhookRoutes(app, deps.db, config, webhooks);
   registerAdminRoutes(app, deps.db, config, deps.storage);
   registerProtectionRoutes(app, deps.db);
@@ -158,7 +160,7 @@ export async function buildApp(config: Config, deps: AppDeps) {
   registerCalendarRoutes(app, deps.db, config);
   registerSharingRoutes(app, deps.db, realtime, config, deps.storage);
   registerImportExportRoutes(app, deps.db, deps.storage, deps.enqueueJob ?? (async () => {}));
-  registerMcp(app, deps.db);
+  registerMcp(app, config, deps.auth, deps.db);
 
   // Production: serve the built SPA same-origin with the strict CSP.
   if (spaDist) await registerSpa(app, spaDist);

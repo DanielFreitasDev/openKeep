@@ -1,16 +1,26 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
+import { mcp } from 'better-auth/plugins';
 import nodemailer from 'nodemailer';
 import type { Config } from '../config.js';
 import type { Db } from '../db/client.js';
 import { account, session, user, verification } from '../db/schema/auth.js';
+import { oauthAccessToken, oauthApplication, oauthConsent } from '../db/schema/oauth.js';
 import { userSettings } from '../db/schema/settings.js';
 import { getInstanceSettings, isAdmin } from '../modules/admin/service.js';
 
+/** Access tokens live an hour; a refresh token carries the grant for a week. */
+const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 3600;
+const OAUTH_REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 /**
- * Better Auth, core only (email/password + optional OAuth). Pinned exact —
- * plugins deliberately avoided (see docs/DECISIONS.md).
+ * Better Auth: email/password + optional social, plus the `mcp` plugin — the
+ * OAuth 2.1 authorization server that hosted AI clients (claude.ai, ChatGPT)
+ * require to reach /api/mcp, since neither can present an `okp_` token.
+ *
+ * The plugin is the one exception to the core-only stance in docs/DECISIONS.md;
+ * that entry records the trade and what we hardened around it.
  */
 export function createAuth(config: Config, db: Db) {
   const mailer = config.SMTP_URL ? nodemailer.createTransport(config.SMTP_URL) : null;
@@ -22,8 +32,38 @@ export function createAuth(config: Config, db: Db) {
     trustedOrigins: [new URL(config.APP_URL).origin],
     database: drizzleAdapter(db, {
       provider: 'pg',
-      schema: { user, session, account, verification },
+      schema: {
+        user,
+        session,
+        account,
+        verification,
+        oauthApplication,
+        oauthAccessToken,
+        oauthConsent,
+      },
     }),
+    plugins: [
+      mcp({
+        // Where /api/auth/mcp/authorize sends a visitor who is not signed in;
+        // Better Auth replays the authorization request after the login.
+        loginPage: '/login',
+        // RFC 9728 identifies the resource by the URL clients actually call,
+        // not the bare origin the plugin would default to.
+        resource: `${config.APP_URL}/api/mcp`,
+        oidcConfig: {
+          // Required by OIDCOptions; the plugin overwrites it with the
+          // `loginPage` above, so the two are kept identical on purpose.
+          loginPage: '/login',
+          consentPage: '/oauth/consent',
+          // Dynamic client registration is open (the spec's discovery flow
+          // needs it), so PKCE is the only thing binding a code to the client
+          // that asked for it. Never optional here.
+          requirePKCE: true,
+          accessTokenExpiresIn: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+          refreshTokenExpiresIn: OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+        },
+      }),
+    ],
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
