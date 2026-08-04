@@ -330,6 +330,24 @@ export function insertNoteLink(editor: Editor, noteId: string, label: string): v
     .run();
 }
 
+/**
+ * A picker opened by a keystroke in the body, dismissed without picking.
+ *
+ * Escape (and the platform back gesture behind `close-watcher`) means "never
+ * mind" — the sentence being typed is still there, so the caret goes back to
+ * it, synchronously, before the popup unmounts and drops focus on `<body>`
+ * (see `insertNoteLink` for why a frame of that costs keystrokes).
+ *
+ * Every other dismissal keeps its hands off. `outside-press` and `focus-out`
+ * are the reader choosing somewhere else to be — the title field, a toolbar,
+ * another note — and pulling the caret back into the body would take away the
+ * very thing they just reached for.
+ */
+export function returnCaretOnCancel(editor: Editor | null, reason: string): void {
+  if (reason !== 'escape-key' && reason !== 'close-watcher') return;
+  if (editor && !editor.isDestroyed) editor.view.focus();
+}
+
 /** Applies a link to the selection, or clears it when the url is empty. */
 export function applyLink(editor: Editor, url: string): void {
   const href = url.trim();

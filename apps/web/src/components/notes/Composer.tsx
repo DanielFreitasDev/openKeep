@@ -32,7 +32,7 @@ import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
 import { selectHasTemplates } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { sessionQuery } from '../../lib/queries.js';
-import { NOTE_INPUT_RULES, noteExtensions } from '../../lib/tiptap.js';
+import { NOTE_INPUT_RULES, noteExtensions, returnCaretOnCancel } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton, iconButtonClass } from '../IconButton.js';
@@ -741,7 +741,14 @@ export function Composer() {
               }
             />
             {notePicker && (
-              <Popover.Root open onOpenChange={(o) => !o && setNotePicker(false)}>
+              <Popover.Root
+                open
+                onOpenChange={(o, details) => {
+                  if (o) return;
+                  setNotePicker(false);
+                  returnCaretOnCancel(editor, details.reason);
+                }}
+              >
                 <Popover.Trigger
                   className="absolute bottom-12 left-4 h-px w-px opacity-0"
                   aria-hidden
@@ -768,7 +775,11 @@ export function Composer() {
             {labelPicker.open && (
               <Popover.Root
                 open
-                onOpenChange={(o) => !o && setLabelPicker({ open: false, seed: '' })}
+                onOpenChange={(o, details) => {
+                  if (o) return;
+                  setLabelPicker({ open: false, seed: '' });
+                  returnCaretOnCancel(editor, details.reason);
+                }}
               >
                 <Popover.Trigger
                   className="absolute bottom-12 left-4 h-px w-px opacity-0"

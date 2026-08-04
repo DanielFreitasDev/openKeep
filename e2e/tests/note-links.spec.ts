@@ -78,6 +78,33 @@ test('[[ links a note, the link navigates, and the target lists the backlink', a
   await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Shopping list');
 });
 
+test('cancelling the picker gives the caret back, and never takes it', async ({ page }) => {
+  await composeNote(page, { title: 'Bathroom remodel' });
+  await composeNote(page, { title: 'Shopping list' });
+
+  await cardByTitle(page, 'Shopping list').click();
+  const dialog = page.getByRole('dialog');
+  const body = dialog.locator('.note-editor [contenteditable="true"]');
+  await body.click();
+  await page.keyboard.type('see [[');
+  await expect(page.getByText('Link a note')).toBeVisible();
+
+  // Escape means "never mind": the sentence is still being written, so the
+  // caret comes back to it without anyone clicking into the body again.
+  await page.keyboard.press('Escape');
+  await page.keyboard.type('nothing');
+  await expect(body).toHaveText('see nothing');
+
+  // Dismissing by reaching for another field is the opposite gesture, and the
+  // caret has to stay where the reader put it.
+  await page.keyboard.type(' [[');
+  await expect(page.getByText('Link a note')).toBeVisible();
+  const title = dialog.getByLabel('Title', { exact: true });
+  await title.click();
+  await page.keyboard.type('!');
+  await expect(title).toHaveValue('Shopping list!');
+});
+
 test('a note link survives export to markdown and comes back as a link', async ({ page }) => {
   await composeNote(page, { title: 'Target note' });
   await composeNote(page, { title: 'Source note' });

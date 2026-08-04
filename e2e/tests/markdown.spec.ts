@@ -68,11 +68,15 @@ test('`#` still opens the label picker, at a line start too', async ({ page }) =
   // Mid-text: the picker opens on the keystroke itself.
   await page.keyboard.type('groceries #');
   await expect(page.getByLabel('Enter label name')).toBeVisible();
+
+  // Escape backs out of it and hands the caret back to the body, so the line
+  // carries on where it was — nobody has to click into it again.
   await page.keyboard.press('Escape');
+  await page.keyboard.type('list');
+  await expect(body(page)).toContainText('groceries list');
 
   // At the start of an empty line `#` types through so a heading is possible —
   // the next character is what proves it was a label, and it seeds the filter.
-  await body(page).click();
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await page.keyboard.type('#w');
