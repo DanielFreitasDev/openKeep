@@ -1,3 +1,21 @@
+## [1.36.2](https://github.com/DanielFreitasDev/openKeep/compare/v1.36.1...v1.36.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* give the caret back when Escape cancels a picker ([8515ed5](https://github.com/DanielFreitasDev/openKeep/commit/8515ed591abc4f1bef1093d061b282f745346e04))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.36.2
+```
+
+Or download `compose.yml` below (image pinned to `1.36.2`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.36.2/docs/DEPLOYMENT.md).
+
 ## [1.36.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.36.0...v1.36.1) (2026-08-03)
 
 
