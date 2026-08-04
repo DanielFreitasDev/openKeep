@@ -21,6 +21,30 @@ export class ImageOutput {
   ) {}
 }
 
+/** Handler result carrying recorded audio (rendered as MCP audio content). */
+export class AudioOutput {
+  constructor(
+    readonly base64: string,
+    readonly mimeType: string,
+    readonly meta?: Record<string, unknown>,
+  ) {}
+}
+
+/**
+ * Handler result for bytes that are neither an image nor audio — a PDF, a
+ * spreadsheet, an archive. Rendered as an embedded resource blob: the model
+ * cannot look at it, but a client can hand it on, save it or show a chip,
+ * which is strictly more than the base64 blob a text block would have been.
+ */
+export class FileOutput {
+  constructor(
+    readonly uri: string,
+    readonly base64: string,
+    readonly mimeType: string,
+    readonly meta?: Record<string, unknown>,
+  ) {}
+}
+
 /** SDK-neutral tool definition — only server.ts touches the MCP SDK. */
 export interface ToolDef {
   name: string;

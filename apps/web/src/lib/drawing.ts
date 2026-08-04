@@ -1,4 +1,5 @@
 import type { DrawingBackground, DrawingData, DrawingStroke, DrawingTool } from '@openkeep/shared';
+import { DRAWING_GRID, TOOL_ALPHA } from '@openkeep/shared';
 
 /** Keep's ink palette (sampled from keep.google.com), 4 rows × 7 swatches. */
 export const DRAWING_COLORS = [
@@ -41,9 +42,6 @@ export const TOOL_WIDTH_FACTOR: Record<DrawingTool, number> = {
   marker: 2.2,
   highlighter: 2.5,
 };
-
-/** One stroke = one path pass, so the highlighter never darkens over itself. */
-export const TOOL_ALPHA: Record<DrawingTool, number> = { pen: 1, marker: 1, highlighter: 0.45 };
 
 /** Keep's defaults: black pen, red marker, yellow highlighter. */
 export const TOOL_DEFAULTS: Record<DrawingTool, { color: string; sizeIndex: number }> = {
@@ -121,16 +119,16 @@ export function drawGrid(
   h: number,
 ): void {
   if (background === 'none') return;
-  const step = background === 'rules' ? 32 : 24;
+  const step = background === 'rules' ? DRAWING_GRID.stepRules : DRAWING_GRID.step;
   ctx.save();
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+  ctx.strokeStyle = DRAWING_GRID.lineColor;
+  ctx.fillStyle = DRAWING_GRID.dotColor;
   ctx.lineWidth = 1;
   if (background === 'dots') {
     for (let y = step; y < h; y += step) {
       for (let x = step; x < w; x += step) {
         ctx.beginPath();
-        ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+        ctx.arc(x, y, DRAWING_GRID.dotRadius, 0, Math.PI * 2);
         ctx.fill();
       }
     }

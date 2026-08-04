@@ -11,6 +11,22 @@ export const getSettings = defineTool({
   handler: async (client) => client.getSettings(),
 });
 
+export const getStorageUsage = defineTool({
+  name: 'get_storage_usage',
+  description:
+    'How much disk this account’s attachments use, and the per-account cap this instance sets (quota_bytes null = no cap). Worth checking before a large upload — an upload past the cap is refused, not truncated.',
+  inputSchema: z.object({}),
+  annotations: { readOnlyHint: true },
+  handler: async (client) => {
+    const usage = await client.getStorageUsage();
+    return {
+      used_bytes: usage.usedBytes,
+      quota_bytes: usage.quotaBytes,
+      remaining_bytes: usage.quotaBytes === null ? null : usage.quotaBytes - usage.usedBytes,
+    };
+  },
+});
+
 export const updateSettings = defineTool({
   name: 'update_settings',
   description:

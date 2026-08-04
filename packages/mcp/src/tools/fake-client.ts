@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type {
   Attachment,
+  CalendarFeed,
   Collaborator,
+  DrawingData,
   FullNote,
   InviteRole,
   ItemPatchResult,
@@ -16,6 +18,8 @@ import type {
   PatchNoteState,
   Reminder,
   SetReminder,
+  ShareLink,
+  StorageUsage,
   UserSettings,
   UserSettingsPatch,
 } from '@openkeep/shared';
@@ -25,6 +29,7 @@ import type {
   CreateItemInput,
   CreateNoteInput,
   Job,
+  MarkdownImportFile,
   NoteView,
   OpenKeepClient,
   SearchQuery,
@@ -57,10 +62,15 @@ const DEFAULT_SETTINGS: UserSettings = {
 export class FakeOpenKeepClient implements OpenKeepClient {
   notes = new Map<string, FullNote>();
   labels = new Map<string, Label>();
-  attachmentData = new Map<string, { data: Uint8Array; mime: string }>();
+  /** `thumb` is absent for audio and files, exactly as it is server-side. */
+  attachmentData = new Map<string, { data: Uint8Array; mime: string; hasThumb?: boolean }>();
+  drawings = new Map<string, DrawingData>();
   jobs = new Map<string, Job>();
   versions = new Map<string, { meta: NoteVersionMeta; content: string }[]>();
   settings: UserSettings = { ...DEFAULT_SETTINGS };
+  shareLinks = new Map<string, ShareLink>();
+  calendarFeed: CalendarFeed = { url: null };
+  storage: StorageUsage = { usedBytes: 0, quotaBytes: null };
   exportZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
   /** Ordered log of mutating calls — lets tests assert composite sequencing. */
   calls: string[] = [];
@@ -257,6 +267,32 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       note.type = 'text';
     }
     return note;
+  }
+
+  async mergeNotes(noteIds: string[]): Promise<FullNote> {
+    this.calls.push('mergeNotes');
+    const [targetId, ...sources] = noteIds;
+    if (!targetId) throw apiError(400, 'validation_failed', 'noteIds is empty');
+    const target = this.editable(targetId);
+    for (const id of sources) {
+      const source = this.editable(id);
+      target.bodyHtml += source.bodyHtml;
+      target.items.push(...source.items);
+      target.attachments.push(...source.attachments);
+      source.trashedAt = new Date().toISOString();
+    }
+    this.touch(target);
+    return target;
+  }
+
+  async deleteAllNotes(): Promise<{ deleted: number; left: number; labels: number }> {
+    this.calls.push('deleteAllNotes');
+    const owned = [...this.notes.values()].filter((n) => n.role === 'owner');
+    const left = this.notes.size - owned.length;
+    const labels = this.labels.size;
+    this.notes.clear();
+    this.labels.clear();
+    return { deleted: owned.length, left, labels };
   }
 
   // ---------------------------------------------------------------- versions
@@ -462,6 +498,52 @@ export class FakeOpenKeepClient implements OpenKeepClient {
     return { ...this.settings };
   }
 
+  async getStorageUsage(): Promise<StorageUsage> {
+    return { ...this.storage };
+  }
+
+  // ---------------------------------------------------------------- share link
+
+  async getShareLink(noteId: string): Promise<ShareLink> {
+    this.note(noteId);
+    return this.shareLinks.get(noteId) ?? { url: null, expiresAt: null };
+  }
+
+  async createShareLink(noteId: string, expiresInDays: number | null): Promise<ShareLink> {
+    this.note(noteId);
+    const link: ShareLink = {
+      url: `https://openkeep.test/s/${randomUUID().replaceAll('-', '')}`,
+      expiresAt:
+        expiresInDays === null
+          ? null
+          : new Date(Date.now() + expiresInDays * 86_400_000).toISOString(),
+    };
+    this.shareLinks.set(noteId, link);
+    return link;
+  }
+
+  async revokeShareLink(noteId: string): Promise<void> {
+    this.note(noteId);
+    this.shareLinks.delete(noteId);
+  }
+
+  // ---------------------------------------------------------------- calendar
+
+  async getCalendarFeed(): Promise<CalendarFeed> {
+    return { ...this.calendarFeed };
+  }
+
+  async rotateCalendarFeed(): Promise<CalendarFeed> {
+    this.calendarFeed = {
+      url: `https://openkeep.test/api/calendar/${randomUUID().replaceAll('-', '')}.ics`,
+    };
+    return { ...this.calendarFeed };
+  }
+
+  async revokeCalendarFeed(): Promise<void> {
+    this.calendarFeed = { url: null };
+  }
+
   // ---------------------------------------------------------------- collaborators
 
   async listCollaborators(noteId: string): Promise<Collaborator[]> {
@@ -503,39 +585,123 @@ export class FakeOpenKeepClient implements OpenKeepClient {
 
   // ---------------------------------------------------------------- attachments
 
-  async uploadImage(noteId: string, data: Uint8Array, _filename?: string): Promise<Attachment> {
+  private attach(
+    noteId: string,
+    data: Uint8Array,
+    partial: Pick<Attachment, 'kind' | 'mime' | 'filename' | 'hasThumb'> &
+      Partial<Pick<Attachment, 'width' | 'height' | 'photoAttachmentId'>>,
+  ): Attachment {
     const note = this.editable(noteId);
     const attachment: Attachment = {
       id: randomUUID(),
-      kind: 'image',
-      mime: 'image/png',
-      width: 1,
-      height: 1,
-      filename: null,
-      hasThumb: true,
+      width: null,
+      height: null,
       photoAttachmentId: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      ...partial,
     };
     note.attachments.push(attachment);
-    this.attachmentData.set(attachment.id, { data, mime: 'image/png' });
+    this.attachmentData.set(attachment.id, {
+      data,
+      mime: attachment.mime,
+      hasThumb: attachment.hasThumb,
+    });
     return attachment;
+  }
+
+  async uploadImage(noteId: string, data: Uint8Array, _filename?: string): Promise<Attachment> {
+    return this.attach(noteId, data, {
+      kind: 'image',
+      mime: 'image/png',
+      filename: null,
+      hasThumb: true,
+      width: 1,
+      height: 1,
+    });
+  }
+
+  async uploadAudio(noteId: string, data: Uint8Array, _filename?: string): Promise<Attachment> {
+    return this.attach(noteId, data, {
+      kind: 'audio',
+      mime: 'audio/webm',
+      filename: null,
+      hasThumb: false,
+    });
+  }
+
+  async uploadFile(noteId: string, data: Uint8Array, filename: string): Promise<Attachment> {
+    return this.attach(noteId, data, {
+      kind: 'file',
+      mime: 'application/pdf',
+      filename,
+      hasThumb: false,
+    });
   }
 
   async downloadAttachment(
     id: string,
-    _variant: 'file' | 'thumb',
+    variant: 'file' | 'thumb',
   ): Promise<{ data: Uint8Array; mime: string }> {
     const stored = this.attachmentData.get(id);
     if (!stored) throw apiError(404, 'not_found');
-    return stored;
+    // Server-side a missing thumbnail is a plain 404, not a fallback to the
+    // original — the tool is the one that decides to retry.
+    if (variant === 'thumb') {
+      if (stored.hasThumb === false) throw apiError(404, 'not_found');
+      return { data: stored.data, mime: 'image/webp' };
+    }
+    return { data: stored.data, mime: stored.mime };
   }
 
   async deleteAttachment(id: string): Promise<void> {
     if (!this.attachmentData.delete(id)) throw apiError(404, 'not_found');
+    this.drawings.delete(id);
     for (const note of this.notes.values()) {
       note.attachments = note.attachments.filter((a) => a.id !== id);
     }
+  }
+
+  // ---------------------------------------------------------------- drawings
+
+  async getDrawing(attachmentId: string): Promise<DrawingData> {
+    const drawing = this.drawings.get(attachmentId);
+    if (!drawing) throw apiError(404, 'not_found');
+    return drawing;
+  }
+
+  async createDrawing(noteId: string, png: Uint8Array, drawing: DrawingData): Promise<Attachment> {
+    const attachment = this.attach(noteId, png, {
+      kind: 'drawing',
+      mime: 'image/png',
+      filename: null,
+      hasThumb: true,
+      width: drawing.width,
+      height: drawing.height,
+      photoAttachmentId: drawing.photoAttachmentId ?? null,
+    });
+    this.drawings.set(attachment.id, drawing);
+    return attachment;
+  }
+
+  async updateDrawing(
+    attachmentId: string,
+    png: Uint8Array,
+    drawing: DrawingData,
+  ): Promise<Attachment> {
+    if (!this.drawings.has(attachmentId)) throw apiError(404, 'not_found');
+    this.drawings.set(attachmentId, drawing);
+    this.attachmentData.set(attachmentId, { data: png, mime: 'image/png', hasThumb: true });
+    for (const note of this.notes.values()) {
+      const existing = note.attachments.find((a) => a.id === attachmentId);
+      if (existing) {
+        existing.width = drawing.width;
+        existing.height = drawing.height;
+        existing.updatedAt = new Date().toISOString();
+        return existing;
+      }
+    }
+    throw apiError(404, 'not_found');
   }
 
   // ---------------------------------------------------------------- import/export
@@ -568,6 +734,30 @@ export class FakeOpenKeepClient implements OpenKeepClient {
     };
     this.jobs.set(job.id, job);
     return { jobId: job.id };
+  }
+
+  async importMarkdown(
+    files: MarkdownImportFile[],
+  ): Promise<{ imported: number; skipped: number }> {
+    this.calls.push(`importMarkdown:${files.length}`);
+    let imported = 0;
+    let skipped = 0;
+    for (const file of files) {
+      // `skipped` counts files the importer refused (empty, unparseable) — a
+      // wrong extension never reaches here, the route drops it first.
+      if (file.text.trim() === '') {
+        skipped++;
+        continue;
+      }
+      const [first, ...rest] = file.text.split('\n');
+      const heading = /^#{1,6}\s+(.*)$/.exec(first ?? '');
+      this.seedNote({
+        title: heading ? (heading[1] ?? '') : file.filename.replace(/\.[^.]+$/, ''),
+        bodyHtml: plainTextToHtml((heading ? rest : [first ?? '', ...rest]).join('\n').trim()),
+      });
+      imported++;
+    }
+    return { imported, skipped };
   }
 
   async getJob(id: string): Promise<Job> {

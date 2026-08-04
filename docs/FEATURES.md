@@ -137,7 +137,7 @@ The list-item four need an item that holds focus without typing: `Esc` inside an
 
 ## AI integration (MCP) *(divergence: OpenKeep addition — real Keep has no API)*
 
-- Full [MCP](MCP.md) server: 44 tools covering everything the UI does — notes, checklists, labels, reminders (with recurrence), search, versions, collaborators, image attachments, settings, import/export — plus note resources and two prompts.
+- Full [MCP](MCP.md) server: 59 tools covering everything a token can reach — notes (merge and empty included), checklists, labels, reminders (with recurrence) and the calendar feed, search, versions, collaborators and the public link, attachments of every kind plus drawings authored from stroke vectors, settings and storage usage, import/export — plus note resources and two prompts.
 - **Personal access tokens** (`okp_…`), managed in Settings → API tokens: shown once, sha256-at-rest, optional expiration, 10 per account, revocable; token management is session-only.
 - Two transports: Streamable HTTP mounted at `/api/mcp` (same container) and a stdio binary (`packages/mcp`) for local clients; stdio adds local-file tools (Takeout import, export download).
 - AI mutations ride the normal REST layer and fan out over WebSocket — edits appear live in open tabs, attributed to the token's client id.

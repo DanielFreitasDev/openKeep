@@ -1,4 +1,5 @@
 import { readFile, stat, writeFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { LIMITS, zId } from '@openkeep/shared';
 import { z } from 'zod';
 import { defineTool } from './types.js';
@@ -47,6 +48,71 @@ export const downloadExport = defineTool({
     const data = await client.downloadExport(args.job_id);
     await writeFile(args.dest_path, data);
     return { saved_to: args.dest_path, bytes: data.byteLength };
+  },
+});
+
+/** Mirrors the caps POST /api/import/markdown enforces per request. */
+const MARKDOWN_FILES_MAX = 100;
+const MARKDOWN_EXTENSIONS = /\.(md|markdown|txt)$/i;
+
+export const importMarkdown = defineTool({
+  name: 'import_markdown',
+  description:
+    'Import markdown as notes — up to 100 files in one call, one note per file, the first heading becoming the title. Names must end in .md, .markdown or .txt. Pass the text inline; over stdio, local paths work too. Runs inline, with no job to poll. A whole vault is better zipped through import_takeout, which reads markdown entries as well.',
+  inputSchema: z.object({
+    files: z
+      .array(
+        z.object({
+          filename: z.string().min(1).max(255).describe('Name ending in .md, .markdown or .txt'),
+          text: z.string().describe('The markdown source'),
+        }),
+      )
+      .max(MARKDOWN_FILES_MAX)
+      .optional()
+      .describe('Files given inline'),
+    paths: z
+      .array(z.string())
+      .max(MARKDOWN_FILES_MAX)
+      .optional()
+      .describe('Local file paths to read (only when the server runs on your machine via stdio)'),
+  }),
+  handler: async (client, args, caps) => {
+    const files = [...(args.files ?? [])];
+    if (args.paths?.length) {
+      if (!caps.localFs) {
+        throw new Error(
+          'paths is only available on the stdio server running on your machine — pass files with inline text instead.',
+        );
+      }
+      for (const path of args.paths) {
+        files.push({ filename: basename(path), text: await readFile(path, 'utf8') });
+      }
+    }
+    if (files.length === 0) throw new Error('Pass files (or paths when running via stdio).');
+    if (files.length > MARKDOWN_FILES_MAX) {
+      throw new Error(
+        `${files.length} files — at most ${MARKDOWN_FILES_MAX} go in one call; split the batch.`,
+      );
+    }
+
+    // The route drops a wrong extension without counting it anywhere, so a
+    // file sent with one would simply vanish. Filter here instead and name
+    // what was left out, which is the part a caller can act on.
+    const accepted = files.filter((file) => MARKDOWN_EXTENSIONS.test(file.filename));
+    const ignored = files
+      .filter((file) => !MARKDOWN_EXTENSIONS.test(file.filename))
+      .map((file) => file.filename);
+    if (accepted.length === 0) {
+      throw new Error(
+        `No file ends in .md, .markdown or .txt — nothing to import (got: ${ignored.join(', ')}).`,
+      );
+    }
+
+    const result = await client.importMarkdown(accepted);
+    return {
+      ...result,
+      ...(ignored.length > 0 ? { ignored } : {}),
+    };
   },
 });
 

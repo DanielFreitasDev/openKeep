@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import type {
   Attachment,
+  CalendarFeed,
   Collaborator,
+  DrawingData,
   FullNote,
   InviteRole,
   ItemPatchResult,
@@ -17,6 +19,8 @@ import type {
   ProblemDetails,
   Reminder,
   SetReminder,
+  ShareLink,
+  StorageUsage,
   UserSettings,
   UserSettingsPatch,
 } from '@openkeep/shared';
@@ -25,6 +29,7 @@ import type {
   CreateItemInput,
   CreateNoteInput,
   Job,
+  MarkdownImportFile,
   NoteView,
   OpenKeepClient,
   SearchQuery,
@@ -47,6 +52,18 @@ interface RequestOptions {
   body?: unknown;
   form?: FormData;
   query?: Record<string, string | undefined>;
+}
+
+/**
+ * The drawing multipart, in the order the server needs it: the JSON field
+ * FIRST, so busboy has it buffered by the time the file part resolves, then
+ * the PNG render. Reversing these two is a 400 with no obvious cause.
+ */
+function drawingForm(png: Uint8Array, drawing: unknown): FormData {
+  const form = new FormData();
+  form.append('drawing', JSON.stringify(drawing));
+  form.append('file', new Blob([png], { type: 'image/png' }), 'drawing.png');
+  return form;
 }
 
 /**
@@ -182,6 +199,19 @@ export class FetchClient implements OpenKeepClient {
     return this.json(`/api/notes/${id}/convert`, { method: 'POST', body: { to } });
   }
 
+  mergeNotes(noteIds: string[]): Promise<FullNote> {
+    return this.json('/api/notes/merge', { method: 'POST', body: { noteIds } });
+  }
+
+  deleteAllNotes(): Promise<{ deleted: number; left: number; labels: number }> {
+    // The literal is the route's own guard against an accidental POST; the
+    // tool asks the caller for it separately and only then gets this far.
+    return this.json('/api/notes/delete-all', {
+      method: 'POST',
+      body: { confirm: 'delete-all-notes' },
+    });
+  }
+
   // ---------------------------------------------------------------- versions
 
   listVersions(noteId: string): Promise<NoteVersionMeta[]> {
@@ -300,6 +330,10 @@ export class FetchClient implements OpenKeepClient {
     return this.json('/api/settings', { method: 'PATCH', body: patch });
   }
 
+  getStorageUsage(): Promise<StorageUsage> {
+    return this.json('/api/storage');
+  }
+
   // ---------------------------------------------------------------- collaborators
 
   listCollaborators(noteId: string): Promise<Collaborator[]> {
@@ -328,12 +362,56 @@ export class FetchClient implements OpenKeepClient {
     return this.json(`/api/notes/${noteId}/collaborators/${userId}`, { method: 'DELETE' });
   }
 
+  // ---------------------------------------------------------------- share link
+
+  getShareLink(noteId: string): Promise<ShareLink> {
+    return this.json(`/api/notes/${noteId}/share-link`);
+  }
+
+  createShareLink(noteId: string, expiresInDays: number | null): Promise<ShareLink> {
+    return this.json(`/api/notes/${noteId}/share-link`, {
+      method: 'POST',
+      body: { expiresInDays },
+    });
+  }
+
+  revokeShareLink(noteId: string): Promise<void> {
+    return this.json(`/api/notes/${noteId}/share-link`, { method: 'DELETE' });
+  }
+
+  // ---------------------------------------------------------------- calendar
+
+  getCalendarFeed(): Promise<CalendarFeed> {
+    return this.json('/api/calendar/token');
+  }
+
+  rotateCalendarFeed(): Promise<CalendarFeed> {
+    return this.json('/api/calendar/token', { method: 'POST' });
+  }
+
+  revokeCalendarFeed(): Promise<void> {
+    return this.json('/api/calendar/token', { method: 'DELETE' });
+  }
+
   // ---------------------------------------------------------------- attachments
 
   uploadImage(noteId: string, data: Uint8Array, filename = 'image.png'): Promise<Attachment> {
     const form = new FormData();
     form.append('file', new Blob([data]), filename);
     return this.json(`/api/notes/${noteId}/attachments`, { method: 'POST', form });
+  }
+
+  uploadAudio(noteId: string, data: Uint8Array, filename = 'audio.webm'): Promise<Attachment> {
+    const form = new FormData();
+    form.append('file', new Blob([data]), filename);
+    return this.json(`/api/notes/${noteId}/audio`, { method: 'POST', form });
+  }
+
+  /** The name is content here — it is what the chip shows and what downloads. */
+  uploadFile(noteId: string, data: Uint8Array, filename: string): Promise<Attachment> {
+    const form = new FormData();
+    form.append('file', new Blob([data]), filename);
+    return this.json(`/api/notes/${noteId}/files`, { method: 'POST', form });
   }
 
   downloadAttachment(
@@ -347,6 +425,26 @@ export class FetchClient implements OpenKeepClient {
     return this.json(`/api/attachments/${id}`, { method: 'DELETE' });
   }
 
+  // ---------------------------------------------------------------- drawings
+
+  getDrawing(attachmentId: string): Promise<DrawingData> {
+    return this.json(`/api/attachments/${attachmentId}/drawing`);
+  }
+
+  createDrawing(noteId: string, png: Uint8Array, drawing: DrawingData): Promise<Attachment> {
+    return this.json(`/api/notes/${noteId}/drawings`, {
+      method: 'POST',
+      form: drawingForm(png, drawing),
+    });
+  }
+
+  updateDrawing(attachmentId: string, png: Uint8Array, drawing: DrawingData): Promise<Attachment> {
+    return this.json(`/api/attachments/${attachmentId}/drawing`, {
+      method: 'PUT',
+      form: drawingForm(png, drawing),
+    });
+  }
+
   // ---------------------------------------------------------------- import/export
 
   startExport(): Promise<{ jobId: string }> {
@@ -357,6 +455,14 @@ export class FetchClient implements OpenKeepClient {
     const form = new FormData();
     form.append('file', new Blob([zip], { type: 'application/zip' }), filename);
     return this.json('/api/import/takeout', { method: 'POST', form });
+  }
+
+  importMarkdown(files: MarkdownImportFile[]): Promise<{ imported: number; skipped: number }> {
+    const form = new FormData();
+    for (const file of files) {
+      form.append('files', new Blob([file.text], { type: 'text/markdown' }), file.filename);
+    }
+    return this.json('/api/import/markdown', { method: 'POST', form });
   }
 
   getJob(id: string): Promise<Job> {

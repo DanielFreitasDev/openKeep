@@ -1,6 +1,8 @@
 import type {
   Attachment,
+  CalendarFeed,
   Collaborator,
+  DrawingData,
   FullNote,
   InviteRole,
   ItemPatchResult,
@@ -15,6 +17,8 @@ import type {
   PatchNoteState,
   Reminder,
   SetReminder,
+  ShareLink,
+  StorageUsage,
   UserSettings,
   UserSettingsPatch,
   zCreateItemInput,
@@ -39,6 +43,12 @@ export interface SearchQuery {
 }
 
 export type SearchResult = FullNote & { headline: string | null };
+
+/** One `.md` file on its way to POST /api/import/markdown. */
+export interface MarkdownImportFile {
+  filename: string;
+  text: string;
+}
 
 /** Wire shape of GET /api/jobs/:id (defined inline in the server routes). */
 export interface Job {
@@ -72,6 +82,8 @@ export interface OpenKeepClient {
   emptyTrash(): Promise<{ deleted: number }>;
   copyNote(id: string): Promise<FullNote>;
   convertNote(id: string, to: 'text' | 'list'): Promise<FullNote>;
+  mergeNotes(noteIds: string[]): Promise<FullNote>;
+  deleteAllNotes(): Promise<{ deleted: number; left: number; labels: number }>;
 
   // versions
   listVersions(noteId: string): Promise<NoteVersionMeta[]>;
@@ -113,6 +125,7 @@ export interface OpenKeepClient {
   // settings
   getSettings(): Promise<UserSettings>;
   updateSettings(patch: UserSettingsPatch): Promise<UserSettings>;
+  getStorageUsage(): Promise<StorageUsage>;
 
   // collaborators
   listCollaborators(noteId: string): Promise<Collaborator[]>;
@@ -120,17 +133,35 @@ export interface OpenKeepClient {
   setCollaboratorRole(noteId: string, userId: string, role: InviteRole): Promise<Collaborator>;
   removeCollaborator(noteId: string, userId: string): Promise<void>;
 
+  // public share link
+  getShareLink(noteId: string): Promise<ShareLink>;
+  createShareLink(noteId: string, expiresInDays: number | null): Promise<ShareLink>;
+  revokeShareLink(noteId: string): Promise<void>;
+
+  // calendar feed
+  getCalendarFeed(): Promise<CalendarFeed>;
+  rotateCalendarFeed(): Promise<CalendarFeed>;
+  revokeCalendarFeed(): Promise<void>;
+
   // attachments (binary payloads as Uint8Array)
   uploadImage(noteId: string, data: Uint8Array, filename?: string): Promise<Attachment>;
+  uploadAudio(noteId: string, data: Uint8Array, filename?: string): Promise<Attachment>;
+  uploadFile(noteId: string, data: Uint8Array, filename: string): Promise<Attachment>;
   downloadAttachment(
     id: string,
     variant: 'file' | 'thumb',
   ): Promise<{ data: Uint8Array; mime: string }>;
   deleteAttachment(id: string): Promise<void>;
 
+  // drawings (the PNG render travels beside its stroke vectors)
+  getDrawing(attachmentId: string): Promise<DrawingData>;
+  createDrawing(noteId: string, png: Uint8Array, drawing: DrawingData): Promise<Attachment>;
+  updateDrawing(attachmentId: string, png: Uint8Array, drawing: DrawingData): Promise<Attachment>;
+
   // import/export
   startExport(): Promise<{ jobId: string }>;
   importTakeout(zip: Uint8Array, filename?: string): Promise<{ jobId: string }>;
+  importMarkdown(files: MarkdownImportFile[]): Promise<{ imported: number; skipped: number }>;
   getJob(id: string): Promise<Job>;
   downloadExport(jobId: string): Promise<Uint8Array>;
 }

@@ -16,14 +16,14 @@ const zIncludeHtml = z
   .boolean()
   .optional()
   .describe(
-    'Also return the note body as sanitized HTML (headings, p, br, strong, em, u, s, code, pre, blockquote, ul, ol, li, hr, a)',
+    'Also return the note body as sanitized HTML (headings, p, br, strong, em, u, s, code, pre, blockquote, ul, ol, li, hr, a, table/tr/th/td)',
   );
 
 const zMarkdown = z
   .string()
   .optional()
   .describe(
-    'Markdown body — headings, bold/italic/strikethrough, code, quotes, rules, lists and links all round-trip',
+    'Markdown body — headings, bold/italic/strikethrough, code, quotes, rules, lists, links and GFM pipe tables all round-trip',
   );
 
 const zItemInput = z.object({
@@ -298,5 +298,47 @@ export const convertNote = defineTool({
     const note = await client.convertNote(args.note_id, args.to);
     const labels = await labelMap(client);
     return noteRender(note, labels);
+  },
+});
+
+export const mergeNotes = defineTool({
+  name: 'merge_notes',
+  description:
+    'Combine 2–50 notes into the first one: bodies, checklist items and attachments move onto it, and the sources go to the trash (they can still be restored individually). The target keeps its own labels, reminder, colour and pin.',
+  inputSchema: z.object({
+    note_ids: z
+      .array(zNoteId)
+      .min(2)
+      .max(50)
+      .describe('Notes to merge — the FIRST id is the target everything is merged into'),
+  }),
+  handler: async (client, args) => {
+    const note = await client.mergeNotes(args.note_ids);
+    const labels = await labelMap(client);
+    return {
+      merged_into: note.id,
+      sources_trashed: args.note_ids.length - 1,
+      note: noteRender(note, labels),
+    };
+  },
+});
+
+export const deleteAllNotes = defineTool({
+  name: 'delete_all_notes',
+  description:
+    'Permanently delete EVERY note this account owns, plus its labels and attachments — trash included, with nothing left to restore. Notes merely shared with the account are left alone; the account only leaves them. Requires confirm="delete-all-notes" spelled out, and there is no undo: ask the user before calling this.',
+  inputSchema: z.object({
+    confirm: z
+      .literal('delete-all-notes')
+      .describe('Type the literal delete-all-notes to confirm the account is emptied'),
+  }),
+  annotations: { destructiveHint: true },
+  handler: async (client) => {
+    const result = await client.deleteAllNotes();
+    return {
+      deleted: result.deleted,
+      left_shared_notes: result.left,
+      labels_deleted: result.labels,
+    };
   },
 });

@@ -1039,7 +1039,7 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.6 IA (opcional, sempre opt-in, BYO key)
 
-A base já é forte: MCP com 44 tools + PATs significa que **agentes externos já fazem tudo** (o
+A base já é forte: MCP com 59 tools + PATs significa que **agentes externos já fazem tudo** (o
 Claude já pode resumir/organizar suas notas hoje). Os itens abaixo são conveniências embutidas —
 todas desligadas por padrão, com chave do usuário (`ANTHROPIC_API_KEY`/OpenAI-compat por env) e
 tráfego passando pela REST normal (mesmo caminho do MCP, DECISIONS #20).

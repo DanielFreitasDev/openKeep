@@ -71,13 +71,18 @@ The hosted apps — claude.ai, Claude Desktop, Cowork, ChatGPT in Developer Mode
 
 Nothing to paste, and the grant is per-user: two people on the same instance connect their own accounts.
 
+Where step 1 lives — OpenAI in particular keeps moving it, and renamed connectors to **apps** in December 2025:
+
+- **claude.ai** — **Settings → Connectors → Add custom connector**, leaving Advanced settings (client id/secret) empty. On Team/Enterprise an Owner adds it under **Admin settings → Connectors** and members then hit **Connect**.
+- **ChatGPT** — web only, and behind a toggle. Turn on **Settings → Security and login → Developer mode**; accounts that have not been migrated still carry it under **Settings → Connectors → Advanced** or **Settings → Apps → Advanced settings**. Then open the **Apps** page (`chatgpt.com/plugins`), press **+**, and create a developer-mode app with authentication **OAuth**. It lands under **Drafts**; enable it per conversation from **+ → Developer mode**. Developer mode does not require `search`/`fetch` tools — the whole catalog is available, and write actions ask for confirmation by default.
+
 Requirements and caveats:
 
 - The URL must be **public HTTPS**; `localhost` will not resolve from Anthropic's or OpenAI's servers. Tunnel it (Cloudflare Tunnel, ngrok) to try it against a dev instance.
 - **Registration is open**, as the discovery flow requires — so the consent screen is shown for *every* authorization, and says plainly that OpenKeep has not verified the app. Read the callback hostname before allowing; that is the part a stranger cannot fake.
 - Access tokens last an hour, refresh tokens a week; **Settings → API tokens → Connected apps** lists what is connected and disconnects it. Disconnecting deletes the grant *and* its live tokens, so access stops at once rather than at expiry.
 - Protected notes stay invisible over OAuth exactly as they do over a PAT.
-- On Team/Enterprise an Owner adds the connector under **Admin settings → Connectors**; members then hit **Connect**.
+- **ChatGPT's Developer mode is not universal**: it needs a paid plan (Pro, Plus, Business, Enterprise or Education) on the web app, and on Business/Enterprise an admin has to enable **Workspace settings → Permissions & roles → Connected data → Developer mode** before members see the toggle at all. Where it is unavailable, the [Responses API](#chatgpt-via-the-responses-api) route below needs none of it.
 - Claude's **request headers** beta also works, if your account has it: set `authorization` to `Bearer okp_…` (including the word `Bearer` and the space — Claude sends the value verbatim). That is a shared credential rather than a per-user login, so prefer OAuth.
 
 The endpoints, all discoverable from the two documents at the origin root:
@@ -143,23 +148,36 @@ Pass the endpoint straight to the Messages API (beta header `mcp-client-2025-11-
 
 The process probes the connection at startup and fails fast on stderr with an actionable message (bad URL, revoked token, server down).
 
-## Tool catalog (44 tools)
+## Tool catalog (59 tools)
 
 | Area | Tools |
 |---|---|
-| Notes | `list_notes` (`view`: `active`, `archived`, `trash`, `templates`), `get_note`, `create_note` (composite: content + labels + reminder + state in one call), `update_note`, `set_note_state` (incl. `is_template`), `trash_note`, `restore_note`, `delete_note_forever`, `empty_trash`, `copy_note` (a copy is never a template), `convert_note` |
+| Notes | `list_notes` (`view`: `active`, `archived`, `trash`, `templates`), `get_note`, `create_note` (composite: content + labels + reminder + state in one call), `update_note`, `set_note_state` (incl. `is_template`), `trash_note`, `restore_note`, `delete_note_forever`, `empty_trash`, `copy_note` (a copy is never a template), `convert_note`, `merge_notes` (first id is the target; sources go to the trash), `delete_all_notes` (empties the account, `confirm` literal required) |
 | Checklists | `add_checklist_items` (batch), `update_checklist_item`, `delete_checklist_item`, `uncheck_all_items`, `delete_checked_items` |
 | Labels | `list_labels`, `create_label`, `rename_label`, `delete_label`, `add_label_to_note` (by name, creates when missing), `remove_label_from_note` |
 | Reminders | `set_reminder` (RFC 5545 RRULE + IANA timezone, defaulting to the account setting), `remove_reminder`, `snooze_reminder`, `dismiss_reminder` |
+| Calendar feed | `get_calendar_feed`, `rotate_calendar_feed` (mints the `.ics` address, breaking subscribers), `revoke_calendar_feed` |
 | Search | `search_notes` (FTS with `headline` match highlighting; `q` accepts the same operators as the app's search box — `label:`, `color:`, `has:`, `is:`, `before:`/`after:`, `-` to exclude) |
 | Versions | `list_note_versions`, `get_note_version`, `restore_note_version` |
 | Collaborators | `list_collaborators`, `add_collaborator` (`role`: `collaborator` = can edit, `viewer` = read-only), `set_collaborator_role`, `remove_collaborator` |
-| Attachments | `upload_image` (base64; local `path` on stdio), `get_attachment` (returns MCP image content; thumbnail by default), `delete_attachment` |
+| Public link | `get_share_link`, `create_share_link` (optional `expires_in_days`; replaces any existing link), `revoke_share_link` |
+| Attachments | `upload_image`, `upload_audio`, `upload_file` (any allowed non-media file; `filename` decides the stored name), `get_attachment`, `delete_attachment` |
+| Drawings | `get_drawing` (the editable stroke vectors), `create_drawing`, `update_drawing` |
 | Links | `get_link_preview` |
-| Settings | `get_settings`, `update_settings` |
-| Import/Export | `export_notes`, `get_job`, `download_export` ★, `import_takeout` ★ |
+| Settings | `get_settings`, `update_settings`, `get_storage_usage` |
+| Import/Export | `export_notes`, `get_job`, `import_markdown`, `download_export` ★, `import_takeout` ★ |
 
-★ = stdio-only (needs your local filesystem). The HTTP endpoint advertises 42 tools.
+★ = stdio-only (needs your local filesystem). The HTTP endpoint advertises 57 tools.
+
+Every upload takes base64 (`data_base64`) over any transport, and a local `path` when the server runs on your own machine over stdio. `import_markdown` mirrors that with `files` (inline text) and `paths`.
+
+### Attachments come back as what they are
+
+`get_attachment` defaults to the thumbnail and falls back to the original when there is none — audio and files carry no thumbnail. What it returns depends on the bytes: images as MCP image content the model can see, audio as audio content, text files as their decoded text, and everything else (PDF, spreadsheet, archive) as an embedded resource blob.
+
+### Drawings from vectors alone
+
+A drawing is stored as stroke vectors plus a rendered picture. `create_drawing` and `update_drawing` take the vectors — flat `[x0, y0, x1, y1, …]` point arrays in a canvas of the given size, with a `pen`, `marker` or `highlighter` tool — and rasterize the PNG themselves, so an agent that has no canvas can still draw. Pass `png_base64` instead when you already have the render; a drawing made over a photo requires it, since its backdrop cannot be reconstructed from strokes. `get_drawing` hands the vectors back in the same shape, so read → edit → write works the way it does for note bodies.
 
 Also exposed: resources `openkeep://notes` (active-note cards) and `openkeep://notes/{id}` (full note JSON), plus two prompts — `capture_note` and `daily_review`.
 
@@ -167,7 +185,7 @@ Also exposed: resources `openkeep://notes` (active-note cards) and `openkeep://n
 
 Tools speak **markdown by default**: a text note's body comes back as `markdown`, and `create_note`/`update_note` accept a `markdown` input. It is the surface to reach for — what comes out goes back in, so read → edit → write keeps the formatting instead of flattening it. An unformatted note reads exactly like plain text, and the older plain `text` input is still accepted (its lines become paragraphs).
 
-HTML appears only on request — `get_note`/`list_notes` accept `include_html`, and `create_note`/`update_note` accept `body_html`. Either way the body is restricted to the sanitized allowlist server-side: `h1`–`h6`, `p`, `br`, `strong`, `em`, `u`, `s`, `code`, `pre`, `blockquote`, `ul`, `ol`, `li`, `hr`, `a` (http/https/mailto only). Anything else is stripped, so markdown constructs outside that vocabulary — tables, footnotes, images — arrive as the literal characters instead of disappearing. Checklist `position` is deliberately absent from the tool surface — ordering is a UI concern.
+HTML appears only on request — `get_note`/`list_notes` accept `include_html`, and `create_note`/`update_note` accept `body_html`. Either way the body is restricted to the sanitized allowlist server-side: `h1`–`h6`, `p`, `br`, `strong`, `em`, `u`, `s`, `code`, `pre`, `blockquote`, `ul`, `ol`, `li`, `hr`, `a` (http/https/mailto only), plus `table`/`thead`/`tbody`/`tr`/`th`/`td`. GFM pipe tables round-trip through markdown like everything else — a table read out of a note goes back in unchanged. Anything outside that vocabulary is stripped, so markdown constructs it has no tag for — footnotes, images, task lists — arrive as the literal characters instead of disappearing. Checklist `position` is deliberately absent from the tool surface — ordering is a UI concern.
 
 ## Behavior notes
 
@@ -182,5 +200,9 @@ HTML appears only on request — `get_note`/`list_notes` accept `include_html`, 
 - **`ADMIN_EMAILS` surfaces stay closed to OAuth**, like they are to PATs: the admin panel and token management reject both (#19, #32).
 - **PATs do not open WebSockets** and cannot access `/api/auth/*` — they authenticate REST + MCP only.
 - **PATs cannot manage PATs**: `/api/tokens` requires a browser session (a leaked token cannot mint more tokens).
+- **Webhooks have no tools, by design.** `/api/webhooks` is session-only for the same reason token management is: an endpoint that could mint a webhook could quietly forward every note it can read to a URL of its choosing. Set them up in Settings; an agent then benefits from them without being able to point them anywhere.
+- **OAuth connections are managed in the browser too** — `/api/oauth/connections` rejects PATs, so a connected app cannot inspect or revoke the grants of another.
 - **Protected notes are invisible to MCP.** A note you protect arrives with its title, body, checklist and images empty and never appears in `search_notes`; every tool that would read or write its content answers 423 `note_locked`. Unlocking means retyping the account password or PIN, which a token cannot be asked to do — so the protection holds for agents by construction, not by policy.
 - Push subscriptions and fractional drag positions are intentionally absent from the tool surface.
+
+Everything else the REST API exposes to a token has a tool. The gaps above are the ones the API itself closes to tokens, not omissions in the catalog.

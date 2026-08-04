@@ -167,10 +167,19 @@ describe('mcp endpoint', () => {
     it('excludes stdio-only tools from the mounted endpoint', async () => {
       const { tools } = await client.listTools();
       const names = tools.map((tool) => tool.name);
-      expect(names).toHaveLength(42);
+      expect(names).toHaveLength(57);
       expect(names).not.toContain('download_export');
       expect(names).not.toContain('import_takeout');
       expect(names).toContain('upload_image');
+    });
+
+    it('offers no tool for the surfaces a token cannot reach anyway', async () => {
+      // Webhooks, PAT management, the admin panel and note protection all sit
+      // behind rejectPatAuth, so a tool for them could only ever return 403.
+      const names = (await client.listTools()).tools.map((tool) => tool.name);
+      for (const forbidden of ['webhook', 'admin', 'token', 'protect', 'unlock']) {
+        expect(names.filter((name) => name.includes(forbidden))).toEqual([]);
+      }
     });
 
     it('create_note composite lands through the REST layer (items + new label)', async () => {
@@ -258,6 +267,194 @@ describe('mcp endpoint', () => {
       };
       expect(payload.count).toBeGreaterThan(0);
       expect(payload.notes.some((n) => n.headline?.includes('zebra'))).toBe(true);
+    });
+
+    it('create_drawing rasterizes strokes into a PNG the attachment route accepts', async () => {
+      const created = await t.app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        headers: { cookie },
+        payload: { title: 'Sketch' },
+      });
+      const noteId = (created.json() as FullNote).id;
+
+      // No png_base64: the vectors alone have to be enough, which means the
+      // MCP-side rasterizer has to satisfy sharp and the magic-byte sniffer.
+      const result = await client.callTool({
+        name: 'create_drawing',
+        arguments: {
+          note_id: noteId,
+          drawing: {
+            version: 1,
+            width: 320,
+            height: 240,
+            background: 'squares',
+            strokes: [
+              { tool: 'pen', color: '#000000', size: 6, points: [20, 20, 160, 120, 300, 40] },
+              { tool: 'highlighter', color: '#FFBC00', size: 24, points: [30, 200, 290, 200] },
+            ],
+          },
+        },
+      });
+      expect(result.isError).toBeFalsy();
+      const stored = JSON.parse(textOf(result)) as { attachment_id: string; mime: string };
+      expect(stored.mime).toBe('image/png');
+
+      // The vectors come back editable, and the render is a real image.
+      const readBack = await client.callTool({
+        name: 'get_drawing',
+        arguments: { attachment_id: stored.attachment_id },
+      });
+      const vectors = JSON.parse(textOf(readBack)) as { stroke_count: number; width: number };
+      expect(vectors.stroke_count).toBe(2);
+      expect(vectors.width).toBe(320);
+
+      const file = await t.app.inject({
+        method: 'GET',
+        url: `/api/attachments/${stored.attachment_id}/file`,
+        headers: { authorization: `Bearer ${patSecret}` },
+      });
+      expect(file.statusCode).toBe(200);
+      expect(file.headers['content-type']).toBe('image/png');
+    });
+
+    it('upload_file stores a non-image under its name and reads it back whole', async () => {
+      const created = await t.app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        headers: { cookie },
+        payload: { title: 'With a PDF' },
+      });
+      const noteId = (created.json() as FullNote).id;
+      const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(64, 0x20)]);
+
+      const result = await client.callTool({
+        name: 'upload_file',
+        arguments: {
+          note_id: noteId,
+          filename: 'relatorio.pdf',
+          data_base64: pdf.toString('base64'),
+        },
+      });
+      expect(result.isError).toBeFalsy();
+      const uploaded = JSON.parse(textOf(result)) as { id: string; filename: string; kind: string };
+      expect(uploaded.kind).toBe('file');
+      expect(uploaded.filename).toBe('relatorio.pdf');
+
+      // A PDF has no thumbnail, so get_attachment must reach for the original
+      // instead of 404ing on the thumb it defaults to.
+      const fetched = await client.callTool({
+        name: 'get_attachment',
+        arguments: { attachment_id: uploaded.id },
+      });
+      expect(fetched.isError).toBeFalsy();
+      const blocks = fetched.content as { type: string; resource?: { blob: string } }[];
+      const resource = blocks.find((block) => block.type === 'resource');
+      expect(resource?.resource?.blob).toBe(pdf.toString('base64'));
+    });
+
+    it('share-link tools publish and revoke the public address', async () => {
+      const created = await t.app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        headers: { cookie },
+        payload: { title: 'Publicada' },
+      });
+      const noteId = (created.json() as FullNote).id;
+
+      const published = await client.callTool({
+        name: 'create_share_link',
+        arguments: { note_id: noteId },
+      });
+      const { url } = JSON.parse(textOf(published)) as { url: string };
+      expect(url).toContain('/s/');
+
+      // The address is the credential: it reads without any authentication.
+      const token = url.slice(url.lastIndexOf('/') + 1);
+      const publicRead = await t.app.inject({ method: 'GET', url: `/api/public/notes/${token}` });
+      expect(publicRead.statusCode).toBe(200);
+      expect(publicRead.json().title).toBe('Publicada');
+
+      await client.callTool({ name: 'revoke_share_link', arguments: { note_id: noteId } });
+      const afterRevoke = await t.app.inject({ method: 'GET', url: `/api/public/notes/${token}` });
+      expect(afterRevoke.statusCode).toBe(404);
+    });
+
+    it('merge_notes folds the sources into the first id', async () => {
+      const ids: string[] = [];
+      for (const title of ['Alvo', 'Fonte']) {
+        const res = await t.app.inject({
+          method: 'POST',
+          url: '/api/notes',
+          headers: { cookie },
+          payload: { title, bodyHtml: `<p>${title}</p>` },
+        });
+        ids.push((res.json() as FullNote).id);
+      }
+
+      const result = await client.callTool({ name: 'merge_notes', arguments: { note_ids: ids } });
+      expect(result.isError).toBeFalsy();
+      const merged = JSON.parse(textOf(result)) as { merged_into: string; sources_trashed: number };
+      expect(merged.merged_into).toBe(ids[0]);
+      expect(merged.sources_trashed).toBe(1);
+
+      const source = await t.app.inject({
+        method: 'GET',
+        url: `/api/notes/${ids[1]}`,
+        headers: { authorization: `Bearer ${patSecret}` },
+      });
+      expect((source.json() as FullNote).trashedAt).not.toBeNull();
+    });
+
+    it('import_markdown creates notes inline, titled by their first heading', async () => {
+      const result = await client.callTool({
+        name: 'import_markdown',
+        arguments: {
+          files: [
+            { filename: 'reuniao.md', text: '# Reunião de terça\n\nPauta **curta**.' },
+            { filename: 'foto.png', text: 'não é markdown' },
+          ],
+        },
+      });
+      expect(result.isError).toBeFalsy();
+      // The .png is filtered out before the request, since the route would
+      // otherwise drop it without reporting it anywhere.
+      expect(JSON.parse(textOf(result))).toMatchObject({
+        imported: 1,
+        skipped: 0,
+        ignored: ['foto.png'],
+      });
+
+      const found = await client.callTool({
+        name: 'search_notes',
+        arguments: { q: 'Reunião de terça' },
+      });
+      expect(JSON.parse(textOf(found)).count).toBeGreaterThan(0);
+    });
+
+    it('get_storage_usage reports the account allowance', async () => {
+      const result = await client.callTool({ name: 'get_storage_usage', arguments: {} });
+      expect(result.isError).toBeFalsy();
+      const usage = JSON.parse(textOf(result)) as {
+        used_bytes: number;
+        quota_bytes: number | null;
+      };
+      expect(usage.used_bytes).toBeGreaterThan(0);
+      expect(usage).toHaveProperty('quota_bytes');
+    });
+
+    it('calendar feed tools mint, expose and revoke the .ics address', async () => {
+      const minted = await client.callTool({ name: 'rotate_calendar_feed', arguments: {} });
+      const { url } = JSON.parse(textOf(minted)) as { url: string };
+      expect(url).toContain('.ics');
+
+      const feed = await t.app.inject({ method: 'GET', url: new URL(url).pathname });
+      expect(feed.statusCode).toBe(200);
+      expect(feed.body).toContain('BEGIN:VCALENDAR');
+
+      await client.callTool({ name: 'revoke_calendar_feed', arguments: {} });
+      const gone = await t.app.inject({ method: 'GET', url: new URL(url).pathname });
+      expect(gone.statusCode).toBe(404);
     });
 
     it('MCP mutations fan out over WS with the mcp:<tokenId> origin', async () => {

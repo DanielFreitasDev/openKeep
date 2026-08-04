@@ -6,7 +6,7 @@ OpenKeep is a self-hostable Google Keep clone. pnpm + Turborepo monorepo, Node 2
 
 - `apps/web` — React 19 SPA (Vite, TanStack Router file-based routes + Query, Zustand, Tailwind 4, TipTap, i18next, PWA)
 - `apps/server` — Fastify 5 API + WebSocket + pg-boss jobs; Drizzle ORM on PostgreSQL 18; Better Auth
-- `packages/mcp` — MCP server (44 tools); an in-process client of the server's own REST API via `app.inject` — tools must never touch the DB directly
+- `packages/mcp` — MCP server (59 tools); an in-process client of the server's own REST API via `app.inject` — tools must never touch the DB directly
 - `packages/shared` — zod schemas, API types, constants; ships TS source, no build step
 - `e2e` — Playwright suite
 

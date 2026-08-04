@@ -45,21 +45,24 @@ const textOf = (result: { content?: unknown }): string => {
 };
 
 describe('createOpenKeepMcpServer', () => {
-  it('lists the full 44-tool catalog when localFs is available', async () => {
+  it('lists the full 59-tool catalog when localFs is available', async () => {
     const { client } = await connect({ capabilities: { localFs: true } });
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(allTools.map((t) => t.name).sort());
-    expect(tools).toHaveLength(44);
+    expect(tools).toHaveLength(59);
   });
 
   it('hides stdio-only tools without localFs (the mounted endpoint)', async () => {
     const { client } = await connect();
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    expect(names).toHaveLength(42);
+    expect(names).toHaveLength(57);
     expect(names).not.toContain('download_export');
     expect(names).not.toContain('import_takeout');
     expect(names).toContain('upload_image');
+    // import_markdown takes its files inline, so it is not stdio-only the way
+    // import_takeout is — a hosted connector can still use it.
+    expect(names).toContain('import_markdown');
   });
 
   it('advertises annotations and input schemas', async () => {

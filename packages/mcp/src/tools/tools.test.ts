@@ -1,13 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLabels } from '../render.js';
-import { getAttachment, uploadImage } from './attachments.js';
+import { getAttachment, uploadAudio, uploadFile, uploadImage } from './attachments.js';
+import { getCalendarFeed, revokeCalendarFeed, rotateCalendarFeed } from './calendar.js';
 import { addChecklistItems } from './checklist.js';
 import { addCollaborator, listCollaborators, setCollaboratorRole } from './collaborators.js';
+import { createDrawing, getDrawing, updateDrawing } from './drawings.js';
 import { FakeOpenKeepClient } from './fake-client.js';
+import { importMarkdown } from './import-export.js';
 import { addLabelToNote, removeLabelFromNote, renameLabel } from './labels.js';
-import { createNote, getNote, listNotes, setNoteState, updateNote } from './notes.js';
+import {
+  createNote,
+  deleteAllNotes,
+  getNote,
+  listNotes,
+  mergeNotes,
+  setNoteState,
+  updateNote,
+} from './notes.js';
 import { setReminder } from './reminders.js';
-import { ImageOutput } from './types.js';
+import { getStorageUsage } from './settings.js';
+import { createShareLink, getShareLink, revokeShareLink } from './share-links.js';
+import { AudioOutput, FileOutput, ImageOutput } from './types.js';
 
 const caps = { localFs: false };
 
@@ -115,6 +128,24 @@ describe('update_note / get_note body surface', () => {
     await expect(updateNote.handler(client, { note_id: note.id }, caps)).rejects.toThrow(
       'Nothing to update',
     );
+  });
+
+  it('round-trips a GFM table, which the docs promise and the sanitizer keeps', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const table = '| item | qtd |\n| --- | --- |\n| café | 2 |';
+
+    await updateNote.handler(client, { note_id: note.id, markdown: table }, caps);
+    expect(client.notes.get(note.id)?.bodyHtml).toBe(
+      '<table><tbody><tr><th>item</th><th>qtd</th></tr>' +
+        '<tr><td>café</td><td>2</td></tr></tbody></table>',
+    );
+
+    // What comes out is what went in, so read → edit → write keeps the table.
+    const read = (await getNote.handler(client, { note_id: note.id }, caps)) as {
+      markdown?: string;
+    };
+    expect(read.markdown).toBe(table);
   });
 });
 
@@ -262,7 +293,15 @@ describe('attachments', () => {
     const output = await getAttachment.handler(client, { attachment_id: uploaded.id }, caps);
     expect(output).toBeInstanceOf(ImageOutput);
     expect((output as ImageOutput).base64).toBe(bytes.toString('base64'));
-    expect((output as ImageOutput).mimeType).toBe('image/png');
+    // The default variant is the thumbnail, and a thumbnail is always webp.
+    expect((output as ImageOutput).mimeType).toBe('image/webp');
+
+    const original = await getAttachment.handler(
+      client,
+      { attachment_id: uploaded.id, variant: 'file' },
+      caps,
+    );
+    expect((original as ImageOutput).mimeType).toBe('image/png');
   });
 
   it('rejects path uploads without localFs', async () => {
@@ -271,5 +310,274 @@ describe('attachments', () => {
     await expect(
       uploadImage.handler(client, { note_id: note.id, path: '/tmp/x.png' }, { localFs: false }),
     ).rejects.toThrow('stdio');
+  });
+
+  it('falls back to the original when an attachment has no thumbnail', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const uploaded = (await uploadAudio.handler(
+      client,
+      { note_id: note.id, data_base64: Buffer.from([9, 9]).toString('base64') },
+      caps,
+    )) as { id: string };
+
+    // No variant given: `thumb` 404s for audio, so the tool retries with the
+    // original rather than surfacing a not_found the caller cannot act on.
+    const output = await getAttachment.handler(client, { attachment_id: uploaded.id }, caps);
+    expect(output).toBeInstanceOf(AudioOutput);
+    expect((output as AudioOutput).mimeType).toBe('audio/webm');
+    expect((output as AudioOutput).meta?.variant).toBe('file');
+  });
+
+  it('does not second-guess an explicitly requested variant', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const uploaded = (await uploadFile.handler(
+      client,
+      { note_id: note.id, filename: 'report.pdf', data_base64: 'AAAA' },
+      caps,
+    )) as { id: string };
+
+    await expect(
+      getAttachment.handler(client, { attachment_id: uploaded.id, variant: 'thumb' }, caps),
+    ).rejects.toThrow();
+  });
+
+  it('hands a non-image, non-audio file back as an embedded resource', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const bytes = Buffer.from('%PDF-1.7');
+    const uploaded = (await uploadFile.handler(
+      client,
+      { note_id: note.id, filename: 'report.pdf', data_base64: bytes.toString('base64') },
+      caps,
+    )) as { id: string; filename: string | null };
+    expect(uploaded.filename).toBe('report.pdf');
+
+    const output = await getAttachment.handler(client, { attachment_id: uploaded.id }, caps);
+    expect(output).toBeInstanceOf(FileOutput);
+    expect((output as FileOutput).mimeType).toBe('application/pdf');
+    expect((output as FileOutput).base64).toBe(bytes.toString('base64'));
+  });
+
+  it('needs a filename for a file upload, since the name is what downloads', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    await expect(
+      uploadFile.handler(client, { note_id: note.id, data_base64: 'AAAA' }, caps),
+    ).rejects.toThrow('filename');
+  });
+});
+
+describe('drawings', () => {
+  const strokes = [{ tool: 'pen' as const, color: '#000000', size: 4, points: [10, 10, 60, 40] }];
+  const drawing = {
+    version: 1 as const,
+    width: 200,
+    height: 120,
+    background: 'none' as const,
+    strokes,
+  };
+
+  it('rasterizes the strokes when no render is supplied', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const created = (await createDrawing.handler(client, { note_id: note.id, drawing }, caps)) as {
+      attachment_id: string;
+    };
+
+    // The stored bytes are a real PNG, produced from the vectors alone.
+    const stored = client.attachmentData.get(created.attachment_id);
+    expect(
+      Buffer.from(stored?.data ?? [])
+        .subarray(1, 4)
+        .toString('latin1'),
+    ).toBe('PNG');
+    expect(client.drawings.get(created.attachment_id)?.strokes).toHaveLength(1);
+  });
+
+  it('round-trips vectors through get_drawing and update_drawing', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const created = (await createDrawing.handler(client, { note_id: note.id, drawing }, caps)) as {
+      attachment_id: string;
+    };
+
+    const read = (await getDrawing.handler(
+      client,
+      { attachment_id: created.attachment_id },
+      caps,
+    )) as { strokes: unknown[]; stroke_count: number };
+    expect(read.stroke_count).toBe(1);
+
+    await updateDrawing.handler(
+      client,
+      {
+        attachment_id: created.attachment_id,
+        drawing: { ...drawing, strokes: [...strokes, ...strokes] },
+      },
+      caps,
+    );
+    expect(client.drawings.get(created.attachment_id)?.strokes).toHaveLength(2);
+  });
+
+  it('refuses to invent the backdrop of a drawing made over a photo', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    await expect(
+      createDrawing.handler(
+        client,
+        {
+          note_id: note.id,
+          drawing: { ...drawing, photoAttachmentId: '0195b1f0-0000-7000-8000-000000000000' },
+        },
+        caps,
+      ),
+    ).rejects.toThrow('png_base64');
+  });
+});
+
+describe('share link', () => {
+  it('reports no link, then creates and revokes one', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+
+    const before = (await getShareLink.handler(client, { note_id: note.id }, caps)) as {
+      url: string | null;
+    };
+    expect(before.url).toBeNull();
+
+    const created = (await createShareLink.handler(
+      client,
+      { note_id: note.id, expires_in_days: 7 },
+      caps,
+    )) as { url: string | null; expires_at: string | null };
+    expect(created.url).toContain('/s/');
+    expect(created.expires_at).not.toBeNull();
+
+    await revokeShareLink.handler(client, { note_id: note.id }, caps);
+    const after = (await getShareLink.handler(client, { note_id: note.id }, caps)) as {
+      url: string | null;
+    };
+    expect(after.url).toBeNull();
+  });
+
+  it('omitting expires_in_days means the link lives until it is revoked', async () => {
+    const client = new FakeOpenKeepClient();
+    const note = client.seedNote({});
+    const created = (await createShareLink.handler(client, { note_id: note.id }, caps)) as {
+      expires_at: string | null;
+    };
+    expect(created.expires_at).toBeNull();
+  });
+});
+
+describe('merge and empty', () => {
+  it('merges into the first id and trashes the rest', async () => {
+    const client = new FakeOpenKeepClient();
+    const target = client.seedNote({ title: 'Target', bodyHtml: '<p>a</p>' });
+    const source = client.seedNote({ title: 'Source', bodyHtml: '<p>b</p>' });
+
+    const result = (await mergeNotes.handler(
+      client,
+      { note_ids: [target.id, source.id] },
+      caps,
+    )) as { merged_into: string; sources_trashed: number };
+
+    expect(result.merged_into).toBe(target.id);
+    expect(result.sources_trashed).toBe(1);
+    expect(client.notes.get(source.id)?.trashedAt).not.toBeNull();
+    expect(client.notes.get(target.id)?.trashedAt).toBeNull();
+  });
+
+  it('delete_all_notes reports what went and what stayed', async () => {
+    const client = new FakeOpenKeepClient();
+    client.seedNote({ title: 'Mine' });
+    client.seedNote({ title: 'Theirs', role: 'collaborator' });
+    await client.createLabel('work');
+
+    const result = (await deleteAllNotes.handler(
+      client,
+      { confirm: 'delete-all-notes' },
+      caps,
+    )) as { deleted: number; left_shared_notes: number; labels_deleted: number };
+
+    expect(result.deleted).toBe(1);
+    expect(result.left_shared_notes).toBe(1);
+    expect(result.labels_deleted).toBe(1);
+  });
+});
+
+describe('storage and calendar', () => {
+  it('reports the remaining allowance, and null when uncapped', async () => {
+    const client = new FakeOpenKeepClient();
+    client.storage = { usedBytes: 400, quotaBytes: 1000 };
+    const capped = (await getStorageUsage.handler(client, {}, caps)) as {
+      remaining_bytes: number | null;
+    };
+    expect(capped.remaining_bytes).toBe(600);
+
+    client.storage = { usedBytes: 400, quotaBytes: null };
+    const uncapped = (await getStorageUsage.handler(client, {}, caps)) as {
+      remaining_bytes: number | null;
+    };
+    expect(uncapped.remaining_bytes).toBeNull();
+  });
+
+  it('mints and revokes the reminder feed', async () => {
+    const client = new FakeOpenKeepClient();
+    expect(
+      ((await getCalendarFeed.handler(client, {}, caps)) as { url: string | null }).url,
+    ).toBeNull();
+
+    const minted = (await rotateCalendarFeed.handler(client, {}, caps)) as { url: string | null };
+    expect(minted.url).toContain('.ics');
+
+    await revokeCalendarFeed.handler(client, {}, caps);
+    expect(
+      ((await getCalendarFeed.handler(client, {}, caps)) as { url: string | null }).url,
+    ).toBeNull();
+  });
+});
+
+describe('markdown import', () => {
+  it('sends inline files through and names the ones it left out', async () => {
+    const client = new FakeOpenKeepClient();
+    const result = (await importMarkdown.handler(
+      client,
+      {
+        files: [
+          { filename: 'a.md', text: '# Alpha\n\nbody' },
+          { filename: 'notes.png', text: 'not markdown' },
+        ],
+      },
+      caps,
+    )) as { imported: number; ignored?: string[] };
+
+    // The wrong extension never reaches the server — it would be dropped
+    // there without being counted, so the tool reports it instead.
+    expect(client.calls).toContain('importMarkdown:1');
+    expect(result.imported).toBe(1);
+    expect(result.ignored).toEqual(['notes.png']);
+    expect([...client.notes.values()][0]?.title).toBe('Alpha');
+  });
+
+  it('refuses a batch where nothing is markdown at all', async () => {
+    const client = new FakeOpenKeepClient();
+    await expect(
+      importMarkdown.handler(client, { files: [{ filename: 'a.png', text: 'x' }] }, caps),
+    ).rejects.toThrow('nothing to import');
+  });
+
+  it('rejects local paths when the server is not on the user’s machine', async () => {
+    const client = new FakeOpenKeepClient();
+    await expect(
+      importMarkdown.handler(client, { paths: ['/tmp/vault/a.md'] }, { localFs: false }),
+    ).rejects.toThrow('stdio');
+  });
+
+  it('needs something to import', async () => {
+    const client = new FakeOpenKeepClient();
+    await expect(importMarkdown.handler(client, {}, caps)).rejects.toThrow('files');
   });
 });

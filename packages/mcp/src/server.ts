@@ -5,7 +5,7 @@ import type { OpenKeepClient } from './client/types.js';
 import { allPrompts } from './prompts.js';
 import { noteResource, notesListResource } from './resources.js';
 import { allTools } from './tools/index.js';
-import { ImageOutput, type ToolCapabilities } from './tools/types.js';
+import { AudioOutput, FileOutput, ImageOutput, type ToolCapabilities } from './tools/types.js';
 
 export interface OpenKeepMcpServerOptions {
   capabilities?: { localFs?: boolean };
@@ -75,13 +75,35 @@ function errorText(err: unknown): string {
 
 type ContentBlock =
   | { type: 'text'; text: string }
-  | { type: 'image'; data: string; mimeType: string };
+  | { type: 'image'; data: string; mimeType: string }
+  | { type: 'audio'; data: string; mimeType: string }
+  | { type: 'resource'; resource: { uri: string; mimeType: string; blob: string } };
+
+/** The metadata line that rides along with every binary block. */
+function metaBlock(meta: Record<string, unknown> | undefined): ContentBlock[] {
+  return meta ? [{ type: 'text' as const, text: JSON.stringify(meta) }] : [];
+}
 
 function toContent(result: unknown): ContentBlock[] {
   if (result instanceof ImageOutput) {
     return [
       { type: 'image', data: result.base64, mimeType: result.mimeType },
-      ...(result.meta ? [{ type: 'text' as const, text: JSON.stringify(result.meta) }] : []),
+      ...metaBlock(result.meta),
+    ];
+  }
+  if (result instanceof AudioOutput) {
+    return [
+      { type: 'audio', data: result.base64, mimeType: result.mimeType },
+      ...metaBlock(result.meta),
+    ];
+  }
+  if (result instanceof FileOutput) {
+    return [
+      {
+        type: 'resource',
+        resource: { uri: result.uri, mimeType: result.mimeType, blob: result.base64 },
+      },
+      ...metaBlock(result.meta),
     ];
   }
   return [{ type: 'text', text: JSON.stringify(result ?? { ok: true }) }];
