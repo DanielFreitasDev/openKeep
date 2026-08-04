@@ -1,3 +1,21 @@
+# [1.38.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.37.0...v1.38.0) (2026-08-04)
+
+
+### Features
+
+* OAuth 2.1 authorization server so claude.ai and ChatGPT can connect ([bcf0d2a](https://github.com/DanielFreitasDev/openKeep/commit/bcf0d2a8b65f89ceddff9a3fcec732e836a2eb91))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.38.0
+```
+
+Or download `compose.yml` below (image pinned to `1.38.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.38.0/docs/DEPLOYMENT.md).
+
 # [1.37.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.36.2...v1.37.0) (2026-08-04)
 
 
