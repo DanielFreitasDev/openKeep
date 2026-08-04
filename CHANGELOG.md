@@ -1,3 +1,21 @@
+# [1.39.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.38.0...v1.39.0) (2026-08-04)
+
+
+### Features
+
+* reach the rest of the API from MCP ([780c760](https://github.com/DanielFreitasDev/openKeep/commit/780c7608bb5fd0e5e7b3c4642dfbb3d2491a532d))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.39.0
+```
+
+Or download `compose.yml` below (image pinned to `1.39.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.39.0/docs/DEPLOYMENT.md).
+
 # [1.38.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.37.0...v1.38.0) (2026-08-04)
 
 
