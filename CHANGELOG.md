@@ -1,3 +1,26 @@
+# [1.41.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.40.0...v1.41.0) (2026-08-05)
+
+
+### Bug Fixes
+
+* a checklist item dragged down lands where the pointer says ([62c6f87](https://github.com/DanielFreitasDev/openKeep/commit/62c6f87f1fbe0ef44f1d739df53c472f55949103))
+
+
+### Features
+
+* checklist rows re-flow while an item is dragged ([978e271](https://github.com/DanielFreitasDev/openKeep/commit/978e271243f23e17a224ebeadc506ba3e18190cb))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.41.0
+```
+
+Or download `compose.yml` below (image pinned to `1.41.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.41.0/docs/DEPLOYMENT.md).
+
 # [1.40.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.39.0...v1.40.0) (2026-08-05)
 
 
