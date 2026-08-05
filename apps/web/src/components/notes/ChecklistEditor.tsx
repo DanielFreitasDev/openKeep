@@ -30,6 +30,7 @@ import {
   uncheckAllApi,
   updateCachedItems,
 } from '../../lib/items-api.js';
+import { dropSlot } from '../../lib/reorder.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton } from '../IconButton.js';
@@ -55,6 +56,24 @@ import {
 function dragTravelX(data: Record<string, unknown>, location: DragLocationHistory): number {
   const originX = typeof data.originX === 'number' ? data.originX : location.initial.input.clientX;
   return location.current.input.clientX - originX;
+}
+
+/**
+ * The slot the pointer is over right now — an index into `group` with the
+ * dragged row lifted out, or null when the gesture names no new slot (see
+ * `dropSlot`), which leaves the preview showing the slot it already had.
+ */
+function slotUnderPointer(
+  group: readonly ChecklistRow[],
+  dragKey: string,
+  location: DragLocationHistory,
+): number | null {
+  const target = location.current.dropTargets[0];
+  const overKey = target?.data.rowKey;
+  if (!target || typeof overKey !== 'string') return null;
+  const rect = (target.element as HTMLElement).getBoundingClientRect();
+  const clientY = location.current.input.clientY ?? rect.top + rect.height / 2;
+  return dropSlot(group, dragKey, overKey, clientY < rect.top + rect.height / 2);
 }
 
 export interface ChecklistHandle {
@@ -669,31 +688,27 @@ export function ChecklistEditor({
     return monitorForElements({
       canMonitor: ({ source }) => source.data.noteId === noteId,
       onDrag: ({ source, location }) => {
-        const row = rowsRef.current.find((r) => r.key === source.data.rowKey);
+        const key = source.data.rowKey as string;
+        const row = rowsRef.current.find((r) => r.key === key);
         if (!row) return;
         const next = indentFromDragX(dragTravelX(source.data, location), row.indent);
         setDragIndent((prev) => (prev === next ? prev : next));
       },
       onDrop: ({ source, location }) => {
+        const key = source.data.rowKey as string;
+        const group = displayGroups(rowsRef.current, moveCheckedToBottom).unchecked;
+        const slot = slotUnderPointer(group, key, location);
         setDragKey(null);
         setDragIndent(null);
-        const key = source.data.rowKey as string;
         const row = rowsRef.current.find((r) => r.key === key);
         if (!row) return;
         const patch: PatchItemInput = {};
 
-        // Vertical half: which row we're over, and which side of it.
-        const target = location.current.dropTargets[0];
-        const overKey = target?.data.rowKey;
-        if (target && typeof overKey === 'string' && overKey !== key) {
-          const unchecked = rowsRef.current.filter((r) => !r.checked);
-          const overIdx = [...unchecked].sort(byPosition).findIndex((r) => r.key === overKey);
-          if (overIdx !== -1) {
-            const rect = (target.element as HTMLElement).getBoundingClientRect();
-            const clientY = location.current.input.clientY ?? rect.top + rect.height / 2;
-            const before = clientY < rect.top + rect.height / 2;
-            patch.position = positionAtIndex(unchecked, key, before ? overIdx : overIdx + 1);
-          }
+        // Vertical half: which slot the pointer named, in the list the dragged
+        // row has been lifted out of.
+        const from = group.findIndex((r) => r.key === key);
+        if (slot !== null && slot !== from) {
+          patch.position = positionAtIndex(group, key, slot);
         }
 
         // Horizontal half. The indent is judged against where the row LANDS,
@@ -717,7 +732,7 @@ export function ChecklistEditor({
         patchServer(key, patch);
       },
     });
-  }, [noteId, readOnly, patchServer]);
+  }, [noteId, readOnly, patchServer, moveCheckedToBottom]);
 
   // ---------------------------------------------------------------- focus
 

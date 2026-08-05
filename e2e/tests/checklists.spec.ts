@@ -167,6 +167,50 @@ test('dragging an item sideways indents and un-indents it', async ({ page }) => 
   await page.keyboard.press('Escape');
 });
 
+test('dragging an item down lands it in the slot the list opened for it', async ({ page }) => {
+  await page.getByRole('button', { name: 'New list' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Drag order');
+  for (const text of ['One', 'Two', 'Three']) {
+    const row = page.getByRole('textbox', { name: 'List item' }).last();
+    await row.fill(text);
+    if (text !== 'Three') await row.press('Enter');
+  }
+  await page.locator('main').getByRole('button', { name: 'Close' }).click();
+
+  await cardByTitle(page, 'Drag order').click();
+  const dialog = await settledEditor(page);
+  const rows = dialog.locator('[data-indent]');
+  const handles = dialog.getByRole('button', { name: 'Drag item' });
+  await expect(rows).toHaveCount(3);
+
+  // The bottom half of "Two" reads as "after Two" — one slot down, not two.
+  // The row is lifted out of the list first, so the slot it lands in is the one
+  // the list is already holding open on screen.
+  const box = await rows.nth(1).boundingBox();
+  if (!box) throw new Error('row has no box');
+  const moved = page.waitForResponse(
+    (r) => r.request().method() === 'PATCH' && r.url().includes('/items/'),
+  );
+  await handles.nth(0).dragTo(rows.nth(1), {
+    targetPosition: { x: box.width / 2, y: box.height - 2 },
+  });
+  await expect(rows.nth(0).getByRole('textbox')).toHaveValue('Two');
+  await expect(rows.nth(1).getByRole('textbox')).toHaveValue('One');
+  await expect(rows.nth(2).getByRole('textbox')).toHaveValue('Three');
+  await moved;
+
+  // And it is the order the server kept, not just the preview.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await cardByTitle(page, 'Drag order').click();
+  await settledEditor(page);
+  await expect(rows.nth(0).getByRole('textbox')).toHaveValue('Two');
+  await expect(rows.nth(1).getByRole('textbox')).toHaveValue('One');
+  await expect(rows.nth(2).getByRole('textbox')).toHaveValue('Three');
+  await page.keyboard.press('Escape');
+});
+
 test('card checkboxes tick items without opening the note', async ({ page }) => {
   await page.getByRole('button', { name: 'New list' }).click();
   await page.getByLabel('Title', { exact: true }).fill('Tick me');
