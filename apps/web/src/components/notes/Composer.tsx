@@ -3,6 +3,7 @@ import {
   dropTargetForElements,
   monitorForElements,
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import type { DragLocationHistory } from '@atlaskit/pragmatic-drag-and-drop/types';
 import { Menu } from '@base-ui/react/menu';
 import { Popover } from '@base-ui/react/popover';
 import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
@@ -26,7 +27,7 @@ import type { Collaborator, NoteBackground, NoteColor, SetReminder } from '@open
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAttachmentMutations } from '../../hooks/use-attachment-mutations.js';
 import { useCollaboratorMutations } from '../../hooks/use-collaborator-mutations.js';
@@ -34,11 +35,14 @@ import { useKeyScope } from '../../hooks/use-key-scope.js';
 import { useLabelMutations } from '../../hooks/use-label-mutations.js';
 import { useNoteMutations } from '../../hooks/use-note-mutations.js';
 import { useReminderMutations } from '../../hooks/use-reminder-mutations.js';
+import { useReorderFlip } from '../../hooks/use-reorder-flip.js';
 import type { DraftInvite } from '../../lib/drafts.js';
 import { clearComposerDraft, saveComposerDraft } from '../../lib/drafts.js';
+import { liftedRowPreview } from '../../lib/drag-preview.js';
 import { selectHasTemplates } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { sessionQuery, settingsQuery } from '../../lib/queries.js';
+import { dropSlot, moveToSlot } from '../../lib/reorder.js';
 import { NOTE_INPUT_RULES, noteExtensions, returnCaretOnCancel } from '../../lib/tiptap.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
@@ -118,8 +122,15 @@ export function Composer() {
   /** The row that should hold the caret after the next render (a new one). */
   const focusRowRef = useRef<string | null>(null);
   const listInputRefs = useRef(new Map<string, HTMLInputElement>());
-  /** The row being dragged right now — it dims while it travels. */
+  const listRowRefs = useRef(new Map<string, HTMLElement>());
+  /** The row being dragged right now — it leaves a gap while it travels. */
   const [dragRowKey, setDragRowKey] = useState<string | null>(null);
+  /** The slot that drag would land in: the list renders in that order live. */
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dropIndexRef = useRef(dropIndex);
+  dropIndexRef.current = dropIndex;
+  const listRowsRef = useRef(listRows);
+  listRowsRef.current = listRows;
 
   useLayoutEffect(() => {
     const key = focusRowRef.current;
@@ -146,35 +157,53 @@ export function Composer() {
     setListRows((rows) => rows.filter((r) => r.key !== key));
   }, []);
 
+  /** The slot the pointer is over, or null when it names no new one. */
+  const slotUnderPointer = useCallback((key: string, location: DragLocationHistory) => {
+    const target = location.current.dropTargets[0];
+    const overKey = target?.data.rowKey;
+    if (!target || typeof overKey !== 'string') return null;
+    const rect = (target.element as HTMLElement).getBoundingClientRect();
+    const before = location.current.input.clientY < rect.top + rect.height / 2;
+    return dropSlot(listRowsRef.current, key, overKey, before);
+  }, []);
+
   // Reorder by dragging a row's handle. Rows here are plain array order (the
   // note does not exist yet, so there are no fractional positions to patch) —
-  // the drop just splices the row into the slot the pointer is over.
+  // the list re-flows live while the row travels, and the drop keeps the order
+  // the preview was already showing.
   useEffect(() => {
     return monitorForElements({
       canMonitor: ({ source }) => source.data.composerRow === true,
-      onDrop: ({ source, location }) => {
-        setDragRowKey(null);
+      onDrag: ({ source, location }) => {
         const key = source.data.rowKey;
-        const target = location.current.dropTargets[0];
-        const overKey = target?.data.rowKey;
-        if (typeof key !== 'string' || !target || typeof overKey !== 'string') return;
-        if (overKey === key) return;
-        const rect = (target.element as HTMLElement).getBoundingClientRect();
-        const before = location.current.input.clientY < rect.top + rect.height / 2;
-        setListRows((rows) => {
-          const from = rows.findIndex((r) => r.key === key);
-          const over = rows.findIndex((r) => r.key === overKey);
-          if (from === -1 || over === -1) return rows;
-          const to = before ? over : over + 1;
-          const next = [...rows];
-          const [moved] = next.splice(from, 1);
-          if (!moved) return rows;
-          next.splice(from < to ? to - 1 : to, 0, moved);
-          return next;
-        });
+        if (typeof key !== 'string') return;
+        const slot = slotUnderPointer(key, location);
+        if (slot !== null) setDropIndex((prev) => (prev === slot ? prev : slot));
+      },
+      onDrop: ({ source, location }) => {
+        const key = source.data.rowKey;
+        setDragRowKey(null);
+        setDropIndex(null);
+        if (typeof key !== 'string') return;
+        // Released over no row at all: the gap the preview holds open is the
+        // answer.
+        const slot = slotUnderPointer(key, location) ?? dropIndexRef.current;
+        if (slot === null) return;
+        setListRows((rows) => moveToSlot(rows, key, slot));
       },
     });
-  }, []);
+  }, [slotUnderPointer]);
+
+  // The order on screen: the committed one, except mid-drag, where the dragged
+  // row already sits in the slot it is heading for.
+  const displayedRows = useMemo(
+    () =>
+      dragRowKey !== null && dropIndex !== null
+        ? moveToSlot(listRows, dragRowKey, dropIndex)
+        : listRows,
+    [listRows, dragRowKey, dropIndex],
+  );
+  useReorderFlip(listRowRefs, displayedRows, dragRowKey !== null);
 
   // Draft mirror: the note id is fixed on the first mirrored write so a
   // create that never lands can be replayed (or deduped via 409) at next boot.
@@ -586,13 +615,14 @@ export function Composer() {
             ) : (
               <div className="max-h-[60vh] overflow-y-auto px-3 pb-3">
                 {!addItemsToBottom && addListRowButton}
-                {listRows.map((row) => (
+                {displayedRows.map((row) => (
                   <ComposerListRow
                     key={row.key}
                     row={row}
                     dragging={dragRowKey === row.key}
                     canRemove={listRows.length > 1}
                     inputRefs={listInputRefs}
+                    rowRefs={listRowRefs}
                     onDragStart={() => setDragRowKey(row.key)}
                     onText={(key, text) =>
                       setListRows((rows) => rows.map((r) => (r.key === key ? { ...r, text } : r)))
@@ -881,6 +911,8 @@ interface ComposerListRowProps {
   /** The last row keeps its close button hidden: a list is never empty here. */
   canRemove: boolean;
   inputRefs: React.RefObject<Map<string, HTMLInputElement>>;
+  /** The row boxes the reorder animation measures. */
+  rowRefs: React.RefObject<Map<string, HTMLElement>>;
   onDragStart: () => void;
   onText: (key: string, text: string) => void;
   onEnter: (key: string) => void;
@@ -898,6 +930,7 @@ function ComposerListRow({
   dragging,
   canRemove,
   inputRefs,
+  rowRefs,
   onDragStart,
   onText,
   onEnter,
@@ -918,6 +951,8 @@ function ComposerListRow({
         element: el,
         dragHandle: handle,
         getInitialData: () => ({ rowKey: row.key, composerRow: true }),
+        onGenerateDragPreview: ({ nativeSetDragImage, location }) =>
+          liftedRowPreview({ nativeSetDragImage, element: el, input: location.current.input }),
         onDragStart,
       }),
     ];
@@ -928,8 +963,12 @@ function ComposerListRow({
 
   return (
     <div
-      ref={rootRef}
-      className={`group/crow flex items-center gap-1 py-0.5 ${dragging ? 'opacity-40' : ''}`}
+      ref={(el) => {
+        rootRef.current = el;
+        if (el) rowRefs.current.set(row.key, el);
+        else rowRefs.current.delete(row.key);
+      }}
+      className={`group/crow flex items-center gap-1 py-0.5 ${dragging ? 'opacity-0' : ''}`}
     >
       <button
         ref={handleRef}

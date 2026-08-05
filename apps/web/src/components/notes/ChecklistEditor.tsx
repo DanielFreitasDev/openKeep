@@ -20,7 +20,9 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useReorderFlip } from '../../hooks/use-reorder-flip.js';
 import { clearDraftItems, saveNoteDraftItems } from '../../lib/drafts.js';
+import { liftedRowPreview } from '../../lib/drag-preview.js';
 import type { HistoryItem } from '../../lib/field-history.js';
 import {
   createItemApi,
@@ -30,7 +32,7 @@ import {
   uncheckAllApi,
   updateCachedItems,
 } from '../../lib/items-api.js';
-import { dropSlot } from '../../lib/reorder.js';
+import { dropSlot, moveToSlot } from '../../lib/reorder.js';
 import { useSnackbarStore } from '../../stores/snackbar.js';
 import { Icon } from '../Icon.js';
 import { IconButton } from '../IconButton.js';
@@ -623,6 +625,15 @@ export function ChecklistEditor({
    * announces itself before the drop.
    */
   const [dragIndent, setDragIndent] = useState<0 | 1 | null>(null);
+  /**
+   * Slot the current drag would land in. The list renders in that order while
+   * the drag lasts — Keep's gesture is a live one: the row travels with the
+   * pointer and the rest of the list opens the gap it is heading for, so the
+   * drop only confirms what is already on screen.
+   */
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dropIndexRef = useRef(dropIndex);
+  dropIndexRef.current = dropIndex;
 
   // ------------------------------------------------------------ remote merge
   // Collaborator edits land in the ['notes'] cache (WS deltas); fold them into
@@ -693,19 +704,24 @@ export function ChecklistEditor({
         if (!row) return;
         const next = indentFromDragX(dragTravelX(source.data, location), row.indent);
         setDragIndent((prev) => (prev === next ? prev : next));
+        const group = displayGroups(rowsRef.current, moveCheckedToBottom).unchecked;
+        const slot = slotUnderPointer(group, key, location);
+        if (slot !== null) setDropIndex((prev) => (prev === slot ? prev : slot));
       },
       onDrop: ({ source, location }) => {
         const key = source.data.rowKey as string;
         const group = displayGroups(rowsRef.current, moveCheckedToBottom).unchecked;
-        const slot = slotUnderPointer(group, key, location);
+        // Released over no row at all (past the end of the list, over the "add
+        // item" row): the gap the preview is holding open is the answer.
+        const slot = slotUnderPointer(group, key, location) ?? dropIndexRef.current;
         setDragKey(null);
         setDragIndent(null);
+        setDropIndex(null);
         const row = rowsRef.current.find((r) => r.key === key);
         if (!row) return;
         const patch: PatchItemInput = {};
 
-        // Vertical half: which slot the pointer named, in the list the dragged
-        // row has been lifted out of.
+        // Vertical half: the slot the preview has been showing all along.
         const from = group.findIndex((r) => r.key === key);
         if (slot !== null && slot !== from) {
           patch.position = positionAtIndex(group, key, slot);
@@ -766,6 +782,17 @@ export function ChecklistEditor({
   );
   const checkedCount = rows.filter((r) => r.checked).length;
 
+  // The order on screen: the committed one, except mid-drag, where the dragged
+  // row already sits in the slot it is heading for.
+  const displayed = useMemo(
+    () =>
+      dragKey !== null && dropIndex !== null
+        ? moveToSlot(groups.unchecked, dragKey, dropIndex)
+        : groups.unchecked,
+    [groups.unchecked, dragKey, dropIndex],
+  );
+  useReorderFlip(rowRefs, displayed, dragKey !== null);
+
   const addPlaceholder = (
     <button
       type="button"
@@ -784,7 +811,7 @@ export function ChecklistEditor({
   return (
     <div ref={listRef} className="flex flex-col">
       {!readOnly && !addItemsToBottom && addPlaceholder}
-      {groups.unchecked.map((row) => (
+      {displayed.map((row) => (
         <Row
           key={row.key}
           row={row}
@@ -941,6 +968,8 @@ function Row({
             const rect = handle.getBoundingClientRect();
             return { rowKey: row.key, noteId, originX: rect.left + rect.width / 2 };
           },
+          onGenerateDragPreview: ({ nativeSetDragImage, location }) =>
+            liftedRowPreview({ nativeSetDragImage, element: el, input: location.current.input }),
           onDragStart,
         }),
       );
@@ -984,7 +1013,7 @@ function Row({
       // caret is in the field inside it.
       className={`group/row flex items-start gap-1 border-transparent border-b py-0.5 outline-offset-1 outline-(--primary) motion-safe:transition-[margin-left] motion-safe:duration-100 ${
         selected ? 'outline-2' : ''
-      } ${indent === 1 ? 'ml-7' : ''} ${dragging ? 'opacity-40' : ''} ${
+      } ${indent === 1 ? 'ml-7' : ''} ${dragging ? 'opacity-0' : ''} ${
         hit ? (currentHit ? 'find-field find-field-current' : 'find-field') : ''
       }`}
     >
