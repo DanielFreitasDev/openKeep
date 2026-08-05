@@ -1,3 +1,21 @@
+# [1.40.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.39.0...v1.40.0) (2026-08-05)
+
+
+### Features
+
+* sub-labels, addressed by path ([425545e](https://github.com/DanielFreitasDev/openKeep/commit/425545e3d3c4e6ac30096130252319798ab1ebd5))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.40.0
+```
+
+Or download `compose.yml` below (image pinned to `1.40.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.40.0/docs/DEPLOYMENT.md).
+
 # [1.39.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.38.0...v1.39.0) (2026-08-04)
 
 

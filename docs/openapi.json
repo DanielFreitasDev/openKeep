@@ -3,7 +3,7 @@
   "info": {
     "title": "OpenKeep API",
     "description": "Open-source, self-hostable Google Keep alternative",
-    "version": "1.39.0"
+    "version": "1.40.0"
   },
   "components": {
     "schemas": {}
