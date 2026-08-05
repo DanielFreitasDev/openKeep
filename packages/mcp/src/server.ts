@@ -43,7 +43,9 @@ function apiErrorMessage(err: OpenKeepApiError): string {
     case 'token_limit_reached':
       return `Limit reached: ${detail}`;
     case 'label_exists':
-      return 'A label with this name already exists (names are unique, case-insensitive).';
+      return 'A label with this name already exists here (names are unique among siblings, case-insensitive).';
+    case 'label_cycle':
+      return 'A label cannot be nested inside itself or inside one of its own sub-labels.';
     case 'sharing_disabled':
       return 'Sharing is disabled in this account’s settings — enable it with update_settings (sharingEnabled: true).';
     case 'sharing_disabled_for_target':

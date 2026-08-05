@@ -561,13 +561,33 @@ uma divergência consciente do Keep → quando entregue, marcar 🔀 no PARITY.m
 
 ### 3.2 Organização e busca
 
-- [ ] **Sub-labels / pastas (hierarquia)** *(impacto alto · esforço M/G)*
+- [x] **Sub-labels / pastas (hierarquia)** *(impacto alto · esforço M/G)* — feito em 2026-08-05
   **O quê:** o pedido nº 1 no Brasil e fora ("faltam pastas"; labels planos não escalam —
   [Edivaldo Brito](https://www.edivaldobrito.com.br/as-melhorias-do-google-keep-nao-sao-suficientes-para-mudar-minha-opiniao-sobre-o-app/),
   [Medium](https://kurtis-redux.medium.com/from-google-keep-to-obsidian-its-not-complex-features-that-end-the-chaos-it-s-simple-6c093ea21d2d)).
-  **Como:** `parent_id` na tabela de labels (por usuário), árvore no sidebar com expandir/
-  recolher, rota `/label/pai/filho`, filtro incluindo descendentes. Manter cap (50) e unicidade
-  case-insensitive por nível. Labels continuam sendo a base — "pasta" é só label com filhos.
+  **Entregue:** um `parent_id` anulável em `labels`, profundidade livre, e tudo o mais saiu daí —
+  "pasta" continua sendo só label com filhos, como o plano previa. Sidebar em árvore com
+  expandir/recolher (o *fechado* é que fica salvo em `localStorage`, para que um submarcador
+  recém-criado apareça sozinho), rota splat `/label/Trabalho/Clientes/ACME`, e filtro incluindo
+  descendentes tanto na visão do marcador quanto no `label:` da busca.
+  **A decisão que o item obrigou não foi a coluna e sim o identificador.** Com unicidade por
+  nível — que é o que faz `Trabalho/Ideias` e `Pessoal/Ideias` coexistirem, o ponto inteiro de
+  pastas — o nome deixa de identificar um marcador na conta, e quem identifica passa a ser o
+  **caminho**. Isso atravessou toda a superfície que resolvia por nome: rota, `label:`,
+  `GET /notes?label=`, as seis tools de MCP e o front matter do markdown (que agora exporta
+  caminho, então um round-trip reconstrói a árvore em vez de achatá-la). O preço é `/` reservado
+  dentro de um nome — barrado no `zLabelName`, não num CHECK, para que nomes antigos com barra
+  continuem funcionando e endereçáveis; só não dá mais para criá-los. Virou DECISIONS #39.
+  **O índice único é a parte sutil:** `(user_id, coalesce(parent_id, uuid-nil), lower(name))` — o
+  `coalesce` é obrigatório, porque índice único trata NULLs como distintos e deixaria a conta ter
+  dois marcadores-raiz com o mesmo nome. Como toda linha existente entra com `parent_id` nulo, o
+  índice novo é a mesma restrição que o antigo para os dados de hoje: nenhuma conta pode estar
+  com um par que ele recusaria.
+  Excluir um pai leva a subárvore (self-FK em cascata, `note_labels` em cascata atrás) — as notas
+  ficam, e o diálogo pede confirmação quando há filhos. Reordenar e reaninhar viraram **um** verbo
+  (`move(id, parentId, index)`, um PATCH só), porque numa árvore são o mesmo gesto: o arrasto lê
+  três zonas por linha (antes / dentro / depois) e as setas →/← na alça de arrasto espelham isso
+  no teclado. Nenhuma tool nova no MCP — seguem 59.
 
 - [x] **Cor/emoji e ordem manual nos labels** *(impacto médio · esforço P/M)* — feito em 2026-07-31
   Cor ou emoji por label (chip e sidebar) + reordenar por arrasto no sidebar em vez de ordem
@@ -1089,7 +1109,7 @@ Registrado para não rediscutir do zero. Reabrir só com demanda real.
 
 O status oficial é o checkbox lá em cima; isto aqui é só a fila recomendada (impacto ÷ esforço):
 
-1. **Sub-labels/pastas** (3.2) — o pedido nº 1 dos fóruns.
+1. ~~**Sub-labels/pastas** (3.2)~~ — saiu em 2026-08-05 (ver abaixo). A fila ficou vazia.
 2. ~~**Tabelas simples** (3.1)~~ — saiu em 2026-08-03 (ver abaixo).
 3. ~~**Cotas por usuário** (3.5)~~ — saiu em 2026-08-01 (ver abaixo).
 
@@ -1163,6 +1183,19 @@ retangular, `fixTables` a cada transação), não uma exceção no sanitizador. 
 Isso muda a fila? **Sub-labels/pastas** fica sozinho no topo, e a seção 3.1 agora só tem
 texto+checklist na mesma nota — o item que esbarra no modelo de uma checklist por nota, não no
 vocabulário do corpo.
+
+**Sub-labels/pastas** saíram em 2026-08-05 e eram o nº 1 desta fila desde que ela existe. A
+previsão feita aqui — que o item precisava de `parent_id` e árvore no sidebar — se confirmou e era
+a parte barata. O que ele obrigou a decidir foi **quem identifica um marcador**: unicidade por
+nível (sem a qual não existem duas "Ideias" em pastas diferentes, que é o ponto) tira essa função
+do nome e passa para o **caminho**, e aí toda superfície que resolvia por nome — rota, `label:`,
+`GET /notes?label=`, seis tools de MCP, front matter do markdown — teve de aprender a ler
+`Trabalho/Clientes/ACME`. Virou DECISIONS #39. E confirmou a leitura registrada em **modelos de
+nota**: aquela prateleira plana não era ensaio nenhum para isto.
+
+Isso muda a fila? A fila dos três **acabou** — os três saíram. O que resta na seção 3.1 é
+texto+checklist na mesma nota, que esbarra no modelo de uma checklist por nota; o resto está
+espalhado pelas outras seções sem nº 1 óbvio.
 
 Depois disso, reavaliar: mixed text+checklist (G), OCR/transcrição, SSO OIDC (decisão de
 DECISIONS antes).

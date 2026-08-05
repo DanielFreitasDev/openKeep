@@ -136,6 +136,9 @@ export type NoteVersionMeta = z.infer<typeof zNoteVersionMeta>;
 
 export const zListNotesQuery = z.object({
   view: z.enum(['active', 'archived', 'trash', 'templates']).optional(),
-  /** Filter by label name (case-insensitive), matching the /label/:name routes. */
-  label: z.string().max(LIMITS.labelNameMax).optional(),
+  /**
+   * Filter by label path (case-insensitive), matching the /label/* routes.
+   * Nested paths work (`Work/Clients`) and always include the sub-labels below.
+   */
+  label: z.string().max(LIMITS.labelPathMax).optional(),
 });

@@ -131,10 +131,19 @@ export function selectReminders(notes: FullNote[]): FullNote[] {
     });
 }
 
-/** Label view: non-trashed notes carrying the label, pinned split like main. */
-export function selectByLabel(notes: FullNote[], labelId: string, sort?: NoteSort): MainSections {
+/**
+ * Label view: non-trashed notes carrying ANY of the ids, pinned split like
+ * main. It takes a set rather than one id because a label view shows its
+ * sub-labels' notes too — the caller passes the subtree.
+ */
+export function selectByLabels(
+  notes: FullNote[],
+  labelIds: string[],
+  sort?: NoteSort,
+): MainSections {
+  const wanted = new Set(labelIds);
   return selectMain(
-    notes.filter((n) => n.labelIds.includes(labelId)),
+    notes.filter((n) => n.labelIds.some((id) => wanted.has(id))),
     sort,
   );
 }
@@ -161,17 +170,24 @@ export interface SearchFilters {
   /** The box as typed: free text and operators together (see parseSearchQuery). */
   q: string;
   type?: SearchType | undefined;
-  labelId?: string | undefined;
+  /** The label tile's subtree — the note matches if it carries any of them. */
+  labelIds?: string[] | undefined;
   color?: string | undefined;
   collaboratorId?: string | undefined;
   /**
-   * `label:`/`-label:` names already resolved to ids. The corpus carries label
-   * ids and nothing else, so the name→id lookup belongs to the caller, which
-   * holds the label list; a name nobody has resolves to itself and matches no
-   * note, which is the honest answer for `label:typo`.
+   * `label:`/`-label:` paths already resolved to ids: **one group per term**,
+   * each group being a label and its descendants. Groups are ANDed and ids
+   * within a group are ORed, so `label:Work label:Urgent` still means "both",
+   * while `label:Work` alone also accepts a note filed only under
+   * `Work/Clients`.
+   *
+   * The corpus carries label ids and nothing else, so the path→ids lookup
+   * belongs to the caller, which holds the label list; a path nobody has
+   * resolves to an empty group and matches no note, which is the honest answer
+   * for `label:typo`.
    */
-  labelIds?: string[] | undefined;
-  notLabelIds?: string[] | undefined;
+  labelGroups?: string[][] | undefined;
+  notLabelGroups?: string[][] | undefined;
 }
 
 /**
@@ -315,24 +331,27 @@ export function selectSearch(
   revealed = false,
 ): SearchResults {
   const query = parseSearchQuery(f.q);
-  const hasAny = !query.isEmpty || f.type || f.labelId || f.color || f.collaboratorId;
+  const hasAny =
+    !query.isEmpty || f.type || (f.labelIds?.length ?? 0) > 0 || f.color || f.collaboratorId;
   if (!hasAny) return { active: [], archived: [] };
 
   const words = queryWords(query.text.join(' '));
   const excluded = queryWords(query.exclude.join(' '));
+  /** Any id of the group — a label stands for itself plus its sub-labels. */
+  const carriesAny = (n: FullNote, group: string[]) => group.some((id) => n.labelIds.includes(id));
   const matched = notes.filter((n) => {
     if (!onBoard(n)) return false;
     if (n.locked && !revealed) return false;
     if (f.type && !hasType(n, f.type)) return false;
-    if (f.labelId && !n.labelIds.includes(f.labelId)) return false;
+    if (f.labelIds && f.labelIds.length > 0 && !carriesAny(n, f.labelIds)) return false;
     if (f.color && n.color !== f.color) return false;
     if (f.collaboratorId && !n.collaborators.some((c) => c.userId === f.collaboratorId))
       return false;
 
     if (!query.has.every((type) => hasType(n, type))) return false;
     if (query.notHas.some((type) => hasType(n, type))) return false;
-    if (!(f.labelIds ?? []).every((id) => n.labelIds.includes(id))) return false;
-    if ((f.notLabelIds ?? []).some((id) => n.labelIds.includes(id))) return false;
+    if (!(f.labelGroups ?? []).every((group) => carriesAny(n, group))) return false;
+    if ((f.notLabelGroups ?? []).some((group) => carriesAny(n, group))) return false;
     if (query.colors.length > 0 && !query.colors.includes(n.color)) return false;
     if (query.notColors.includes(n.color)) return false;
     if (query.pinned !== undefined && n.pinned !== query.pinned) return false;

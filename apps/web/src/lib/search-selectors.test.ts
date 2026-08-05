@@ -111,9 +111,9 @@ describe('selectSearch', () => {
     expect(selectSearch(corpus, { q: '', color: 'coral' }).active.map((n) => n.title)).toEqual([
       'Colored',
     ]);
-    expect(selectSearch(corpus, { q: '', labelId: 'lbl-1' }).active.map((n) => n.title)).toEqual([
-      'Labeled',
-    ]);
+    expect(selectSearch(corpus, { q: '', labelIds: ['lbl-1'] }).active.map((n) => n.title)).toEqual(
+      ['Labeled'],
+    );
     expect(selectSearch(corpus, { q: 'paint', color: 'coral' }).active).toHaveLength(1);
     expect(selectSearch(corpus, { q: 'nothing', color: 'coral' }).active).toHaveLength(0);
   });
@@ -159,11 +159,19 @@ describe('selectSearch', () => {
       expect(titles('after:2026-01-06')).not.toContain('Old edit');
     });
 
-    it('takes label names already resolved to ids by the caller', () => {
-      expect(titles('label:whatever', { labelIds: ['lbl-1'] })).toEqual(['Tagged']);
-      // An unknown name resolves to itself, which no note carries.
-      expect(titles('label:typo', { labelIds: ['typo'] })).toEqual([]);
-      expect(titles('hello', { notLabelIds: ['lbl-1'] })).toEqual(['Pinned note', 'Old edit']);
+    it('takes label paths already resolved to id groups by the caller', () => {
+      expect(titles('label:whatever', { labelGroups: [['lbl-1']] })).toEqual(['Tagged']);
+      // An unknown path resolves to an empty group, which no note carries.
+      expect(titles('label:typo', { labelGroups: [[]] })).toEqual([]);
+      expect(titles('hello', { notLabelGroups: [['lbl-1']] })).toEqual(['Pinned note', 'Old edit']);
+    });
+
+    it('matches a sub-label through its parent, because a group is a subtree', () => {
+      // `label:Work` resolves to Work plus Work/Clients; a note filed only
+      // under the child still belongs to the folder.
+      expect(titles('label:work', { labelGroups: [['lbl-work', 'lbl-1']] })).toEqual(['Tagged']);
+      // Two terms still AND, even though each is an any-of group.
+      expect(titles('label:work label:other', { labelGroups: [['lbl-1'], ['lbl-2']] })).toEqual([]);
     });
 
     it('excludes words with -, combined with text and operators', () => {

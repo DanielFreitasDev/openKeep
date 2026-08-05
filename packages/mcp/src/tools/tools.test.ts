@@ -7,7 +7,14 @@ import { addCollaborator, listCollaborators, setCollaboratorRole } from './colla
 import { createDrawing, getDrawing, updateDrawing } from './drawings.js';
 import { FakeOpenKeepClient } from './fake-client.js';
 import { importMarkdown } from './import-export.js';
-import { addLabelToNote, removeLabelFromNote, renameLabel } from './labels.js';
+import {
+  addLabelToNote,
+  createLabel,
+  deleteLabel,
+  listLabels,
+  removeLabelFromNote,
+  renameLabel,
+} from './labels.js';
 import {
   createNote,
   deleteAllNotes,
@@ -231,7 +238,92 @@ describe('label resolution', () => {
 
     await expect(
       renameLabel.handler(client, { name: 'ghost', new_name: 'x' }, caps),
-    ).rejects.toThrow('No label named "ghost"');
+    ).rejects.toThrow('No label at "ghost"');
+  });
+
+  it('resolves a path, creating the missing ancestors of the leaf', async () => {
+    const client = new FakeOpenKeepClient();
+    const { resolved } = await resolveLabels(client, ['Trabalho/Clientes/ACME'], {
+      createMissing: true,
+    });
+    expect(resolved.map((l) => l.name)).toEqual(['ACME']);
+    expect(client.calls).toEqual([
+      'createLabel:Trabalho',
+      'createLabel:Clientes',
+      'createLabel:ACME',
+    ]);
+    const listed = (await listLabels.handler(client, {}, caps)) as { labels: { path: string }[] };
+    expect(listed.labels.map((l) => l.path)).toEqual([
+      'Trabalho',
+      'Trabalho/Clientes',
+      'Trabalho/Clientes/ACME',
+    ]);
+  });
+
+  it('keeps two same-named sub-labels apart by their path', async () => {
+    const client = new FakeOpenKeepClient();
+    await createLabel.handler(client, { name: 'Trabalho/Ideias' }, caps);
+    await createLabel.handler(client, { name: 'Pessoal/Ideias' }, caps);
+
+    const note = client.seedNote({});
+    await addLabelToNote.handler(client, { note_id: note.id, label: 'Pessoal/Ideias' }, caps);
+
+    const all = await client.listLabels();
+    const personal = all.find((l) => l.name === 'Pessoal')!;
+    expect(client.notes.get(note.id)?.labelIds).toEqual([
+      all.find((l) => l.name === 'Ideias' && l.parentId === personal.id)?.id,
+    ]);
+    // A bare name that two labels answer to resolves to neither.
+    await expect(
+      removeLabelFromNote.handler(client, { note_id: note.id, label: 'Ideias' }, caps),
+    ).rejects.toThrow('No label at "Ideias"');
+  });
+
+  it('rename_label moves the label when new_name is a path, subtree included', async () => {
+    const client = new FakeOpenKeepClient();
+    await createLabel.handler(client, { name: 'Trabalho/Clientes/ACME' }, caps);
+    await createLabel.handler(client, { name: 'Arquivo' }, caps);
+
+    const moved = (await renameLabel.handler(
+      client,
+      { name: 'Trabalho/Clientes', new_name: 'Arquivo/Antigos' },
+      caps,
+    )) as { path: string };
+    expect(moved.path).toBe('Arquivo/Antigos');
+    const paths = (
+      (await listLabels.handler(client, {}, caps)) as { labels: { path: string }[] }
+    ).labels.map((l) => l.path);
+    expect(paths).toContain('Arquivo/Antigos/ACME');
+    expect(paths).not.toContain('Trabalho/Clientes');
+  });
+
+  it('delete_label takes the subtree and says which sub-labels went', async () => {
+    const client = new FakeOpenKeepClient();
+    await createLabel.handler(client, { name: 'Trabalho/Clientes/ACME' }, caps);
+    const note = client.seedNote({});
+    await addLabelToNote.handler(client, { note_id: note.id, label: 'Trabalho/Clientes' }, caps);
+
+    const result = (await deleteLabel.handler(client, { name: 'Trabalho' }, caps)) as {
+      deleted: string;
+      deleted_sub_labels?: string[];
+    };
+    expect(result.deleted).toBe('Trabalho');
+    expect(result.deleted_sub_labels).toEqual(['Trabalho/Clientes', 'Trabalho/Clientes/ACME']);
+    expect(await client.listLabels()).toEqual([]);
+    // The note survives; only the assignment goes.
+    expect(client.notes.get(note.id)?.labelIds).toEqual([]);
+  });
+
+  it('refuses to nest a label inside its own descendant', async () => {
+    const client = new FakeOpenKeepClient();
+    await createLabel.handler(client, { name: 'Trabalho/Clientes' }, caps);
+    await expect(
+      renameLabel.handler(
+        client,
+        { name: 'Trabalho', new_name: 'Trabalho/Clientes/Trabalho' },
+        caps,
+      ),
+    ).rejects.toThrow();
   });
 });
 

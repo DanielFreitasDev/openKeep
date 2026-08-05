@@ -1,4 +1,5 @@
-import type { FullNote, UserSettings, WsEnvelope, WsEvent } from '@openkeep/shared';
+import type { FullNote, Label, UserSettings, WsEnvelope, WsEvent } from '@openkeep/shared';
+import { flattenLabelTree } from '@openkeep/shared';
 import type { QueryClient } from '@tanstack/react-query';
 import { labelsQuery } from './labels-api.js';
 import { mergeNote, removeNote, upsertNote } from './note-selectors.js';
@@ -20,6 +21,9 @@ function mergeIfKnown(
   queryClient.setQueryData(notesQuery.queryKey, mergeNote(list, noteId, resolved));
   return true;
 }
+
+/** The order `GET /api/labels` returns: depth-first through the tree. */
+const treeOrder = (labels: Label[]): Label[] => flattenLabelTree(labels).map((f) => f.label);
 
 /**
  * Patch-always cache application in server commit order. Returns false when
@@ -97,26 +101,27 @@ const HANDLERS: { [T in WsEvent as T['type']]: (qc: QueryClient, p: T['payload']
   'items.replaced': (qc, p) => mergeIfKnown(qc, p.noteId, { items: p.items }),
   'label.created': (qc, p) => {
     qc.setQueryData(labelsQuery.queryKey, (old) =>
-      old
-        ? [...old.filter((l) => l.id !== p.label.id), p.label].sort((a, b) =>
-            a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-          )
-        : old,
+      old ? treeOrder([...old.filter((l) => l.id !== p.label.id), p.label]) : old,
     );
     return true;
   },
   'label.renamed': (qc, p) => {
+    // Re-flattened, not patched in place: the same event carries a reparent,
+    // and a moved label belongs somewhere else in the list.
     qc.setQueryData(labelsQuery.queryKey, (old) =>
-      old?.map((l) => (l.id === p.label.id ? p.label : l)),
+      old ? treeOrder(old.map((l) => (l.id === p.label.id ? p.label : l))) : old,
     );
     return true;
   },
   'label.deleted': (qc, p) => {
-    qc.setQueryData(labelsQuery.queryKey, (old) => old?.filter((l) => l.id !== p.labelId));
+    // The subtree went with it; the event names every id so a client that has
+    // already dropped the parent still knows what hung under it.
+    const gone = new Set(p.labelIds.length > 0 ? p.labelIds : [p.labelId]);
+    qc.setQueryData(labelsQuery.queryKey, (old) => old?.filter((l) => !gone.has(l.id)));
     qc.setQueryData(notesQuery.queryKey, (old) =>
       old?.map((n) =>
-        n.labelIds.includes(p.labelId)
-          ? { ...n, labelIds: n.labelIds.filter((x) => x !== p.labelId) }
+        n.labelIds.some((x) => gone.has(x))
+          ? { ...n, labelIds: n.labelIds.filter((x) => !gone.has(x)) }
           : n,
       ),
     );

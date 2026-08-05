@@ -1,5 +1,7 @@
 import {
+  findLabelByPath,
   LIMITS,
+  labelSubtreeIds,
   parseSearchQuery,
   SEARCH_TYPES,
   type SearchType,
@@ -24,12 +26,13 @@ const zSearchQuery = z.object({
     .max(500)
     .default('')
     .describe(
-      'Search terms (prefix matching). Supports operators: label:name, color:blue, has:image, ' +
+      'Search terms (prefix matching). Supports operators: label:path, color:blue, has:image, ' +
         'is:pinned|unpinned|archived|unarchived, before:/after:YYYY-MM-DD, and - to exclude ' +
-        '(-word, -label:work). Quote values with spaces: label:"to do".',
+        '(-word, -label:work). Quote values with spaces: label:"to do". A label path may be ' +
+        'nested (label:"Work/Clients") and always matches the sub-labels under it.',
     ),
   type: z.enum(SEARCH_TYPES).optional(),
-  label: z.string().max(LIMITS.labelNameMax).optional(),
+  label: z.string().max(LIMITS.labelPathMax).optional(),
   color: z.string().max(30).optional(),
   /** User id of a collaborator the note is shared with (the "People" filter). */
   collaborator: z.string().max(64).optional(),
@@ -107,30 +110,60 @@ export function registerSearchRoutes(app: App, db: Db): void {
         );
       };
 
-      const hasLabel = (name: string): SQL =>
-        exists(
+      /**
+       * `label:Work/Clients` is a path now, and it matches the subtree — a
+       * folder answers for what is filed under it. Resolution happens in JS
+       * against the account's 50-label ceiling rather than in SQL, so the
+       * server and the browser agree on what a path means down to the
+       * unique-bare-name fallback. A path nobody has resolves to no ids, which
+       * `inArray` renders as "matches nothing" — the honest answer for a typo.
+       */
+      const labelPaths = [...(label ? [label] : []), ...query.labels, ...query.notLabels];
+      const idsByPath = new Map<string, string[]>();
+      if (labelPaths.length > 0) {
+        const mine = (
+          await db
+            .select({
+              id: labels.id,
+              name: labels.name,
+              parentId: labels.parentId,
+              position: labels.position,
+            })
+            .from(labels)
+            .where(eq(labels.userId, userId))
+        ).map((l) => ({ ...l, parentId: l.parentId }));
+        for (const path of labelPaths) {
+          const found = findLabelByPath(mine, path);
+          idsByPath.set(path, found ? labelSubtreeIds(mine, found.id) : []);
+        }
+      }
+
+      const hasLabel = (path: string): SQL => {
+        const ids = idsByPath.get(path) ?? [];
+        if (ids.length === 0) return sql`false`;
+        return exists(
           db
             .select({ one: sql`1` })
             .from(noteLabels)
-            .innerJoin(labels, eq(labels.id, noteLabels.labelId))
             .where(
               and(
                 eq(noteLabels.noteId, notes.id),
                 eq(noteLabels.userId, userId),
-                sql`lower(${labels.name}) = lower(${name})`,
+                inArray(noteLabels.labelId, ids),
               ),
             ),
         );
+      };
 
       // The `type=`/`label=`/`color=` params are the tile chips; they AND with
       // whatever the query string itself asked for.
       for (const kind of [...(type ? [type] : []), ...query.has]) conditions.push(hasKind(kind));
       for (const kind of query.notHas) conditions.push(not(hasKind(kind)));
 
-      for (const name of [...(label ? [label] : []), ...query.labels]) {
-        conditions.push(hasLabel(name));
+      for (const path of [...(label ? [label] : []), ...query.labels]) {
+        conditions.push(hasLabel(path));
       }
-      for (const name of query.notLabels) conditions.push(not(hasLabel(name)));
+      for (const path of query.notLabels) conditions.push(not(hasLabel(path)));
 
       if (color) conditions.push(eq(noteMembers.color, color));
       if (query.colors.length > 0) conditions.push(inArray(noteMembers.color, query.colors));

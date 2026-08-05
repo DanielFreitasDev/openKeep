@@ -1,5 +1,6 @@
 import archiveSvg from '@material-symbols/svg-700/outlined/archive.svg?raw';
 import bookmarkSvg from '@material-symbols/svg-700/outlined/bookmark.svg?raw';
+import chevronRightSvg from '@material-symbols/svg-700/outlined/chevron_right.svg?raw';
 import deleteSvg from '@material-symbols/svg-700/outlined/delete.svg?raw';
 import editSvg from '@material-symbols/svg-700/outlined/edit.svg?raw';
 import labelSvg from '@material-symbols/svg-700/outlined/label.svg?raw';
@@ -7,9 +8,10 @@ import lightbulbSvg from '@material-symbols/svg-700/outlined/lightbulb.svg?raw';
 import noteStackSvg from '@material-symbols/svg-700/outlined/note_stack.svg?raw';
 import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
 import settingsSvg from '@material-symbols/svg-700/outlined/settings.svg?raw';
+import { flattenLabelTree } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMountTransition } from '../../hooks/use-mount-transition.js';
 import { labelsQuery } from '../../lib/labels-api.js';
@@ -54,6 +56,18 @@ export function Sidebar() {
   const { data: hasTemplates } = useQuery({ ...notesQuery, select: selectHasTemplates });
   const savedSearches = settings?.savedSearches ?? [];
   const [hovered, setHovered] = useState(false);
+  const collapsedLabels = useUiStore((s) => s.collapsedLabels);
+  const toggleLabelCollapsed = useUiStore((s) => s.toggleLabelCollapsed);
+
+  const collapsed = useMemo(() => new Set(collapsedLabels), [collapsedLabels]);
+  /**
+   * The tree, flattened depth-first with the depth each row indents by. Closed
+   * folders keep their row and drop their subtree.
+   */
+  const labelRows = useMemo(
+    () => flattenLabelTree(labels ?? [], (l) => !collapsed.has(l.id)),
+    [labels, collapsed],
+  );
 
   // The drawer outlives `drawerOpen` by one slide-out (Keep-app motion), so
   // rendering and the expanded layout follow `drawerMounted` — otherwise the
@@ -132,29 +146,58 @@ export function Sidebar() {
           </div>
         )}
 
-        {labels?.map((label) => (
-          <Link
-            key={label.id}
-            to="/label/$labelName"
-            params={{ labelName: label.name }}
-            className={itemClass(expanded)}
-            onClick={closeDrawer}
-            activeProps={{
-              className: 'bg-accent-container hover:bg-accent-container',
-              'aria-current': 'page',
-            }}
-          >
-            {/* The label's own mark where the generic tag icon used to be —
-                the emoji when it has one, otherwise its colour. */}
-            {label.emoji || label.color !== 'default' ? (
-              <span className="flex h-6 w-6 flex-none items-center justify-center">
-                <LabelDot label={label} size={22} />
-              </span>
-            ) : (
-              <Icon svg={labelSvg} size={24} />
+        {labelRows.map(({ label, depth, path, hasChildren }) => (
+          <div key={label.id} className="relative">
+            <Link
+              to="/label/$"
+              params={{ _splat: path }}
+              className={itemClass(expanded)}
+              // The whole subtree lives under the parent's URL, so a parent
+              // would light up while a child is open. Only the exact path is
+              // "the page you are on".
+              activeOptions={{ exact: true }}
+              onClick={closeDrawer}
+              activeProps={{
+                className: 'bg-accent-container hover:bg-accent-container',
+                'aria-current': 'page',
+              }}
+              // Indent only while expanded: on the icon rail every label is a
+              // 12-unit circle in one column, and nesting has nowhere to go.
+              style={expanded ? { paddingLeft: `${1.5 + depth * 1.25}rem` } : undefined}
+            >
+              {/* The label's own mark where the generic tag icon used to be —
+                  the emoji when it has one, otherwise its colour. */}
+              {label.emoji || label.color !== 'default' ? (
+                <span className="flex h-6 w-6 flex-none items-center justify-center">
+                  <LabelDot label={label} size={22} />
+                </span>
+              ) : (
+                <Icon svg={labelSvg} size={24} />
+              )}
+              {expanded && <span className="truncate">{label.name}</span>}
+            </Link>
+            {/* The twisty sits outside the Link: nesting a button inside an
+                anchor is invalid, and collapsing must not navigate. */}
+            {expanded && hasChildren && (
+              <button
+                type="button"
+                aria-label={
+                  collapsed.has(label.id)
+                    ? t('labels:expandLabel', { name: label.name })
+                    : t('labels:collapseLabel', { name: label.name })
+                }
+                aria-expanded={!collapsed.has(label.id)}
+                className="-translate-y-1/2 absolute top-1/2 right-4 flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-(--surface-hover) max-md:right-6"
+                onClick={() => toggleLabelCollapsed(label.id)}
+              >
+                <Icon
+                  svg={chevronRightSvg}
+                  size={18}
+                  className={collapsed.has(label.id) ? '' : 'rotate-90'}
+                />
+              </button>
             )}
-            {expanded && <span className="truncate">{label.name}</span>}
-          </Link>
+          </div>
         ))}
 
         <button

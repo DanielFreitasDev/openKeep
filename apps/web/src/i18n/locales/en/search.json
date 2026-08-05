@@ -11,7 +11,7 @@
   "type_drawing": "Drawings",
   "type_file": "Files",
   "type_reminder": "Reminders",
-  "op_label": "Only notes carrying that label",
+  "op_label": "Only notes carrying that label, sub-labels included",
   "op_color": "Only notes in that color",
   "op_has": "Notes with images, audio, drawings, links, lists or reminders",
   "op_is": "Pinned or archived notes (is:unpinned, is:unarchived to invert)",

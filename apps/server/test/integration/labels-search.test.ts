@@ -132,6 +132,164 @@ describe('labels', () => {
     expect(dup.json().code).toBe('label_exists');
   });
 
+  it('scopes the duplicate check to the sibling group, not the account', async () => {
+    const fresh = await createTestApp();
+    try {
+      const c = await fresh.signUp('nest@example.com', 'Nest');
+      const mk = async (name: string, parentId: string | null = null, expectStatus = 201) => {
+        const res = await fresh.app.inject({
+          method: 'POST',
+          url: '/api/labels',
+          headers: { cookie: c },
+          payload: { name, parentId },
+        });
+        expect(res.statusCode).toBe(expectStatus);
+        return res.json() as Label;
+      };
+
+      const work = await mk('Work');
+      const personal = await mk('Personal');
+      // The whole point of folders: the same leaf name under two parents.
+      const workIdeas = await mk('Ideas', work.id);
+      const personalIdeas = await mk('Ideas', personal.id);
+      expect(workIdeas.id).not.toBe(personalIdeas.id);
+      // Still one "Ideas" per parent, though.
+      await mk('ideas', work.id, 409);
+      // And still one per root.
+      await mk('work', null, 409);
+
+      // Depth-first: a parent is immediately followed by its subtree.
+      const list = await fresh.app.inject({
+        method: 'GET',
+        url: '/api/labels',
+        headers: { cookie: c },
+      });
+      expect((list.json() as Label[]).map((l) => l.name)).toEqual([
+        'Work',
+        'Ideas',
+        'Personal',
+        'Ideas',
+      ]);
+    } finally {
+      await fresh.close();
+    }
+  });
+
+  it('refuses to nest a label inside itself or its own descendant', async () => {
+    const fresh = await createTestApp();
+    try {
+      const c = await fresh.signUp('cycle@example.com', 'Cycle');
+      const mk = async (name: string, parentId: string | null = null) => {
+        const res = await fresh.app.inject({
+          method: 'POST',
+          url: '/api/labels',
+          headers: { cookie: c },
+          payload: { name, parentId },
+        });
+        return res.json() as Label;
+      };
+      const root = await mk('Root');
+      const child = await mk('Child', root.id);
+      const grandchild = await mk('Grandchild', child.id);
+
+      const reparent = (id: string, parentId: string) =>
+        fresh.app.inject({
+          method: 'PATCH',
+          url: `/api/labels/${id}`,
+          headers: { cookie: c },
+          payload: { parentId },
+        });
+
+      // The DB check catches this one.
+      expect((await reparent(root.id, root.id)).statusCode).toBe(400);
+      // This one needs the ancestry walk: it would strand the whole subtree.
+      const underGrandchild = await reparent(root.id, grandchild.id);
+      expect(underGrandchild.statusCode).toBe(400);
+      expect(underGrandchild.json().code).toBe('label_cycle');
+
+      // A parent that is not mine reads as missing, never as an oracle.
+      const other = await fresh.signUp('cycle2@example.com', 'Other');
+      const theirs = await fresh.app.inject({
+        method: 'POST',
+        url: '/api/labels',
+        headers: { cookie: other },
+        payload: { name: 'Theirs' },
+      });
+      const stolen = await reparent(child.id, (theirs.json() as Label).id);
+      expect(stolen.statusCode).toBe(404);
+    } finally {
+      await fresh.close();
+    }
+  });
+
+  it('deleting a parent takes its whole subtree, and the notes survive', async () => {
+    const fresh = await createTestApp();
+    try {
+      const c = await fresh.signUp('cascade@example.com', 'Cascade');
+      const mk = async (name: string, parentId: string | null = null) => {
+        const res = await fresh.app.inject({
+          method: 'POST',
+          url: '/api/labels',
+          headers: { cookie: c },
+          payload: { name, parentId },
+        });
+        return res.json() as Label;
+      };
+      const root = await mk('Root');
+      const child = await mk('Child', root.id);
+      const grandchild = await mk('Grandchild', child.id);
+      const keep = await mk('Untouched');
+
+      const noteRes = await fresh.app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        headers: { cookie: c },
+        payload: { title: 'Filed deep' },
+      });
+      const noteId = (noteRes.json() as FullNote).id;
+      await fresh.app.inject({
+        method: 'PUT',
+        url: `/api/notes/${noteId}/labels/${grandchild.id}`,
+        headers: { cookie: c },
+      });
+
+      const del = await fresh.app.inject({
+        method: 'DELETE',
+        url: `/api/labels/${root.id}`,
+        headers: { cookie: c },
+      });
+      expect(del.statusCode).toBe(204);
+
+      const left = await fresh.app.inject({
+        method: 'GET',
+        url: '/api/labels',
+        headers: { cookie: c },
+      });
+      expect((left.json() as Label[]).map((l) => l.id)).toEqual([keep.id]);
+
+      // The note itself is untouched; only the assignment went with the label.
+      const note = await fresh.app.inject({
+        method: 'GET',
+        url: `/api/notes/${noteId}`,
+        headers: { cookie: c },
+      });
+      expect(note.statusCode).toBe(200);
+      expect((note.json() as FullNote).labelIds).toEqual([]);
+    } finally {
+      await fresh.close();
+    }
+  });
+
+  it('rejects a "/" in a name, because that is what a path is made of', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/labels',
+      headers: { cookie },
+      payload: { name: 'Work/Ideas' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('enforces the 50-label cap', async () => {
     const fresh = await createTestApp();
     try {
@@ -456,5 +614,73 @@ describe('search (FTS)', () => {
     expect(await listByLabel('view=active&label=receitas')).toEqual(['Ação de graças']);
     expect(await listByLabel('view=archived&label=receitas')).toEqual([]);
     expect(await listByLabel('label=nonexistent')).toEqual([]);
+  });
+
+  it('a label path matches its sub-labels, in GET /notes and in search alike', async () => {
+    const fresh = await createTestApp();
+    try {
+      const c = await fresh.signUp('subtree@example.com', 'Subtree');
+      const mk = async (name: string, parentId: string | null = null) => {
+        const res = await fresh.app.inject({
+          method: 'POST',
+          url: '/api/labels',
+          headers: { cookie: c },
+          payload: { name, parentId },
+        });
+        return res.json() as Label;
+      };
+      const work = await mk('Work');
+      const clients = await mk('Clients', work.id);
+      const personal = await mk('Personal');
+      const personalIdeas = await mk('Ideas', personal.id);
+
+      const note = async (title: string, labelId: string) => {
+        const res = await fresh.app.inject({
+          method: 'POST',
+          url: '/api/notes',
+          headers: { cookie: c },
+          payload: { title },
+        });
+        const id = (res.json() as FullNote).id;
+        await fresh.app.inject({
+          method: 'PUT',
+          url: `/api/notes/${id}/labels/${labelId}`,
+          headers: { cookie: c },
+        });
+      };
+      await note('Deep', clients.id);
+      await note('Shallow', work.id);
+      await note('Elsewhere', personalIdeas.id);
+
+      const titles = async (url: string) => {
+        const res = await fresh.app.inject({ method: 'GET', url, headers: { cookie: c } });
+        expect(res.statusCode).toBe(200);
+        return (res.json() as FullNote[]).map((n) => n.title).sort();
+      };
+
+      // The folder answers for what is filed under it…
+      expect(await titles('/api/notes?label=Work')).toEqual(['Deep', 'Shallow']);
+      // …and the child answers only for itself.
+      expect(await titles('/api/notes?label=Work/Clients')).toEqual(['Deep']);
+      expect(await titles(`/api/search?label=${encodeURIComponent('Work')}`)).toEqual([
+        'Deep',
+        'Shallow',
+      ]);
+      expect(await titles(`/api/search?q=${encodeURIComponent('label:"Work/Clients"')}`)).toEqual([
+        'Deep',
+      ]);
+      // A bare leaf name resolves only while it is unambiguous.
+      expect(await titles('/api/notes?label=Clients')).toEqual(['Deep']);
+      // Two labels named "Ideas" would answer to none — here there is one.
+      expect(await titles('/api/notes?label=Ideas')).toEqual(['Elsewhere']);
+      await mk('Ideas', work.id);
+      expect(await titles('/api/notes?label=Ideas')).toEqual([]);
+      // Negation follows the same subtree rule.
+      expect(await titles(`/api/search?q=${encodeURIComponent('-label:Work')}`)).toEqual([
+        'Elsewhere',
+      ]);
+    } finally {
+      await fresh.close();
+    }
   });
 });

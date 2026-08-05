@@ -33,7 +33,12 @@ export function registerLabelRoutes(app: App, db: Db, realtime: Realtime): void 
     '/api/labels',
     { ...auth, schema: { tags: ['labels'], body: zCreateLabel, response: { 201: zLabel } } },
     async (req, reply) => {
-      const label = await svc.createLabel(db, req.user.id, req.body.name);
+      const label = await svc.createLabel(
+        db,
+        req.user.id,
+        req.body.name,
+        req.body.parentId ?? null,
+      );
       realtime.publishToUsers(
         [req.user.id],
         { type: 'label.created', payload: { label } },
@@ -71,10 +76,12 @@ export function registerLabelRoutes(app: App, db: Db, realtime: Realtime): void 
     '/api/labels/:id',
     { ...auth, schema: { tags: ['labels'], params: zLabelParams, response: { 204: z.null() } } },
     async (req, reply) => {
-      await svc.deleteLabel(db, req.user.id, req.params.id);
+      // The subtree goes with it (the self-FK cascades), so the event names
+      // every label the clients have to forget, not just the one asked for.
+      const labelIds = await svc.deleteLabel(db, req.user.id, req.params.id);
       realtime.publishToUsers(
         [req.user.id],
-        { type: 'label.deleted', payload: { labelId: req.params.id } },
+        { type: 'label.deleted', payload: { labelId: req.params.id, labelIds } },
         originOf(req),
       );
       return reply.status(204).send(null);

@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   check,
   customType,
@@ -21,7 +22,18 @@ const positionText = customType<{ data: string }>({
   },
 });
 
-/** Max 50 per account (enforced in the service transaction); unique per user, case-insensitive. */
+/**
+ * Root of a nil uuid used to stand in for "no parent" in the sibling
+ * uniqueness index: a plain unique index treats NULLs as distinct, which would
+ * let an account hold two root labels with the same name.
+ */
+const NO_PARENT = sql`'00000000-0000-0000-0000-000000000000'::uuid`;
+
+/**
+ * Max 50 per account (enforced in the service transaction). Names are unique
+ * *among siblings*, case-insensitively — `Work/Ideas` and `Personal/Ideas` are
+ * two different labels, and the path is what identifies one account-wide.
+ */
 export const labels = pgTable(
   'labels',
   {
@@ -30,11 +42,18 @@ export const labels = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text().notNull(),
+    /**
+     * Parent label, self-referencing. `null` is a root. The cascade is what
+     * makes "delete a folder" delete its contents in one statement — and
+     * note_labels cascades off labels in turn, so no note keeps a dangling
+     * assignment to a label that went away with its ancestor.
+     */
+    parentId: uuid().references((): AnyPgColumn => labels.id, { onDelete: 'cascade' }),
     /** One of NOTE_COLORS; 'default' means "no colour", like a note. */
     color: text().notNull().default('default'),
     /** Optional grapheme shown before the name (chip, sidebar, pickers). */
     emoji: text(),
-    /** Manual sidebar order (fractional). Ties fall back to the name. */
+    /** Manual order among siblings (fractional). Ties fall back to the name. */
     position: positionText().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
@@ -43,7 +62,12 @@ export const labels = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    uniqueIndex('labels_user_lower_name_uq').on(t.userId, sql`lower(${t.name})`),
+    uniqueIndex('labels_user_parent_lower_name_uq').on(
+      t.userId,
+      sql`coalesce(${t.parentId}, ${NO_PARENT})`,
+      sql`lower(${t.name})`,
+    ),
+    index('labels_parent_idx').on(t.parentId),
     check('labels_name_len_check', sql`char_length(${t.name}) between 1 and 255`),
     // A stray paste must not turn a label into a paragraph; the picker offers
     // single graphemes, and some of those are several code points wide.
@@ -51,6 +75,9 @@ export const labels = pgTable(
       'labels_emoji_len_check',
       sql`${t.emoji} is null or char_length(${t.emoji}) between 1 and 16`,
     ),
+    // Cheap half of "no cycles": the expensive half (a label under its own
+    // descendant) is an ancestry walk, and that lives in the service.
+    check('labels_no_self_parent_check', sql`${t.parentId} is distinct from ${t.id}`),
   ],
 );
 

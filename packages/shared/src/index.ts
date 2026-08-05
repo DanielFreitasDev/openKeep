@@ -9,6 +9,7 @@ export * from './constants/shortcuts.js';
 export * from './lib/fractional.js';
 export * from './lib/html-tokens.js';
 export * from './lib/id.js';
+export * from './lib/labels.js';
 export * from './lib/markdown.js';
 export * from './lib/markdown-serialize.js';
 export * from './lib/note-markdown.js';

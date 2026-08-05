@@ -12,10 +12,11 @@ export const searchNotes = defineTool({
       .max(500)
       .optional()
       .describe(
-        'Search terms (prefix matching). Operators may be mixed in: label:name, color:blue, ' +
+        'Search terms (prefix matching). Operators may be mixed in: label:path, color:blue, ' +
           'has:image|audio|drawing|file|link|list|reminder, is:pinned|unpinned|archived|unarchived, ' +
           'before:/after:YYYY-MM-DD (edited date, UTC), and - to exclude (-word, -label:work). ' +
-          'Quote values containing spaces: label:"to do".',
+          'Quote values containing spaces: label:"to do". A label path may be nested ' +
+          '(label:"Work/Clients") and always matches the sub-labels under it.',
       ),
     type: z
       .enum(['list', 'url', 'image', 'audio', 'drawing', 'file', 'reminder'])
@@ -23,7 +24,10 @@ export const searchNotes = defineTool({
       .describe(
         'Only notes of a kind: checklists, with links, with images/audio/drawings/files, with reminders',
       ),
-    label: z.string().optional().describe('Only notes carrying this label (name)'),
+    label: z
+      .string()
+      .optional()
+      .describe('Only notes carrying this label, sub-labels included (path, e.g. "Work/Clients")'),
     color: z.string().optional().describe('Only notes with this color'),
     collaborator: z
       .string()

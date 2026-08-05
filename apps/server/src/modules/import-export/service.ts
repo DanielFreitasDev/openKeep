@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import fs from 'node:fs';
 import {
   LIMITS,
+  labelPathMap,
   markdownFileName,
   metaBackground,
   metaColor,
@@ -10,9 +11,10 @@ import {
   parseMarkdownNote,
   positionAfter,
   positionsBetween,
+  splitLabelPath,
 } from '@openkeep/shared';
 import { ZipArchive } from 'archiver';
-import { and, count, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, lt, type SQL, sql } from 'drizzle-orm';
 import yauzl from 'yauzl';
 import type { Db } from '../../db/client.js';
 import { attachments as attachmentsTable } from '../../db/schema/attachments.js';
@@ -243,49 +245,73 @@ export async function runTakeoutImport(
   }
 }
 
-/** Find-or-create per name, respecting the 50 cap (over-cap labels are dropped). */
+/**
+ * Find-or-create per **path**, respecting the 50 cap (over-cap labels are
+ * dropped). `Work/Clients/ACME` walks down segment by segment, creating each
+ * missing ancestor, so a markdown round-trip restores the nesting the export
+ * wrote. A Takeout file has no nesting and simply arrives as one segment.
+ */
 async function attachLabels(
   tx: Parameters<Parameters<Db['transaction']>[0]>[0],
   userId: string,
   noteId: string,
-  names: string[],
+  paths: string[],
 ): Promise<void> {
-  for (const labelName of names) {
-    const [existingLabel] = await tx
-      .select()
-      .from(labelsTable)
-      .where(
-        and(
-          eq(labelsTable.userId, userId),
-          sql`lower(${labelsTable.name}) = ${labelName.toLowerCase()}`,
-        ),
-      )
-      .limit(1);
-    let labelId = existingLabel?.id;
-    if (!labelId) {
-      const [countRow] = await tx
-        .select({ n: count() })
+  /** "child of this parent", with NULL spelled out — a root has no id to match. */
+  const under = (id: string | null): SQL =>
+    id === null ? isNull(labelsTable.parentId) : eq(labelsTable.parentId, id);
+
+  for (const path of paths) {
+    const segments = splitLabelPath(path);
+    let parentId: string | null = null;
+    let labelId: string | undefined;
+
+    for (const segment of segments) {
+      const name = segment.slice(0, LIMITS.labelNameMax);
+      const [existingLabel] = await tx
+        .select({ id: labelsTable.id })
         .from(labelsTable)
-        .where(eq(labelsTable.userId, userId));
-      if ((countRow?.n ?? 0) >= LIMITS.labelsPerUserMax) continue;
-      // Imported labels append to the manual order, like hand-made ones.
-      const [last] = await tx
-        .select({ position: labelsTable.position })
-        .from(labelsTable)
-        .where(eq(labelsTable.userId, userId))
-        .orderBy(desc(labelsTable.position))
+        .where(
+          and(
+            eq(labelsTable.userId, userId),
+            under(parentId),
+            sql`lower(${labelsTable.name}) = ${name.toLowerCase()}`,
+          ),
+        )
         .limit(1);
-      const [created] = await tx
-        .insert(labelsTable)
-        .values({
-          userId,
-          name: labelName.slice(0, LIMITS.labelNameMax),
-          position: positionAfter(last?.position ?? null),
-        })
-        .onConflictDoNothing()
-        .returning();
-      labelId = created?.id;
+      let id: string | undefined = existingLabel?.id;
+      if (!id) {
+        const [countRow] = await tx
+          .select({ n: count() })
+          .from(labelsTable)
+          .where(eq(labelsTable.userId, userId));
+        if ((countRow?.n ?? 0) >= LIMITS.labelsPerUserMax) break;
+        // Imported labels append to their sibling group, like hand-made ones.
+        const [last] = await tx
+          .select({ position: labelsTable.position })
+          .from(labelsTable)
+          .where(and(eq(labelsTable.userId, userId), under(parentId)))
+          .orderBy(desc(labelsTable.position))
+          .limit(1);
+        // Annotated: the loop feeds this row's id back into `parentId`, which
+        // the very next query reads, and the inference would chase its own tail.
+        const created: { id: string }[] = await tx
+          .insert(labelsTable)
+          .values({ userId, name, parentId, position: positionAfter(last?.position ?? null) })
+          .onConflictDoNothing()
+          .returning({ id: labelsTable.id });
+        id = created[0]?.id;
+      }
+      // A missing ancestor means the cap cut the chain short: attach nothing
+      // rather than filing the note under a half-built path.
+      if (!id) {
+        labelId = undefined;
+        break;
+      }
+      parentId = id;
+      labelId = id;
     }
+
     if (labelId) {
       await tx.insert(noteLabels).values({ noteId, userId, labelId }).onConflictDoNothing();
     }
@@ -551,7 +577,9 @@ export async function writeExportZip(
   // A second, human-readable copy of every note. notes.json is the exact
   // backup; markdown/ is what opens in Obsidian, Joplin or any editor — and
   // what /api/import/markdown reads back, front matter and all.
-  const labelNames = new Map(allLabels.map((label) => [label.id, label.name]));
+  // Front matter carries full paths, so re-importing the markdown rebuilds the
+  // tree instead of flattening every sub-label onto the root.
+  const labelNames = labelPathMap(allLabels);
   const usedNames = new Set<string>();
   for (const note of allNotes) {
     const markdown = noteToMarkdown(note, {

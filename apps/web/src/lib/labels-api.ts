@@ -8,10 +8,10 @@ export const labelsQuery = queryOptions({
   staleTime: 60_000,
 });
 
-export const createLabelApi = (name: string) =>
-  api<Label>('/api/labels', { method: 'POST', body: { name } });
+export const createLabelApi = (name: string, parentId: string | null = null) =>
+  api<Label>('/api/labels', { method: 'POST', body: { name, parentId } });
 
-/** Rename, recolour, re-emoji and reorder all ride the same PATCH. */
+/** Rename, recolour, re-emoji, reparent and reorder all ride the same PATCH. */
 export const patchLabelApi = (id: string, patch: PatchLabel) =>
   api<Label>(`/api/labels/${id}`, { method: 'PATCH', body: patch });
 

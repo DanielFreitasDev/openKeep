@@ -40,6 +40,7 @@ import {
   toAttachmentDto,
   unlinkAttachmentFiles,
 } from '../attachments/service.js';
+import { resolveLabelPathToIds } from '../labels/service.js';
 import { toReminderDto } from '../reminders/service.js';
 import type { MembershipRow, NoteRow } from './access.js';
 import { assertNoteAccess, assertNotTrashed, isRedacted } from './access.js';
@@ -299,20 +300,25 @@ export async function listNotes(
 ): Promise<FullNote[]> {
   const conditions = [eq(noteMembers.userId, userId)];
   if (label) {
+    // A label path stands for its whole subtree: asking for `Work` hands back
+    // what is filed under `Work/Clients/ACME` too. An unknown path resolves to
+    // no ids, and the `false` keeps that an empty result rather than everything.
+    const ids = await resolveLabelPathToIds(db, userId, label);
     conditions.push(
-      exists(
-        db
-          .select({ one: sql`1` })
-          .from(noteLabels)
-          .innerJoin(labelsTable, eq(labelsTable.id, noteLabels.labelId))
-          .where(
-            and(
-              eq(noteLabels.noteId, noteMembers.noteId),
-              eq(noteLabels.userId, userId),
-              sql`lower(${labelsTable.name}) = lower(${label})`,
-            ),
+      ids.length === 0
+        ? sql`false`
+        : exists(
+            db
+              .select({ one: sql`1` })
+              .from(noteLabels)
+              .where(
+                and(
+                  eq(noteLabels.noteId, noteMembers.noteId),
+                  eq(noteLabels.userId, userId),
+                  inArray(noteLabels.labelId, ids),
+                ),
+              ),
           ),
-      ),
     );
   }
   const rows = await db

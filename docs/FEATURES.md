@@ -42,9 +42,16 @@ The v1.0 scope: full parity with the Google Keep **web** app as researched in Ju
 ## Labels
 
 - Max 50 per account; created/renamed/deleted in the "Edit labels" modal.
-- Sidebar entries sorted alphabetically; label routes (`/label/<name>`).
+- **Sub-labels at any depth**: nest by dragging a row onto another in the "Edit labels" dialog
+  (or with →/← on its drag handle), collapse a folder in the sidebar, and the state is remembered.
+- The **path** identifies a label (`Work/Clients/ACME`), so names only have to be unique among
+  siblings and `/` is reserved inside a name. Routes are `/label/Work/Clients/ACME`.
+- A label view — and `label:` in search — always includes the sub-labels under it. Deleting a
+  parent deletes its subtree; the notes themselves are kept.
+- Sidebar order is manual (drag or ↑/↓) within each level; a colour and an emoji per label.
 - Multiple labels per note; chips on cards (with overflow "+N").
-- `#` in a note body opens quick-labeling (autocomplete, create-on-the-fly).
+- `#` in a note body opens quick-labeling (autocomplete, create-on-the-fly; typing a path
+  creates the whole chain).
 - Per-user on shared notes.
 
 ## Reminders *(divergence: native, classic Keep UX)*

@@ -264,12 +264,17 @@ export class FetchClient implements OpenKeepClient {
     return this.json('/api/labels');
   }
 
-  createLabel(name: string): Promise<Label> {
-    return this.json('/api/labels', { method: 'POST', body: { name } });
+  createLabel(name: string, parentId: string | null = null): Promise<Label> {
+    return this.json('/api/labels', { method: 'POST', body: { name, parentId } });
   }
 
-  renameLabel(id: string, name: string): Promise<Label> {
-    return this.json(`/api/labels/${id}`, { method: 'PATCH', body: { name } });
+  renameLabel(id: string, name?: string, parentId?: string | null): Promise<Label> {
+    // Only what the caller asked for: PATCH treats an absent key as "leave it",
+    // and sending `parentId: null` by accident would unfile the label.
+    const body: { name?: string; parentId?: string | null } = {};
+    if (name !== undefined) body.name = name;
+    if (parentId !== undefined) body.parentId = parentId;
+    return this.json(`/api/labels/${id}`, { method: 'PATCH', body });
   }
 
   deleteLabel(id: string): Promise<void> {

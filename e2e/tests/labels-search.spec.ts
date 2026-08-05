@@ -224,3 +224,60 @@ test('labels carry a colour and an emoji, and the manual order is draggable', as
   await expect(zebra).toContainText('⭐');
   await expect.poll(sidebarOrder).toEqual(['Apple', '⭐Zebra']);
 });
+
+test('sub-labels: nest in the dialog, collapse in the sidebar, parent shows the child notes', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Edit labels' }).click();
+  const createBox = page.getByRole('textbox', { name: 'Create new label' });
+  for (const name of ['Work', 'Clients']) {
+    await createBox.fill(name);
+    await createBox.press('Enter');
+  }
+
+  // File "Clients" under the row above it — the accessible path to nesting,
+  // and the same mutation the drag commits.
+  const rows = page.getByTestId('label-row');
+  await rows.filter({ hasText: '' }).nth(1).hover();
+  await page.getByRole('button', { name: 'Nest Clients under Work' }).click();
+  await expect(page.locator('[data-label-path="Work/Clients"]')).toHaveAttribute('data-depth', '1');
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Both are in the sidebar; only the child's link carries the nested path.
+  await expect(page.getByRole('link', { name: 'Work', exact: true })).toHaveAttribute(
+    'href',
+    '/label/Work',
+  );
+  await expect(page.getByRole('link', { name: 'Clients', exact: true })).toHaveAttribute(
+    'href',
+    '/label/Work/Clients',
+  );
+
+  // Collapsing hides the subtree and survives a reload (it is persisted).
+  await page.getByRole('button', { name: 'Hide sub-labels of Work' }).click();
+  await expect(page.getByRole('link', { name: 'Clients', exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('link', { name: 'Clients', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show sub-labels of Work' }).click();
+  await expect(page.getByRole('link', { name: 'Clients', exact: true })).toBeVisible();
+
+  // A note filed under the child…
+  await composeNote(page, { title: 'ACME contract', body: 'signed' });
+  await cardRootByTitle(page, 'ACME contract').hover();
+  await cardRootByTitle(page, 'ACME contract')
+    .getByRole('button', { name: 'More', exact: true })
+    .click();
+  await page.getByRole('menuitem', { name: 'Add label' }).click();
+  await page.getByRole('checkbox', { name: 'Clients' }).check();
+  await page.keyboard.press('Escape');
+
+  // …shows up under the parent too: a folder answers for its contents.
+  await page.getByRole('link', { name: 'Work', exact: true }).click();
+  await expect(page).toHaveURL(/\/label\/Work$/);
+  await expect(cardByTitle(page, 'ACME contract')).toBeVisible();
+
+  // And the child view shows only its own.
+  await page.getByRole('link', { name: 'Clients', exact: true }).click();
+  await expect(page).toHaveURL(/\/label\/Work\/Clients$/);
+  await expect(cardByTitle(page, 'ACME contract')).toBeVisible();
+});

@@ -40,7 +40,8 @@ Legend: ✅ verified parity · 🚧 in progress · ⬜ not started · 🔀 delib
 | Note ↔ list conversion (Ctrl+Shift+8) | ✓ | ✅ card + editor menus + shortcut | M3 |
 | Card summary "+ N completed items" | ✓ | ✅ | M3 |
 | Settings dialog (6 toggles/fields) | ✓ | ✅ instant-apply + theme select | M3 |
-| Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ✅ 🔀 per-user; case-insensitive uniqueness; plus a colour and an emoji per label and a manual (drag/arrow) order instead of Keep's fixed alphabetical one | M4 |
+| Labels: 50 cap, Edit labels modal, sidebar, chips, routes | ✓ | ✅ 🔀 per-user; case-insensitive uniqueness **among siblings**; plus a colour and an emoji per label and a manual (drag/arrow) order instead of Keep's fixed alphabetical one | M4 |
+| Sub-labels / folders | Keep has none (labels are flat; the #1 forum request) | ✅ 🔀 `parent_id` at any depth: a tree in the sidebar with persisted expand/collapse, `/label/Work/Clients/ACME` routes, and a label view (or `label:`) that always includes the sub-labels under it. The path is the identifier, so `/` is reserved in a name; deleting a parent takes its subtree (DECISIONS #38) | post-1.0 |
 | `#` quick-labeling in body | ✓ | ✅ opens picker w/ filter (popover variant) | M4 |
 | Search: instant, filter tiles (Types/Labels/People/Colors) | ✓ | ✅ client-side instant + server FTS endpoint (ts_headline snippet); all six type tiles, People tiles built from the corpus, every filter combinable | M4 |
 | Search: archive grouping, "No matching results." | ✓ | ✅ | M4 |

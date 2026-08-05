@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import type { FullNote, WsEvent } from '@openkeep/shared';
+import type { FullNote, Label, WsEvent } from '@openkeep/shared';
 import { ZipArchive } from 'archiver';
 import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
@@ -537,6 +537,32 @@ describe('markdown import & export', () => {
       { text: 'milk', checked: false, indent: 0 },
       { text: 'bread', checked: true, indent: 1 },
     ]);
+  });
+
+  it('imports a nested label path, creating the ancestors it needs', async () => {
+    expect(
+      await importMarkdown([
+        {
+          name: 'filed.md',
+          text: '---\nlabels: [Trabalho/Clientes/ACME]\n---\n\n# Filed deep\n\nbody\n',
+        },
+      ]),
+    ).toEqual({ imported: 1, skipped: 0 });
+
+    const labels = (
+      await t.app.inject({ method: 'GET', url: '/api/labels', headers: { cookie } })
+    ).json() as Label[];
+    const byName = (name: string) => labels.find((l) => l.name === name);
+    const trabalho = byName('Trabalho');
+    const clientes = byName('Clientes');
+    const acme = byName('ACME');
+    expect(trabalho?.parentId).toBeNull();
+    expect(clientes?.parentId).toBe(trabalho?.id);
+    expect(acme?.parentId).toBe(clientes?.id);
+
+    // Only the leaf is attached — the path names one label, not three.
+    const note = (await notesOf()).find((n) => n.title === 'Filed deep');
+    expect(note?.labelIds).toEqual([acme?.id]);
   });
 
   it('skips a re-import of the same file and rejects non-markdown uploads', async () => {

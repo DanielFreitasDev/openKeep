@@ -154,10 +154,10 @@ The process probes the connection at startup and fails fast on stderr with an ac
 |---|---|
 | Notes | `list_notes` (`view`: `active`, `archived`, `trash`, `templates`), `get_note`, `create_note` (composite: content + labels + reminder + state in one call), `update_note`, `set_note_state` (incl. `is_template`), `trash_note`, `restore_note`, `delete_note_forever`, `empty_trash`, `copy_note` (a copy is never a template), `convert_note`, `merge_notes` (first id is the target; sources go to the trash), `delete_all_notes` (empties the account, `confirm` literal required) |
 | Checklists | `add_checklist_items` (batch), `update_checklist_item`, `delete_checklist_item`, `uncheck_all_items`, `delete_checked_items` |
-| Labels | `list_labels`, `create_label`, `rename_label`, `delete_label`, `add_label_to_note` (by name, creates when missing), `remove_label_from_note` |
+| Labels | `list_labels`, `create_label`, `rename_label` (a path in `new_name` also moves it), `delete_label` (takes its sub-labels), `add_label_to_note` (by path, creates the whole chain when missing), `remove_label_from_note` — every one addresses a label by **path** (`Work/Clients/ACME`); a flat account keeps passing a bare name |
 | Reminders | `set_reminder` (RFC 5545 RRULE + IANA timezone, defaulting to the account setting), `remove_reminder`, `snooze_reminder`, `dismiss_reminder` |
 | Calendar feed | `get_calendar_feed`, `rotate_calendar_feed` (mints the `.ics` address, breaking subscribers), `revoke_calendar_feed` |
-| Search | `search_notes` (FTS with `headline` match highlighting; `q` accepts the same operators as the app's search box — `label:`, `color:`, `has:`, `is:`, `before:`/`after:`, `-` to exclude) |
+| Search | `search_notes` (FTS with `headline` match highlighting; `q` accepts the same operators as the app's search box — `label:` (a path, always matching the sub-labels under it), `color:`, `has:`, `is:`, `before:`/`after:`, `-` to exclude) |
 | Versions | `list_note_versions`, `get_note_version`, `restore_note_version` |
 | Collaborators | `list_collaborators`, `add_collaborator` (`role`: `collaborator` = can edit, `viewer` = read-only), `set_collaborator_role`, `remove_collaborator` |
 | Public link | `get_share_link`, `create_share_link` (optional `expires_in_days`; replaces any existing link), `revoke_share_link` |

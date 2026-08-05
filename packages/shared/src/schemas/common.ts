@@ -46,6 +46,7 @@ export const ERROR_CODES = [
   'invalid_credential',
   'label_limit_reached',
   'label_exists',
+  'label_cycle',
   'item_limit_reached',
   'attachment_limit_reached',
   'collaborator_limit_reached',

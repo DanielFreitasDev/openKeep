@@ -68,6 +68,14 @@ export const errors = {
       'Label limit reached',
       'You can create up to 50 labels.',
     ),
+  /** Reparenting a label under itself or under one of its own descendants. */
+  labelCycle: () =>
+    new AppError(
+      400,
+      'label_cycle',
+      'Invalid parent label',
+      'A label cannot be nested inside itself.',
+    ),
   tokenLimitReached: () =>
     new AppError(
       400,

@@ -7,7 +7,15 @@ import audioSvg from '@material-symbols/svg-700/outlined/mic.svg?raw';
 import notificationsSvg from '@material-symbols/svg-700/outlined/notifications.svg?raw';
 import searchSvg from '@material-symbols/svg-700/outlined/search.svg?raw';
 import type { FullNote, SearchTerm } from '@openkeep/shared';
-import { formatSearchTerms, NOTE_COLORS, parseSearchQuery, SEARCH_TYPES } from '@openkeep/shared';
+import {
+  findLabelByPath,
+  flattenLabelTree,
+  formatSearchTerms,
+  labelSubtreeIds,
+  NOTE_COLORS,
+  parseSearchQuery,
+  SEARCH_TYPES,
+} from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
@@ -69,23 +77,28 @@ function SearchView() {
   const { data: session } = useQuery(sessionQuery);
   const myId = session?.user.id;
 
-  const labelId = params.label
-    ? labels?.find((l) => l.name.toLowerCase() === params.label?.toLowerCase())?.id
-    : undefined;
-
   const query = useMemo(() => parseSearchQuery(params.q), [params.q]);
 
-  // The corpus holds label ids, so `label:` names are resolved here, where the
-  // label list is. A name nobody carries stays as itself and matches nothing.
+  /**
+   * The corpus holds label ids, so `label:` paths are resolved here, where the
+   * label list is. Each path becomes the label's whole subtree, because a
+   * folder answers for what is filed under it; a path nobody has becomes an
+   * empty group and matches nothing, which is the honest answer for a typo.
+   */
   const resolveLabels = useCallback(
-    (names: string[]) =>
-      names.map(
-        (name) => labels?.find((l) => l.name.toLowerCase() === name.toLowerCase())?.id ?? name,
-      ),
+    (paths: string[]) =>
+      paths.map((path) => {
+        const found = labels && findLabelByPath(labels, path);
+        return found && labels ? labelSubtreeIds(labels, found.id) : [];
+      }),
     [labels],
   );
-  const labelIds = useMemo(() => resolveLabels(query.labels), [resolveLabels, query.labels]);
-  const notLabelIds = useMemo(
+  const labelIds = useMemo(
+    () => (params.label ? (resolveLabels([params.label])[0] ?? []) : []),
+    [resolveLabels, params.label],
+  );
+  const labelGroups = useMemo(() => resolveLabels(query.labels), [resolveLabels, query.labels]);
+  const notLabelGroups = useMemo(
     () => resolveLabels(query.notLabels),
     [resolveLabels, query.notLabels],
   );
@@ -103,22 +116,22 @@ function SearchView() {
       const filters: SearchFilters = {
         q: params.q,
         type: params.type,
-        labelId,
+        labelIds,
         color: params.color,
         collaboratorId: params.collaborator,
-        labelIds,
-        notLabelIds,
+        labelGroups,
+        notLabelGroups,
       };
       return selectSearch(notes, filters, noteSort, revealed);
     },
     [
       params.q,
       params.type,
-      labelId,
+      labelIds,
       params.color,
       params.collaborator,
-      labelIds,
-      notLabelIds,
+      labelGroups,
+      notLabelGroups,
       noteSort,
       revealed,
     ],
@@ -257,14 +270,16 @@ function SearchView() {
           </TileSection>
           {labels && labels.length > 0 && (
             <TileSection title={t('labelsSection')}>
-              {labels.map((l) => (
+              {/* The tile carries the full path: that is the identifier, and
+                  two sub-labels can share a leaf name. */}
+              {flattenLabelTree(labels).map(({ label, path }) => (
                 <button
-                  key={l.id}
+                  key={label.id}
                   type="button"
                   className="rounded-full bg-surface-container px-4 py-2 font-medium text-on-surface text-sm hover:shadow-(--elevation-2)"
-                  onClick={() => setParam({ label: l.name })}
+                  onClick={() => setParam({ label: path })}
                 >
-                  {l.name}
+                  {path}
                 </button>
               ))}
             </TileSection>

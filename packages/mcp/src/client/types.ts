@@ -106,8 +106,9 @@ export interface OpenKeepClient {
 
   // labels
   listLabels(): Promise<Label[]>;
-  createLabel(name: string): Promise<Label>;
-  renameLabel(id: string, name: string): Promise<Label>;
+  createLabel(name: string, parentId?: string | null): Promise<Label>;
+  /** Rename and/or re-home: both ride the one PATCH the API exposes. */
+  renameLabel(id: string, name?: string, parentId?: string | null): Promise<Label>;
   deleteLabel(id: string): Promise<void>;
   addLabelToNote(noteId: string, labelId: string): Promise<void>;
   removeLabelFromNote(noteId: string, labelId: string): Promise<void>;

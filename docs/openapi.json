@@ -1858,7 +1858,7 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 255
+              "maxLength": 1024
             },
             "in": "query",
             "name": "label",
@@ -6154,6 +6154,12 @@
                       "name": {
                         "type": "string"
                       },
+                      "parentId": {
+                        "nullable": true,
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
                       "color": {
                         "type": "string",
                         "enum": [
@@ -6187,6 +6193,7 @@
                     "required": [
                       "id",
                       "name",
+                      "parentId",
                       "color",
                       "emoji",
                       "position",
@@ -6215,6 +6222,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 255
+                  },
+                  "parentId": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -6239,6 +6252,12 @@
                     },
                     "name": {
                       "type": "string"
+                    },
+                    "parentId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
                     "color": {
                       "type": "string",
@@ -6273,6 +6292,7 @@
                   "required": [
                     "id",
                     "name",
+                    "parentId",
                     "color",
                     "emoji",
                     "position",
@@ -6302,6 +6322,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 255
+                  },
+                  "parentId": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "color": {
                     "type": "string",
@@ -6364,6 +6390,12 @@
                     "name": {
                       "type": "string"
                     },
+                    "parentId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
                     "color": {
                       "type": "string",
                       "enum": [
@@ -6397,6 +6429,7 @@
                   "required": [
                     "id",
                     "name",
+                    "parentId",
                     "color",
                     "emoji",
                     "position",
@@ -6546,7 +6579,7 @@
             "in": "query",
             "name": "q",
             "required": false,
-            "description": "Search terms (prefix matching). Supports operators: label:name, color:blue, has:image, is:pinned|unpinned|archived|unarchived, before:/after:YYYY-MM-DD, and - to exclude (-word, -label:work). Quote values with spaces: label:\"to do\"."
+            "description": "Search terms (prefix matching). Supports operators: label:path, color:blue, has:image, is:pinned|unpinned|archived|unarchived, before:/after:YYYY-MM-DD, and - to exclude (-word, -label:work). Quote values with spaces: label:\"to do\". A label path may be nested (label:\"Work/Clients\") and always matches the sub-labels under it."
           },
           {
             "schema": {
@@ -6568,7 +6601,7 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 255
+              "maxLength": 1024
             },
             "in": "query",
             "name": "label",

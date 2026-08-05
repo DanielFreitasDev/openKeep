@@ -1,5 +1,11 @@
 import type { FullNote, Label, Reminder } from '@openkeep/shared';
-import { htmlToMarkdown, htmlToPlainText } from '@openkeep/shared';
+import {
+  findLabelByPath,
+  htmlToMarkdown,
+  htmlToPlainText,
+  labelPathMap,
+  splitLabelPath,
+} from '@openkeep/shared';
 import { OpenKeepApiError } from './client/errors.js';
 import type { OpenKeepClient } from './client/types.js';
 
@@ -70,9 +76,14 @@ function snippetOf(note: FullNote): string | undefined {
   return source.length > SNIPPET_MAX ? `${source.slice(0, SNIPPET_MAX)}…` : source;
 }
 
-/** Map of labelId → name for projecting labelIds into names. */
+/**
+ * Map of labelId → **path** for projecting labelIds into something an agent
+ * can hand straight back to a tool. Names are only unique among siblings, so
+ * `Work/Ideas` is the identifier; a root label's path is just its name, which
+ * is what a flat account has always seen.
+ */
 export async function labelMap(client: OpenKeepClient): Promise<Map<string, string>> {
-  return new Map((await client.listLabels()).map((l) => [l.id, l.name]));
+  return labelPathMap(await client.listLabels());
 }
 
 export function noteCard(note: FullNote, labels: ReadonlyMap<string, string>): NoteCard {
@@ -147,22 +158,44 @@ export function noteRender(
 }
 
 /**
- * Case-insensitive label resolution by name. With `createMissing`, absent
- * labels are created (races on `label_exists` re-resolve instead of failing).
+ * Case-insensitive label resolution by **path** (`Work/Clients/ACME`). With
+ * `createMissing`, absent labels are created — the whole chain, one segment at
+ * a time, because a leaf cannot exist without its ancestors. Races on
+ * `label_exists` re-resolve instead of failing.
  */
 export async function resolveLabels(
   client: OpenKeepClient,
-  names: string[],
+  paths: string[],
   opts: { createMissing: boolean },
 ): Promise<{ resolved: Label[]; missing: string[] }> {
   let existing = await client.listLabels();
   const resolved: Label[] = [];
   const missing: string[] = [];
 
-  for (const name of names) {
-    const trimmed = name.trim();
+  /** One segment under a known parent, creating it if allowed. */
+  const step = async (name: string, parentId: string | null): Promise<Label | undefined> => {
+    const sibling = (l: Label) =>
+      l.parentId === parentId && l.name.toLowerCase() === name.toLowerCase();
+    const found = existing.find(sibling);
+    if (found) return found;
+    try {
+      const created = await client.createLabel(name, parentId);
+      existing = [...existing, created];
+      return created;
+    } catch (err) {
+      if (err instanceof OpenKeepApiError && err.code === 'label_exists') {
+        existing = await client.listLabels();
+        return existing.find(sibling);
+      }
+      throw err;
+    }
+  };
+
+  for (const path of paths) {
+    const trimmed = path.trim();
     if (trimmed === '') continue;
-    const found = existing.find((l) => l.name.toLowerCase() === trimmed.toLowerCase());
+
+    const found = findLabelByPath(existing, trimmed);
     if (found) {
       resolved.push(found);
       continue;
@@ -171,21 +204,16 @@ export async function resolveLabels(
       missing.push(trimmed);
       continue;
     }
-    try {
-      const created = await client.createLabel(trimmed);
-      existing = [...existing, created];
-      resolved.push(created);
-    } catch (err) {
-      if (err instanceof OpenKeepApiError && err.code === 'label_exists') {
-        existing = await client.listLabels();
-        const raced = existing.find((l) => l.name.toLowerCase() === trimmed.toLowerCase());
-        if (raced) {
-          resolved.push(raced);
-          continue;
-        }
-      }
-      throw err;
+
+    let parentId: string | null = null;
+    let leaf: Label | undefined;
+    for (const segment of splitLabelPath(trimmed)) {
+      leaf = await step(segment, parentId);
+      if (!leaf) break;
+      parentId = leaf.id;
     }
+    if (leaf) resolved.push(leaf);
+    else missing.push(trimmed);
   }
   return { resolved, missing };
 }

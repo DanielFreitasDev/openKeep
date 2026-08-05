@@ -23,7 +23,15 @@ import type {
   UserSettings,
   UserSettingsPatch,
 } from '@openkeep/shared';
-import { htmlToPlainText, plainTextToHtml, positionAfter } from '@openkeep/shared';
+import {
+  findLabelByPath,
+  flattenLabelTree,
+  htmlToPlainText,
+  isLabelDescendant,
+  labelSubtreeIds,
+  plainTextToHtml,
+  positionAfter,
+} from '@openkeep/shared';
 import { OpenKeepApiError } from '../client/errors.js';
 import type {
   CreateItemInput,
@@ -134,10 +142,11 @@ export class FakeOpenKeepClient implements OpenKeepClient {
       return !trashed && !n.isTemplate && !n.archived;
     });
     if (query?.label) {
-      const label = [...this.labels.values()].find(
-        (l) => l.name.toLowerCase() === query.label?.toLowerCase(),
-      );
-      notes = label ? notes.filter((n) => n.labelIds.includes(label.id)) : [];
+      // A label path stands for its subtree, like the real route.
+      const all = [...this.labels.values()];
+      const label = findLabelByPath(all, query.label);
+      const ids = label ? new Set(labelSubtreeIds(all, label.id)) : new Set<string>();
+      notes = notes.filter((n) => n.labelIds.some((id) => ids.has(id)));
     }
     return notes;
   }
@@ -366,26 +375,29 @@ export class FakeOpenKeepClient implements OpenKeepClient {
 
   // ---------------------------------------------------------------- labels
 
+  /** Depth-first, like the real route: a parent is followed by its subtree. */
   async listLabels(): Promise<Label[]> {
-    return [...this.labels.values()].sort(
-      (a, b) => a.position.localeCompare(b.position) || a.name.localeCompare(b.name),
-    );
+    return flattenLabelTree([...this.labels.values()]).map((f) => f.label);
   }
 
-  async createLabel(name: string): Promise<Label> {
+  async createLabel(name: string, parentId: string | null = null): Promise<Label> {
     this.calls.push(`createLabel:${name}`);
+    if (parentId !== null && !this.labels.has(parentId)) throw apiError(404, 'not_found');
+    // Uniqueness is per sibling group, not per account.
     for (const l of this.labels.values()) {
-      if (l.name.toLowerCase() === name.toLowerCase()) {
+      if (l.parentId === parentId && l.name.toLowerCase() === name.toLowerCase()) {
         throw apiError(409, 'label_exists', 'Label already exists');
       }
     }
     const label: Label = {
       id: randomUUID(),
       name,
+      parentId,
       color: 'default',
       emoji: null,
       position: positionAfter(
         [...this.labels.values()]
+          .filter((l) => l.parentId === parentId)
           .map((l) => l.position)
           .sort()
           .at(-1) ?? null,
@@ -396,17 +408,26 @@ export class FakeOpenKeepClient implements OpenKeepClient {
     return label;
   }
 
-  async renameLabel(id: string, name: string): Promise<Label> {
+  async renameLabel(id: string, name?: string, parentId?: string | null): Promise<Label> {
     const label = this.labels.get(id);
     if (!label) throw apiError(404, 'not_found');
-    label.name = name;
+    if (parentId !== undefined) {
+      if (parentId !== null && isLabelDescendant([...this.labels.values()], parentId, id)) {
+        throw apiError(400, 'label_cycle', 'Invalid parent label');
+      }
+      label.parentId = parentId;
+    }
+    if (name !== undefined) label.name = name;
     return label;
   }
 
+  /** The self-FK cascades server-side; the fake drops the subtree by hand. */
   async deleteLabel(id: string): Promise<void> {
-    if (!this.labels.delete(id)) throw apiError(404, 'not_found');
+    if (!this.labels.has(id)) throw apiError(404, 'not_found');
+    const gone = new Set(labelSubtreeIds([...this.labels.values()], id));
+    for (const labelId of gone) this.labels.delete(labelId);
     for (const note of this.notes.values()) {
-      note.labelIds = note.labelIds.filter((l) => l !== id);
+      note.labelIds = note.labelIds.filter((l) => !gone.has(l));
     }
   }
 

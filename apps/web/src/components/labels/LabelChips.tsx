@@ -1,5 +1,6 @@
 import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import type { FullNote } from '@openkeep/shared';
+import { labelPathMap } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +29,10 @@ export function LabelChips({
 
   if (labelIds.length === 0 || !labels) return null;
   const mine = labels.filter((l) => labelIds.includes(l.id));
+  // The chip shows the leaf name — a card has no room for `Work/Clients/ACME`
+  // — but the tooltip and the link both carry the full path, which is what
+  // actually identifies the label.
+  const paths = labelPathMap(labels);
   const shown = onRemove ? mine : mine.slice(0, max);
   const overflow = mine.length - shown.length;
 
@@ -48,10 +53,13 @@ export function LabelChips({
           <button
             type="button"
             className="truncate"
-            data-tooltip={label.name}
+            data-tooltip={paths.get(label.id) ?? label.name}
             onClick={(e) => {
               e.stopPropagation();
-              void navigate({ to: '/label/$labelName', params: { labelName: label.name } });
+              void navigate({
+                to: '/label/$',
+                params: { _splat: paths.get(label.id) ?? label.name },
+              });
             }}
           >
             {label.name}

@@ -45,7 +45,11 @@ export type WsEvent =
   | { type: 'items.replaced'; payload: { noteId: string; items: NoteItem[] } }
   | { type: 'label.created'; payload: { label: Label } }
   | { type: 'label.renamed'; payload: { label: Label } }
-  | { type: 'label.deleted'; payload: { labelId: string } }
+  /**
+   * `labelIds` is the whole subtree that went with the delete — a client that
+   * has already dropped the parent cannot work out what hung under it.
+   */
+  | { type: 'label.deleted'; payload: { labelId: string; labelIds: string[] } }
   | { type: 'reminder.set'; payload: { noteId: string; reminder: Reminder } }
   | { type: 'reminder.deleted'; payload: { noteId: string } }
   | { type: 'reminder.fired'; payload: { noteId: string; title: string; remindAt: string } }

@@ -11,7 +11,7 @@
   "type_drawing": "Desenhos",
   "type_file": "Arquivos",
   "type_reminder": "Lembretes",
-  "op_label": "Só notas com esse marcador",
+  "op_label": "Só notas com esse marcador, submarcadores incluídos",
   "op_color": "Só notas dessa cor",
   "op_has": "Notas com imagens, áudio, desenhos, links, listas ou lembretes",
   "op_is": "Notas fixadas ou arquivadas (is:unpinned, is:unarchived invertem)",

@@ -1,5 +1,5 @@
 import type { Label, PatchLabel } from '@openkeep/shared';
-import { positionBetween } from '@openkeep/shared';
+import { flattenLabelTree, labelSubtreeIds, positionBetween, sortLabels } from '@openkeep/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../lib/api.js';
 import {
@@ -24,32 +24,30 @@ export function useLabelMutations() {
   const onLabelError = (err: unknown) => {
     if (
       err instanceof ApiError &&
-      (err.code === 'label_limit_reached' || err.code === 'label_exists')
+      (err.code === 'label_limit_reached' ||
+        err.code === 'label_exists' ||
+        err.code === 'label_cycle')
     ) {
       show({ message: err.problem.detail ?? err.problem.title });
     }
     void queryClient.invalidateQueries({ queryKey: labelsQuery.queryKey });
   };
 
-  /** The server's order: manual position first, name only as the tiebreak. */
-  const sorted = (l: Label[]) =>
-    [...l].sort(
-      (a, b) =>
-        (a.position < b.position ? -1 : a.position > b.position ? 1 : 0) ||
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-    );
+  /** The server's order: depth-first, sibling position first, name as tiebreak. */
+  const ordered = (l: Label[]) => flattenLabelTree(l).map((f) => f.label);
 
   const create = useMutation({
-    mutationFn: (name: string) => createLabelApi(name),
-    onSuccess: (label) => setLabels((old) => sorted([...(old ?? []), label])),
+    mutationFn: ({ name, parentId }: { name: string; parentId?: string | null }) =>
+      createLabelApi(name, parentId ?? null),
+    onSuccess: (label) => setLabels((old) => ordered([...(old ?? []), label])),
     onError: onLabelError,
   });
 
-  /** Rename / colour / emoji / position — one optimistic PATCH. */
+  /** Rename / colour / emoji / parent / position — one optimistic PATCH. */
   const patch = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: PatchLabel }) => patchLabelApi(id, patch),
     onMutate: ({ id, patch }) =>
-      setLabels((old) => sorted((old ?? []).map((l) => (l.id === id ? { ...l, ...patch } : l)))),
+      setLabels((old) => ordered((old ?? []).map((l) => (l.id === id ? { ...l, ...patch } : l)))),
     onError: onLabelError,
   });
 
@@ -57,31 +55,67 @@ export function useLabelMutations() {
     mutate: ({ id, name }: { id: string; name: string }) => patch.mutate({ id, patch: { name } }),
   };
 
+  const current = () => queryClient.getQueryData(labelsQuery.queryKey) ?? [];
+
   /**
-   * Drop `id` at `toIndex` of the CURRENT order. The position is computed from
-   * the neighbours it lands between, so only the moved row is written.
+   * The one primitive behind every rearrangement: put `id` at `toIndex` of
+   * `parentId`'s children. Reparenting and reordering are the same gesture in
+   * a tree — one drag sets both — so they travel as a single PATCH and a move
+   * is never briefly half-applied.
+   *
+   * `toIndex` counts in the destination list *without* the moved row, and only
+   * that row is written: its position comes from the neighbours it lands
+   * between (DECISIONS #12).
    */
-  const reorder = (id: string, toIndex: number) => {
-    const current = sorted(queryClient.getQueryData(labelsQuery.queryKey) ?? []);
-    const without = current.filter((l) => l.id !== id);
+  const move = (id: string, parentId: string | null, toIndex: number) => {
+    const all = current();
+    const me = all.find((l) => l.id === id);
+    if (!me) return;
+    // A cycle is a 400 from the server; catching it here keeps the optimistic
+    // update from briefly drawing a tree that cannot exist.
+    if (parentId !== null && labelSubtreeIds(all, id).includes(parentId)) return;
+
+    const without = sortLabels(all.filter((l) => l.parentId === parentId && l.id !== id));
     const clamped = Math.max(0, Math.min(without.length, toIndex));
     const prev = without[clamped - 1]?.position ?? null;
     const next = without[clamped]?.position ?? null;
-    // Already sitting in that gap: a drop that moved nothing writes nothing.
-    const me = current.find((l) => l.id === id);
-    if (me && (prev === null || me.position > prev) && (next === null || me.position < next))
-      return;
-    patch.mutate({ id, patch: { position: positionBetween(prev, next) } });
+    // Already in that gap under that parent: a drop that moved nothing writes
+    // nothing.
+    const settled =
+      me.parentId === parentId &&
+      (prev === null || me.position > prev) &&
+      (next === null || me.position < next);
+    if (settled) return;
+
+    const position = positionBetween(prev, next);
+    patch.mutate({
+      id,
+      patch: me.parentId === parentId ? { position } : { parentId, position },
+    });
   };
+
+  /** Move within the current sibling group. */
+  const reorder = (id: string, toIndex: number) => {
+    const me = current().find((l) => l.id === id);
+    if (me) move(id, me.parentId, toIndex);
+  };
+
+  /** Re-home a label (and its subtree); it lands last among its new siblings. */
+  const setParent = (id: string, parentId: string | null) =>
+    move(id, parentId, Number.MAX_SAFE_INTEGER);
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteLabelApi(id),
     onMutate: (id) => {
-      setLabels((old) => (old ?? []).filter((l) => l.id !== id));
-      // Cascades server-side; mirror in the corpus cache.
+      // Deleting a folder takes its contents: the server cascades the subtree,
+      // so the cache has to drop the same set, not just the row clicked.
+      const gone = new Set(labelSubtreeIds(current(), id));
+      setLabels((old) => (old ?? []).filter((l) => !gone.has(l.id)));
       queryClient.setQueryData(notesQuery.queryKey, (old) =>
         old?.map((n) =>
-          n.labelIds.includes(id) ? { ...n, labelIds: n.labelIds.filter((x) => x !== id) } : n,
+          n.labelIds.some((x) => gone.has(x))
+            ? { ...n, labelIds: n.labelIds.filter((x) => !gone.has(x)) }
+            : n,
         ),
       );
     },
@@ -102,5 +136,5 @@ export function useLabelMutations() {
     },
   });
 
-  return { create, patch, rename, reorder, remove, setNoteLabel };
+  return { create, patch, rename, move, reorder, setParent, remove, setNoteLabel };
 }

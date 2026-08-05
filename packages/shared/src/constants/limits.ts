@@ -25,6 +25,11 @@ export const LIMITS = {
   /** A search query string (free text plus operators). */
   searchQueryMax: 500,
   labelNameMax: 255,
+  /**
+   * A label *path* (`Work/Clients/ACME`). Depth is free, so this is only a
+   * backstop: 50 labels per account already bounds how deep a chain can go.
+   */
+  labelPathMax: 1_024,
   attachmentsPerNoteMax: 25,
   collaboratorsPerNoteMax: 20,
   /** Upload caps: ~10 MB and 25 megapixels per image. */

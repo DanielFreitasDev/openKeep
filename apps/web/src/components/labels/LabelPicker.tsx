@@ -1,5 +1,6 @@
 import addSvg from '@material-symbols/svg-700/outlined/add.svg?raw';
-import type { FullNote } from '@openkeep/shared';
+import type { FullNote, Label } from '@openkeep/shared';
+import { flattenLabelTree, labelPath, splitLabelPath } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,14 +34,43 @@ export function LabelPicker({
   const [filter, setFilter] = useState(initialFilter);
 
   const nq = normalizeForSearch(filter.trim());
-  const visible = (labels ?? []).filter((l) => normalizeForSearch(l.name).includes(nq));
-  const exactExists = (labels ?? []).some((l) => normalizeForSearch(l.name) === nq);
+  /**
+   * Rows are the flattened tree, so a sub-label sits under its parent and
+   * indents. The filter matches the whole path, which is what makes typing
+   * "work" surface everything filed under Work.
+   */
+  const rows = flattenLabelTree(labels ?? []).filter((r) =>
+    normalizeForSearch(r.path).includes(nq),
+  );
+  const exactExists = (labels ?? []).some(
+    (l) =>
+      normalizeForSearch(l.name) === nq || normalizeForSearch(labelPath(labels ?? [], l.id)) === nq,
+  );
 
+  /**
+   * Typing a path creates the chain: "Work/Ideas" makes Ideas under Work,
+   * creating Work first when it is missing. Anything else would leave the
+   * separator meaning one thing in the URL and another in this box.
+   */
   const createAndAssign = async () => {
-    const name = filter.trim();
-    if (!name) return;
-    const label = await m.create.mutateAsync(name).catch(() => null);
-    if (label) onToggle(label.id, true);
+    const segments = splitLabelPath(filter);
+    if (segments.length === 0) return;
+    let parentId: string | null = null;
+    let created: Label | null = null;
+    for (const segment of segments) {
+      const existing = (labels ?? []).find(
+        (l) => l.parentId === parentId && l.name.toLowerCase() === segment.toLowerCase(),
+      );
+      if (existing) {
+        parentId = existing.id;
+        created = existing;
+        continue;
+      }
+      created = await m.create.mutateAsync({ name: segment, parentId }).catch(() => null);
+      if (!created) return;
+      parentId = created.id;
+    }
+    if (created) onToggle(created.id, true);
     setFilter('');
   };
 
@@ -62,13 +92,15 @@ export function LabelPicker({
         }}
       />
       <div className="max-h-64 overflow-y-auto">
-        {visible.map((label) => {
+        {rows.map(({ label, depth, path }) => {
           const checked = selectedIds.includes(label.id);
           const mixed = mixedIds.includes(label.id);
           return (
             <label
               key={label.id}
+              title={path}
               className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-on-surface text-sm hover:bg-(--surface-hover)"
+              style={{ paddingLeft: `${0.75 + depth * 1}rem` }}
             >
               {/* Uncontrolled: must flip in the click's frame; cache sync follows.
                   `indeterminate` has no attribute — it is DOM-only, so the ref

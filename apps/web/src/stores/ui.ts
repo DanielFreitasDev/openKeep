@@ -13,6 +13,7 @@ export type ActiveDialog =
   | null;
 
 const THEME_KEY = 'openkeep-theme';
+const COLLAPSED_LABELS_KEY = 'openkeep-collapsed-labels';
 
 function readThemePref(): ThemePref {
   try {
@@ -22,6 +23,22 @@ function readThemePref(): ThemePref {
     // ignore
   }
   return 'system';
+}
+
+/**
+ * Which sub-label folders are *closed*. Storing the closed ones rather than the
+ * open ones is what makes a brand-new sub-label visible the moment it is
+ * created — the default has to be "expanded", and an empty list says that.
+ */
+function readCollapsedLabels(): string[] {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_LABELS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) return parsed.filter((id): id is string => typeof id === 'string');
+  } catch {
+    // ignore
+  }
+  return [];
 }
 
 export function isDarkEffective(pref: ThemePref): boolean {
@@ -68,6 +85,9 @@ interface UiState {
   /** Small-screen overlay drawer (hamburger on mobile). */
   mobileDrawerOpen: boolean;
   setMobileDrawerOpen: (open: boolean) => void;
+  /** Label ids whose sub-labels are hidden in the sidebar (persisted). */
+  collapsedLabels: string[];
+  toggleLabelCollapsed: (id: string) => void;
   /** Ordered ids of the notes visible in the current view (for j/k). */
   viewNoteIds: string[];
   setViewNoteIds: (ids: string[]) => void;
@@ -89,6 +109,19 @@ export const useUiStore = create<UiState>((set, get) => ({
   setUnlockPrompt: (unlockPrompt) => set({ unlockPrompt }),
   mobileDrawerOpen: false,
   setMobileDrawerOpen: (mobileDrawerOpen) => set({ mobileDrawerOpen }),
+  collapsedLabels: readCollapsedLabels(),
+  toggleLabelCollapsed: (id) =>
+    set((s) => {
+      const collapsedLabels = s.collapsedLabels.includes(id)
+        ? s.collapsedLabels.filter((x) => x !== id)
+        : [...s.collapsedLabels, id];
+      try {
+        localStorage.setItem(COLLAPSED_LABELS_KEY, JSON.stringify(collapsedLabels));
+      } catch {
+        // ignore
+      }
+      return { collapsedLabels };
+    }),
   viewNoteIds: [],
   setViewNoteIds: (viewNoteIds) =>
     set((s) => {

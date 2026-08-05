@@ -60,7 +60,12 @@ export const listNotes = defineTool({
       .enum(['active', 'archived', 'trash', 'templates'])
       .optional()
       .describe('Which section to list (default active)'),
-    label: z.string().optional().describe('Only notes carrying this label (case-insensitive name)'),
+    label: z
+      .string()
+      .optional()
+      .describe(
+        'Only notes carrying this label, sub-labels included (case-insensitive path, e.g. "Work/Clients")',
+      ),
   }),
   annotations: { readOnlyHint: true },
   handler: async (client, args) => {
