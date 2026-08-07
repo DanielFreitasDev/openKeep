@@ -1,3 +1,26 @@
+# [1.44.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.43.0...v1.44.0) (2026-08-07)
+
+
+### Bug Fixes
+
+* a note with a tall picture opens at its top, not part-way down it ([c3a0846](https://github.com/DanielFreitasDev/openKeep/commit/c3a084629a3dc41d4e9ba676c973aa91b6dfd296))
+
+
+### Features
+
+* a picture in a note opens on its own ([e73d3bc](https://github.com/DanielFreitasDev/openKeep/commit/e73d3bc8baa6b6c38b4182de5a214f2f6483c6c0))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.44.0
+```
+
+Or download `compose.yml` below (image pinned to `1.44.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.44.0/docs/DEPLOYMENT.md).
+
 # [1.43.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.42.0...v1.43.0) (2026-08-07)
 
 
