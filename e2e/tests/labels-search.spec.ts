@@ -101,6 +101,13 @@ test('search: live text, color filter, archive grouping, no-results', async ({ p
   // Clear search returns home.
   await page.getByRole('button', { name: 'Clear search' }).click();
   await expect(page).toHaveURL(/\/$/);
+
+  // So does Esc from inside the field (Keep).
+  await page.getByRole('textbox', { name: 'Search' }).click();
+  await page.getByRole('textbox', { name: 'Search' }).fill('banana');
+  await expect(page).toHaveURL(/\/search/);
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test('search marks the matched words on the result cards', async ({ page }) => {

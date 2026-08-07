@@ -44,6 +44,16 @@ export function TopBar() {
       replace: onSearchRoute,
     });
 
+  /** Esc leaves the search behind and drops you back on the notes (Keep). */
+  const leaveSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Blur first: a focused field would type its way straight back to /search.
+    e.currentTarget.blur();
+    void navigate({ to: '/' });
+  };
+
   const { data: settings } = useQuery(settingsQuery);
 
   const viewMode = settings?.viewMode ?? 'grid';
@@ -98,6 +108,7 @@ export function TopBar() {
                 if (!onSearchRoute) goSearch('');
               }}
               onChange={(e) => goSearch(e.target.value)}
+              onKeyDown={leaveSearch}
             />
             {onSearchRoute && (
               <IconButton
@@ -142,6 +153,7 @@ export function TopBar() {
                 autoFocus
                 className="h-full w-full min-w-0 bg-transparent text-[0.95rem] text-on-surface outline-none placeholder:text-on-surface-variant"
                 onChange={(e) => goSearch(e.target.value)}
+                onKeyDown={leaveSearch}
               />
               {searchValue !== '' && (
                 <IconButton
