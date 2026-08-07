@@ -1,3 +1,22 @@
+# [1.43.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.42.0...v1.43.0) (2026-08-07)
+
+
+### Features
+
+* an open note grows to show its pictures instead of caging them ([5291f9c](https://github.com/DanielFreitasDev/openKeep/commit/5291f9cedafb1d48ab0167dbb700590534241f84))
+* esc leaves the search and goes back to the notes ([c769e84](https://github.com/DanielFreitasDev/openKeep/commit/c769e84066eab956a8d7575dfa0b8f08c85c5432))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.43.0
+```
+
+Or download `compose.yml` below (image pinned to `1.43.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.43.0/docs/DEPLOYMENT.md).
+
 # [1.42.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.41.0...v1.42.0) (2026-08-07)
 
 
