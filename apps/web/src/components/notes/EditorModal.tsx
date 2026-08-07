@@ -383,6 +383,7 @@ function EditorBody({
   const docInputRef = useRef<HTMLInputElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const backdropRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef(false);
   const attachmentM = useAttachmentMutations();
   // Keep's voice note. Offered only where the browser can actually run it
@@ -452,6 +453,25 @@ function EditorBody({
     setOpenEditorNoteId(note.id);
     return () => setOpenEditorNoteId(null);
   }, [note.id, setOpenEditorNoteId]);
+
+  /**
+   * Opening the dialog moves the focus into the fields, and the browser
+   * scrolls to whatever it focused — which on a note that leads with a tall
+   * picture means opening half-way down it. Undo those first scrolls: the note
+   * opens at the top of its first image, and the reader takes it from there.
+   * Like the morph below, this runs from the ref callback, because Base UI
+   * mounts the popup after the effects of the tree that renders it.
+   */
+  const attachScroll = (node: HTMLDivElement | null) => {
+    scrollRef.current = node;
+    if (!node) return;
+    const toTop = () => {
+      node.scrollTop = 0;
+    };
+    toTop();
+    node.addEventListener('focusin', toTop);
+    window.setTimeout(() => node.removeEventListener('focusin', toTop), 250);
+  };
 
   // Morph open from the clicked card's rect (desktop; deep links skip this).
   // Base UI mounts the popup a beat after the dialog tree, so the morph runs
@@ -899,6 +919,16 @@ function EditorBody({
 
   const isDefaultColor = note.color === 'default';
 
+  /**
+   * Where the focus lands on open. Left to itself, Base UI takes the first
+   * tabbable thing in the popup — which on a note that leads with a picture is
+   * that picture's button, ringed and scrolled into view. The title is the
+   * honest destination; opening by touch keeps the focus on the popup, so
+   * tapping a note on a phone never summons the keyboard.
+   */
+  const initialFocus = (openType: string) =>
+    openType === 'touch' ? popupRef.current : titleRef.current;
+
   return (
     <Dialog.Root
       open
@@ -913,6 +943,7 @@ function EditorBody({
         />
         <Dialog.Popup
           ref={attachPopup}
+          initialFocus={initialFocus}
           aria-label={note.title || t('notePlaceholder')}
           className="fixed inset-0 z-40 flex flex-col pt-[env(safe-area-inset-top)] outline-none md:inset-auto md:top-[8vh] md:left-1/2 md:max-h-[84vh] md:w-[min(96vw,600px)] md:-translate-x-1/2 md:rounded-lg md:border md:pt-0 md:shadow-(--elevation-3)"
           style={{
@@ -1005,7 +1036,7 @@ function EditorBody({
           {/* Images, title and body scroll as one, so the note grows to show
               the picture and reads on below it (Keep) instead of peering at it
               through a fixed window. */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div ref={attachScroll} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <NoteImages note={note} editable={canEdit} />
 
             <div className="flex flex-none items-start">

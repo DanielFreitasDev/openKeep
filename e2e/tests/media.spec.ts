@@ -74,6 +74,15 @@ test('several images tile into one collage row with the note text below', async 
   const title = await dialog.getByRole('textbox', { name: 'Title' }).boundingBox();
   expect(title?.y ?? 0).toBeGreaterThanOrEqual(boxes[0]?.bottom ?? 0);
   await page.keyboard.press('Escape');
+
+  // Reopened, the note still starts at the top of its pictures — the focus
+  // the dialog takes must not scroll them out of view.
+  await cardByTitle(page, 'Album note').click();
+  await expect(images.first()).toBeVisible();
+  const dialogBox = await dialog.boundingBox();
+  const imageBox = await images.first().boundingBox();
+  expect(imageBox?.y ?? 0).toBeLessThanOrEqual((dialogBox?.y ?? 0) + 2);
+  await page.keyboard.press('Escape');
 });
 
 test('editor file attachment becomes a download chip on the card', async ({ page }) => {

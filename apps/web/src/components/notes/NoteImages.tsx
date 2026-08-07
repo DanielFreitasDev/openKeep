@@ -128,7 +128,10 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
   );
 
   return (
-    <div className="overflow-hidden rounded-t-lg">
+    // `flex-none`: inside the editor's scroller this is a flex item, and a
+    // shrinking one would squeeze the picture into a hidden scroll box of its
+    // own instead of letting the note scroll past it.
+    <div className="flex-none overflow-hidden rounded-t-lg">
       {tiled
         ? collageRows(images).map((row) => (
             // Every row is the same height whatever it holds, so the collage
