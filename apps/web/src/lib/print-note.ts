@@ -115,7 +115,26 @@ let pendingRestore: (() => void) | null = null;
  * rides on `afterprint`, not on `window.print()` returning: only Chrome blocks
  * there, and tearing the sheet down too early prints a blank page elsewhere.
  */
-export async function printNote(data: PrintNoteData): Promise<void> {
+export function printNote(data: PrintNoteData): Promise<void> {
+  return printSheet(buildPrintSheet(data), data.documentTitle);
+}
+
+/**
+ * One picture on a page of its own, centred — what the picture viewer prints.
+ * No title, no footer: the sheet is the photograph, as in Keep.
+ */
+export function printImage(url: string, documentTitle: string): Promise<void> {
+  const page = document.createElement('div');
+  page.className = 'print-photo-page';
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = '';
+  img.className = 'print-photo';
+  page.append(img);
+  return printSheet(page, documentTitle);
+}
+
+async function printSheet(sheet: HTMLElement, documentTitle: string): Promise<void> {
   // Printing twice before `afterprint` arrives: undo the first sheet whole —
   // dropping only its element would leave its listener to restore a document
   // title that is itself a note title by then.
@@ -123,11 +142,11 @@ export async function printNote(data: PrintNoteData): Promise<void> {
 
   const host = document.createElement('div');
   host.id = PRINT_ROOT_ID;
-  host.append(buildPrintSheet(data));
+  host.append(sheet);
   document.body.append(host);
 
   const previousTitle = document.title;
-  document.title = data.documentTitle;
+  document.title = documentTitle;
 
   const restore = () => {
     host.remove();

@@ -21,6 +21,12 @@ test.beforeEach(async ({ context, page }) => {
 
 const printCalls = (page: Page) => page.evaluate<number>('window.__printCalls');
 
+// 1x1 red PNG.
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 test('the editor prints the note as it reads right now, chrome left out', async ({
   context,
   page,
@@ -95,4 +101,31 @@ test('a checklist prints its boxes, and the card menu prints without opening the
   await expect(rows.nth(1)).toHaveClass(/print-item-indent/);
   await expect(rows.nth(2)).toHaveClass(/print-item-checked/);
   await expect(page.locator('#print-root .print-body')).toHaveCount(0);
+});
+
+test('the picture viewer prints the photograph, not the note', async ({ context, page }) => {
+  await context.request.post('/api/notes', {
+    data: { type: 'text', title: 'Beach trip', bodyHtml: '<p>towel</p>' },
+  });
+  await page.goto('/');
+  await cardByTitle(page, 'Beach trip').click();
+
+  const dialog = page.getByRole('dialog');
+  const chooser = page.waitForEvent('filechooser');
+  await dialog.getByRole('button', { name: 'Add image' }).click();
+  await (await chooser).setFiles({ name: 'dot.png', mimeType: 'image/png', buffer: PNG });
+  const image = dialog.locator('img[src*="/api/attachments/"]');
+  await expect(image).toBeVisible();
+  await image.click();
+
+  await page.getByRole('button', { name: 'Print', exact: true }).click();
+  expect(await printCalls(page)).toBe(1);
+
+  // The sheet is the photograph: no title, no body, no footer.
+  const sheet = page.locator('#print-root');
+  await expect(sheet.locator('img.print-photo')).toHaveCount(1);
+  await expect(sheet.locator('.print-title')).toHaveCount(0);
+  await expect(sheet.locator('.print-body')).toHaveCount(0);
+  await expect(sheet.locator('.print-meta')).toHaveCount(0);
+  await expect(page).toHaveTitle('Beach trip');
 });

@@ -613,6 +613,19 @@ body {
     break-inside: avoid;
   }
 
+  /* The picture viewer's sheet: one photograph, centred on its own page. */
+  .print-photo-page {
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+  }
+  .print-photo {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
   .print-items {
     list-style: none;
     margin: 0;

@@ -1,6 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildPrintSheet, PRINT_ROOT_ID, type PrintNoteData, printNote } from './print-note.js';
+import {
+  buildPrintSheet,
+  PRINT_ROOT_ID,
+  type PrintNoteData,
+  printImage,
+  printNote,
+} from './print-note.js';
 
 const data = (over: Partial<PrintNoteData> = {}): PrintNoteData => ({
   title: 'Beach trip',
@@ -134,6 +140,35 @@ describe('printNote', () => {
     document.title = 'OpenKeep';
 
     await printNote(data());
+
+    expect(document.getElementById(PRINT_ROOT_ID)).toBeNull();
+    expect(document.title).toBe('OpenKeep');
+  });
+});
+
+describe('printImage', () => {
+  it('prints the picture alone — no title, no footer', async () => {
+    const print = stubPrint();
+    document.title = 'OpenKeep';
+
+    await printImage('/api/attachments/abc/file', 'Beach trip');
+
+    expect(print).toHaveBeenCalledTimes(1);
+    expect(document.title).toBe('Beach trip');
+    const host = document.getElementById(PRINT_ROOT_ID);
+    expect(host?.querySelector('img.print-photo')?.getAttribute('src')).toBe(
+      '/api/attachments/abc/file',
+    );
+    expect(host?.querySelector('.print-title')).toBeNull();
+    expect(host?.querySelector('.print-meta')).toBeNull();
+  });
+
+  it('gives the document title back on afterprint, like the note sheet', async () => {
+    stubPrint();
+    document.title = 'OpenKeep';
+
+    await printImage('/api/attachments/abc/file', 'Beach trip');
+    window.dispatchEvent(new Event('afterprint'));
 
     expect(document.getElementById(PRINT_ROOT_ID)).toBeNull();
     expect(document.title).toBe('OpenKeep');

@@ -5,6 +5,7 @@ import closeSvg from '@material-symbols/svg-700/outlined/close.svg?raw';
 import drawSvg from '@material-symbols/svg-700/outlined/draw.svg?raw';
 import fitScreenSvg from '@material-symbols/svg-700/outlined/fit_screen.svg?raw';
 import imageSvg from '@material-symbols/svg-700/outlined/image.svg?raw';
+import printSvg from '@material-symbols/svg-700/outlined/print.svg?raw';
 import removeSvg from '@material-symbols/svg-700/outlined/remove.svg?raw';
 import type { Attachment } from '@openkeep/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import { attachmentFileUrl } from '../../lib/attachments-api.js';
 import { canEditContent } from '../../lib/note-permissions.js';
 import { selectImageStack } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
+import { printImage } from '../../lib/print-note.js';
 import { Icon } from '../Icon.js';
 import { IconButton } from '../IconButton.js';
 
@@ -115,6 +117,13 @@ function Viewer({ noteId, attachmentId }: { noteId: string; attachmentId: string
 
   if (!note || !current) return null;
 
+  /** The picture alone on a sheet — Keep prints the photograph, not the note. */
+  const print = () =>
+    void printImage(
+      attachmentFileUrl(current.id, current.updatedAt),
+      note.title || t('editor:notePlaceholder'),
+    );
+
   /** Ink over this picture — the same door the note's own overlay opens. */
   const draw = () =>
     void navigate({
@@ -156,15 +165,15 @@ function Viewer({ noteId, attachmentId }: { noteId: string; attachmentId: string
         {barButton(closeSvg, t('common:close'), close)}
         <Icon svg={imageSvg} size={18} />
         <span className="min-w-0 truncate text-[0.95rem]">{note.title}</span>
-        {canEditContent(note) && (
-          <div className="ml-auto flex items-center">
-            {barButton(
+        <div className="ml-auto flex items-center">
+          {barButton(printSvg, t('editor:print'), print)}
+          {canEditContent(note) &&
+            barButton(
               drawSvg,
               t(current.kind === 'drawing' ? 'drawing:editDrawing' : 'drawing:drawOnImage'),
               draw,
             )}
-          </div>
-        )}
+        </div>
       </header>
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: same surround, same way out */}
