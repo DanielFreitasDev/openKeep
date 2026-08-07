@@ -192,6 +192,7 @@ export function EditorModal() {
     note?: string;
     new?: boolean;
     drawing?: string;
+    viewer?: string;
     record?: boolean;
   };
   const navigate = useNavigate();
@@ -205,9 +206,10 @@ export function EditorModal() {
     });
   };
 
-  // While the full-screen drawing editor is up, the note editor stands down —
-  // its modal focus trap would swallow the drawing surface's pointer events.
-  if (!noteId || search.drawing) return null;
+  // While a full-screen surface is up — the drawing editor, or a picture
+  // opened on its own — the note editor stands down: its modal focus trap
+  // would swallow their pointer events.
+  if (!noteId || search.drawing || search.viewer) return null;
   return (
     <EditorDialog
       key={noteId}
@@ -1037,7 +1039,7 @@ function EditorBody({
               the picture and reads on below it (Keep) instead of peering at it
               through a fixed window. */}
           <div ref={attachScroll} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <NoteImages note={note} editable={canEdit} />
+            <NoteImages note={note} editable={canEdit} viewable />
 
             <div className="flex flex-none items-start">
               <textarea

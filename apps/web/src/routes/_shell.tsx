@@ -5,6 +5,7 @@ import { DrawingScreen } from '../components/drawing/DrawingScreen.js';
 import { MarqueeOverlay } from '../components/grid/MarqueeOverlay.js';
 import { EditLabelsDialog } from '../components/labels/EditLabelsDialog.js';
 import { EditorModal } from '../components/notes/EditorModal.js';
+import { PhotoViewer } from '../components/notes/PhotoViewer.js';
 import { UnlockDialog } from '../components/notes/UnlockDialog.js';
 import { SnackbarHost } from '../components/SnackbarHost.js';
 import { AdminDialog } from '../components/shell/AdminDialog.js';
@@ -36,7 +37,8 @@ import { useUiStore } from '../stores/ui.js';
 // the full-screen drawing editor: `new` (optionally without a note yet — the
 // note is only created when ink is saved) or an attachment id to re-edit;
 // `photo` rides along with `drawing=new` to start it over one of the note's
-// images. `compose` is the app-shortcut entry point (manifest `shortcuts`):
+// images. `viewer` opens one of the note's pictures full screen, on its own.
+// `compose` is the app-shortcut entry point (manifest `shortcuts`):
 // it creates a note of that type and hands over to `note`/`new`. `record` arms the
 // microphone in the editor it opens with (the FAB's "Recording"), and the
 // editor drops it from the URL the moment it acts on it — a reload should not
@@ -46,6 +48,7 @@ const shellSearch = z.object({
   new: z.boolean().optional(),
   drawing: z.union([z.literal('new'), z.string().uuid()]).optional(),
   photo: z.string().uuid().optional(),
+  viewer: z.string().uuid().optional(),
   compose: z.enum(['text', 'list']).optional(),
   record: z.boolean().optional(),
 });
@@ -90,6 +93,7 @@ function ShellLayout() {
       <MarqueeOverlay box={marquee} />
       <OfflineBanner />
       <EditorModal />
+      <PhotoViewer />
       <UnlockDialog />
       <DrawingScreen />
       <SettingsDialog />

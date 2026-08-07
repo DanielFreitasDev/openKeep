@@ -85,6 +85,41 @@ test('several images tile into one collage row with the note text below', async 
   await page.keyboard.press('Escape');
 });
 
+test('a picture opens on its own, with the note others an arrow away', async ({ page }) => {
+  await composeNote(page, { title: 'Gallery note', body: 'two pictures' });
+  await cardByTitle(page, 'Gallery note').click();
+
+  const dialog = page.getByRole('dialog');
+  const images = dialog.locator('img[src*="/api/attachments/"]');
+  for (const n of [1, 2]) {
+    const chooser = page.waitForEvent('filechooser');
+    await dialog.getByRole('button', { name: 'Add image' }).click();
+    await (await chooser).setFiles({ name: `dot${n}.png`, mimeType: 'image/png', buffer: PNG });
+    await expect(images).toHaveCount(n);
+  }
+  const first = (await images.first().getAttribute('src')) ?? '';
+
+  // Clicking it puts the picture on screen alone — the editor stands down.
+  await images.first().click();
+  await expect(page).toHaveURL(/viewer=/);
+  const viewed = dialog.locator('img[src*="/api/attachments/"]');
+  await expect(viewed).toHaveCount(1);
+  await expect(viewed).toHaveAttribute('src', first);
+  await expect(dialog.getByRole('button', { name: 'Add image' })).toHaveCount(0);
+
+  // The arrows walk the note's other pictures, and zoom magnifies this one.
+  await page.getByRole('button', { name: 'Next image' }).click();
+  await expect(viewed).not.toHaveAttribute('src', first);
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  await expect(viewed).toHaveAttribute('style', /scale\(1\.25\)/);
+
+  // Esc lands back on the note it came from.
+  await page.keyboard.press('Escape');
+  await expect(page).not.toHaveURL(/viewer=/);
+  await expect(dialog.getByRole('button', { name: 'Add image' })).toBeVisible();
+  await page.keyboard.press('Escape');
+});
+
 test('editor file attachment becomes a download chip on the card', async ({ page }) => {
   await composeNote(page, { title: 'Contract note', body: 'has a document' });
   await cardByTitle(page, 'Contract note').click();

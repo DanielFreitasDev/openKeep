@@ -31,7 +31,16 @@ function collageRows(images: Attachment[]): Attachment[][] {
  * of equal-height rows, because stacking them full-width turns a note with
  * three photos into a scroll of its own.
  */
-export function NoteImages({ note, editable = false }: { note: FullNote; editable?: boolean }) {
+export function NoteImages({
+  note,
+  editable = false,
+  viewable = false,
+}: {
+  note: FullNote;
+  editable?: boolean;
+  /** Tapping a picture opens it full screen (the editor; cards open the note). */
+  viewable?: boolean;
+}) {
   const { t } = useTranslation('notes');
   const navigate = useNavigate();
   const m = useAttachmentMutations();
@@ -51,6 +60,14 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
     void navigate({
       to: '.',
       search: (old: Record<string, unknown>) => ({ ...old, drawing: 'new', photo: att.id }),
+      resetScroll: false,
+    });
+
+  /** The picture on its own, full screen, with the note's others alongside. */
+  const openViewer = (att: Attachment) =>
+    void navigate({
+      to: '.',
+      search: (old: Record<string, unknown>) => ({ ...old, viewer: att.id }),
       resetScroll: false,
     });
 
@@ -79,16 +96,20 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
 
   const tile = (att: Attachment) => (
     <div key={att.id} className={`group/img relative ${tiled ? 'min-w-0 flex-1' : ''}`}>
-      {editable && att.kind === 'drawing' ? (
+      {/* A drawing goes back to the ink that made it; a photo opens on its own. */}
+      {(editable && att.kind === 'drawing') || viewable ? (
         <button
           type="button"
-          aria-label={t('drawing:editDrawing')}
+          aria-label={
+            editable && att.kind === 'drawing' ? t('drawing:editDrawing') : t('openImage')
+          }
           className={`block w-full outline-none focus-visible:ring-2 focus-visible:ring-(--primary) ${
             tiled ? 'h-full' : ''
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            editDrawing(att);
+            if (editable && att.kind === 'drawing') editDrawing(att);
+            else openViewer(att);
           }}
         >
           {picture(att)}
