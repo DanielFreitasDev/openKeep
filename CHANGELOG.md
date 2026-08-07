@@ -1,3 +1,21 @@
+## [1.45.1](https://github.com/DanielFreitasDev/openKeep/compare/v1.45.0...v1.45.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* a photo the camera turned is no longer squashed in the note ([b94d238](https://github.com/DanielFreitasDev/openKeep/commit/b94d23882a5dc3a1ff9132290af1ca22af034727))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.45.1
+```
+
+Or download `compose.yml` below (image pinned to `1.45.1`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.45.1/docs/DEPLOYMENT.md).
+
 # [1.45.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.44.0...v1.45.0) (2026-08-07)
 
 
