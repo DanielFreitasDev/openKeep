@@ -103,6 +103,25 @@ test('search: live text, color filter, archive grouping, no-results', async ({ p
   await expect(page).toHaveURL(/\/$/);
 });
 
+test('search marks the matched words on the result cards', async ({ page }) => {
+  await composeNote(page, { title: 'Banana bread', body: 'recipe with banana and cinnamon' });
+
+  await page.getByRole('textbox', { name: 'Search' }).fill('banâna');
+  const card = cardRootByTitle(page, 'Banana bread');
+  await expect(card).toBeVisible();
+
+  // Title and body, accent-insensitively, and only the word that matched.
+  const marks = card.locator('mark.search-match');
+  await expect(marks).toHaveText(['Banana', 'banana']);
+
+  // A word the search never matched stays unmarked, and so does the board.
+  await page.getByRole('textbox', { name: 'Search' }).fill('cinnamon');
+  await expect(card.locator('mark.search-match')).toHaveText(['cinnamon']);
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(cardRootByTitle(page, 'Banana bread').locator('mark.search-match')).toHaveCount(0);
+});
+
 test('search operators filter the corpus and become removable chips', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit labels' }).click();
   await page.getByRole('textbox', { name: 'Create new label' }).fill('Work');

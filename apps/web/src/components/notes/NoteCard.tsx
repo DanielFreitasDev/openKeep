@@ -44,6 +44,7 @@ import { NoteFileChips } from './NoteFileChips.js';
 import { NoteImages } from './NoteImages.js';
 import { NoteReminderChip } from './ReminderChip.js';
 import { NoteReminderPicker } from './ReminderPicker.js';
+import { HighlightedText } from './SearchHighlight.js';
 import { NoteShareDialog } from './ShareDialog.js';
 import { VersionHistoryDialog } from './VersionHistoryDialog.js';
 
@@ -279,7 +280,7 @@ export const NoteCard = memo(function NoteCard({
             <div className="px-4 pt-3 pb-2">
               {note.title && (
                 <div className="mb-1.5 break-words pr-7 font-semibold text-[1.1875rem] text-on-surface leading-7 max-md:pr-0 max-md:text-[1rem] max-md:leading-6">
-                  {note.title}
+                  <HighlightedText text={note.title} />
                 </div>
               )}
               {isEmpty ? (

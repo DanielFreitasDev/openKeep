@@ -238,8 +238,12 @@ function noteSearchWords(n: FullNote): string[] {
   return words;
 }
 
-/** Query words, normalized once per search rather than once per note. */
-function queryWords(q: string): string[] {
+/**
+ * Query words, normalized once per search rather than once per note. Exported
+ * because the result cards mark these same words (lib/search-highlight): what
+ * is highlighted has to be what was matched.
+ */
+export function queryWords(q: string): string[] {
   return normalizeForSearch(q).split(WORD_SEPARATORS).filter(Boolean);
 }
 

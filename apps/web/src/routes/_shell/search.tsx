@@ -24,13 +24,14 @@ import { z } from 'zod';
 import { EmptyView } from '../../components/EmptyView.js';
 import { NotesGrid } from '../../components/grid/NotesGrid.js';
 import { Icon } from '../../components/Icon.js';
+import { SearchHighlightProvider } from '../../components/notes/SearchHighlight.js';
 import { SaveSearchButton } from '../../components/shell/SaveSearchButton.js';
 import { usePublishViewOrder } from '../../hooks/use-app-keys.jsx';
 import { useRevealed } from '../../hooks/use-protection.js';
 import { formatSearchDay } from '../../lib/dates.js';
 import { labelsQuery } from '../../lib/labels-api.js';
 import type { SearchFilters } from '../../lib/note-selectors.js';
-import { selectPeople, selectSearch } from '../../lib/note-selectors.js';
+import { queryWords, selectPeople, selectSearch } from '../../lib/note-selectors.js';
 import { notesQuery } from '../../lib/notes-api.js';
 import { sessionQuery, settingsQuery } from '../../lib/queries.js';
 
@@ -108,6 +109,13 @@ function SearchView() {
 
   const noteSort = settings?.noteSort ?? 'manual';
   const revealed = useRevealed();
+
+  /**
+   * The words the cards mark. Only the positive free text: an operator filters
+   * the list rather than appearing in it, and a `-word` is precisely what the
+   * results do not contain.
+   */
+  const highlightWords = useMemo(() => queryWords(query.text.join(' ')), [query.text]);
 
   // Must be referentially stable, or react-query re-runs the whole search on
   // every render of this view rather than only when the filters change.
@@ -325,17 +333,19 @@ function SearchView() {
       ) : nothing ? (
         <EmptyView svg={searchSvg} text={t('noResults')} />
       ) : (
-        <div className="mx-auto flex max-w-full flex-col gap-4">
-          <NotesGrid notes={active} viewMode={viewMode} />
-          {archived.length > 0 && (
-            <>
-              <h2 className="mx-auto w-full px-1 font-medium text-[0.6875rem] text-on-surface-variant uppercase tracking-wider">
-                {t('archiveSection')}
-              </h2>
-              <NotesGrid notes={archived} viewMode={viewMode} />
-            </>
-          )}
-        </div>
+        <SearchHighlightProvider words={highlightWords}>
+          <div className="mx-auto flex max-w-full flex-col gap-4">
+            <NotesGrid notes={active} viewMode={viewMode} />
+            {archived.length > 0 && (
+              <>
+                <h2 className="mx-auto w-full px-1 font-medium text-[0.6875rem] text-on-surface-variant uppercase tracking-wider">
+                  {t('archiveSection')}
+                </h2>
+                <NotesGrid notes={archived} viewMode={viewMode} />
+              </>
+            )}
+          </div>
+        </SearchHighlightProvider>
       )}
     </div>
   );

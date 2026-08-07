@@ -9,6 +9,7 @@ import { settingsQuery } from '../../lib/queries.js';
 import { Icon } from '../Icon.js';
 import type { ChecklistRow } from './checklist-logic.js';
 import { displayGroups } from './checklist-logic.js';
+import { HighlightedText, useHighlightedHtml } from './SearchHighlight.js';
 
 /** A long list is truncated on the card; the note itself shows the rest. */
 const MAX_UNCHECKED = 8;
@@ -25,11 +26,21 @@ export function NoteBody({ note, onToggleItem }: { note: FullNote; onToggleItem:
   if (note.type === 'list') return <ChecklistPreview note={note} onToggleItem={onToggleItem} />;
 
   if (!note.bodyHtml) return null;
+  return <HtmlPreview html={note.bodyHtml} />;
+}
+
+/**
+ * On the search screen the matched words come back marked; everywhere else
+ * `useHighlightedHtml` hands the html straight back. Either way it is still
+ * the server's allowlist, `<mark>` included.
+ */
+function HtmlPreview({ html }: { html: string }) {
+  const marked = useHighlightedHtml(html);
   return (
     <div
       className="note-body max-h-[420px] overflow-hidden break-words text-[0.875rem] text-on-surface leading-5"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: server-sanitized allowlist html (see lib/sanitize on the server)
-      dangerouslySetInnerHTML={{ __html: note.bodyHtml }}
+      dangerouslySetInnerHTML={{ __html: marked }}
     />
   );
 }
@@ -111,7 +122,7 @@ function PreviewRow({ row, readOnly, onCheck }: PreviewRowProps) {
       <span
         className={`min-w-0 break-words ${row.checked ? 'text-on-surface-variant line-through' : ''}`}
       >
-        {row.text}
+        <HighlightedText text={row.text} />
       </span>
     </div>
   );

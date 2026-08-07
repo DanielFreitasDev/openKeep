@@ -318,6 +318,21 @@ body {
   pointer-events: none;
 }
 
+/* Search results. The words that matched are marked on the card, in the same
+   translucent wash the find bar uses — the two never show at once (one is the
+   board, the other the open note), and one highlight colour for "this is what
+   you searched for" is easier to learn than two. `mark` arrives with a yellow
+   background and a black text colour of its own; both are overridden, or the
+   note's own colour would be punched through. */
+.search-match {
+  background: rgba(26, 115, 232, 0.22);
+  color: inherit;
+  border-radius: 2px;
+}
+.dark .search-match {
+  background: rgba(138, 180, 248, 0.3);
+}
+
 /* Find in note (Ctrl+F). The body marks the matched words themselves; the
    title and the checklist rows are native textareas, where the only thing that
    can be tinted is the whole field. Both stay legible on all 12 note colors,
