@@ -1,3 +1,21 @@
+# [1.45.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.44.0...v1.45.0) (2026-08-07)
+
+
+### Features
+
+* the picture viewer prints the photograph ([13a1d73](https://github.com/DanielFreitasDev/openKeep/commit/13a1d731ffd8d1992d8caea0892bc9bf02f1960c))
+
+
+### Run it
+
+```sh
+docker pull ghcr.io/danielfreitasdev/openkeep:1.45.0
+```
+
+Or download `compose.yml` below (image pinned to `1.45.0`), set the env vars it lists,
+and `docker compose up -d`. Deployment guide:
+[docs/DEPLOYMENT.md](https://github.com/DanielFreitasDev/openkeep/blob/v1.45.0/docs/DEPLOYMENT.md).
+
 # [1.44.0](https://github.com/DanielFreitasDev/openKeep/compare/v1.43.0...v1.44.0) (2026-08-07)
 
 
