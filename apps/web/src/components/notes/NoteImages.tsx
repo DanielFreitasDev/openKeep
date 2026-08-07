@@ -82,15 +82,14 @@ export function NoteImages({
           : attachmentThumbUrl(att.id, att.updatedAt)
       }
       alt=""
+      // The recorded size, as attributes and never as an `aspect-ratio` rule:
+      // attributes hold the space open while the picture is on its way and then
+      // stand aside for its true proportions, where the rule would outrank them
+      // and squash a photo whose stored numbers have gone stale.
       width={att.width ?? undefined}
       height={att.height ?? undefined}
       loading="lazy"
       className={tiled ? 'block h-full w-full object-cover' : 'block h-auto w-full'}
-      style={
-        !tiled && att.width && att.height
-          ? { aspectRatio: `${att.width} / ${att.height}` }
-          : undefined
-      }
     />
   );
 

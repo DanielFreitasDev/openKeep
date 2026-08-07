@@ -72,12 +72,11 @@ function PublicNoteCard({ note, token, lang }: { note: PublicNote; token: string
           // The original, not the thumb: this page is the note at full size.
           src={publicAttachmentUrl(token, att.id, 'file', att.updatedAt)}
           alt=""
+          // Attributes only: they reserve the space, the loaded picture settles
+          // the proportions. See NoteImages.
           width={att.width ?? undefined}
           height={att.height ?? undefined}
           className="block h-auto w-full"
-          style={
-            att.width && att.height ? { aspectRatio: `${att.width} / ${att.height}` } : undefined
-          }
         />
       ))}
 

@@ -87,6 +87,50 @@ describe('attachments', () => {
     expect(thumb.headers['content-type']).toBe('image/webp');
   });
 
+  it('records a rotated photo at the size it is stored, not the size it arrived', async () => {
+    // A phone holds the sensor still and writes "turn me" in EXIF: the pixels
+    // are landscape, the picture is portrait. The upload rotates it, so the
+    // recorded size must be the portrait one — the number a card reserves
+    // space with, and the number that squashed the photo when it was raw.
+    const sideways = await sharp({
+      create: { width: 600, height: 400, channels: 3, background: { r: 20, g: 120, b: 200 } },
+    })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+
+    const res = await upload(sideways, 'photo.jpg', 'image/jpeg');
+    expect(res.statusCode).toBe(201);
+    const att = res.json() as Attachment;
+    expect([att.width, att.height]).toEqual([400, 600]);
+
+    const file = await t.app.inject({
+      method: 'GET',
+      url: `/api/attachments/${att.id}/file`,
+      headers: { cookie },
+    });
+    const stored = await sharp(file.rawPayload).metadata();
+    expect([stored.width, stored.height]).toEqual([att.width, att.height]);
+  });
+
+  it('records an animated GIF by its frame, not by the stack of them', async () => {
+    const frame = (colour: string) =>
+      sharp({ create: { width: 100, height: 60, channels: 3, background: colour } })
+        .png()
+        .toBuffer();
+    const gif = await sharp([await frame('#f00'), await frame('#0f0')], {
+      join: { animated: true },
+    })
+      .gif()
+      .toBuffer();
+
+    const res = await upload(gif, 'loop.gif', 'image/gif');
+    expect(res.statusCode).toBe(201);
+    const att = res.json() as Attachment;
+    // Not 120: sharp reads an animation as its frames stacked into one strip.
+    expect([att.width, att.height]).toEqual([100, 60]);
+  });
+
   it('rejects non-image bytes regardless of declared mime (no SVG)', async () => {
     const fakePng = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
     const res = await upload(fakePng, 'evil.png', 'image/png');

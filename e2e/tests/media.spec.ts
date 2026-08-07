@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { cardByTitle, cardRootByTitle, composeNote, signUpFreshUser } from './helpers.js';
 
@@ -6,6 +7,21 @@ const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
+
+// A JPEG the way a phone takes one held upright: 120x80 pixels plus an EXIF
+// "turn me a quarter", so the picture anybody sees is 80x120.
+const SIDEWAYS_JPEG = Buffer.from(
+  '/9j/4QC8RXhpZgAASUkqAAgAAAAGABIBAwABAAAABgAAABoBBQABAAAAVgAAABsBBQABAAAAXgAAACgBAwABAAAAAgAAABMCAwABAAAAAQAAAGmHBAABAAAAZgAAAAAAAAA4YwAA6AMAADhjAADoAwAABgAAkAcABAAAADAyMTABkQcABAAAAAECAwAAoAcABAAAADAxMDABoAMAAQAAAP//AAACoAQAAQAAAHgAAAADoAQAAQAAAFAAAAAAAAAA/+IB8ElDQ19QUk9GSUxFAAEBAAAB4GxjbXMEIAAAbW50clJHQiBYWVogB+IAAwAUAAkADgAdYWNzcE1TRlQAAAAAc2F3c2N0cmwAAAAAAAAAAAAAAAAAAPbWAAEAAAAA0y1oYW5keem/Vlo+AbaDI4VVRvdPqgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKZGVzYwAAAPwAAAAkY3BydAAAASAAAAAid3RwdAAAAUQAAAAUY2hhZAAAAVgAAAAsclhZWgAAAYQAAAAUZ1hZWgAAAZgAAAAUYlhZWgAAAawAAAAUclRSQwAAAcAAAAAgZ1RSQwAAAcAAAAAgYlRSQwAAAcAAAAAgbWx1YwAAAAAAAAABAAAADGVuVVMAAAAIAAAAHABzAFIARwBCbWx1YwAAAAAAAAABAAAADGVuVVMAAAAGAAAAHABDAEMAMAAAWFlaIAAAAAAAAPbWAAEAAAAA0y1zZjMyAAAAAAABDD8AAAXd///zJgAAB5AAAP2S///7of///aIAAAPcAADAcVhZWiAAAAAAAABvoAAAOPIAAAOPWFlaIAAAAAAAAGKWAAC3iQAAGNpYWVogAAAAAAAAJKAAAA+FAAC2xHBhcmEAAAAAAAMAAAACZmkAAPKnAAANWQAAE9AAAApb/9sAQwAUDg8SDw0UEhASFxUUGB4yIR4cHB49LC4kMklATEtHQEZFUFpzYlBVbVZFRmSIZW13e4GCgU5gjZeMfZZzfoF8/9sAQwEVFxceGh47ISE7fFNGU3x8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8/8AAEQgAUAB4AwEiAAIRAQMRAf/EABUAAQEAAAAAAAAAAAAAAAAAAAAE/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/EABYBAQEBAAAAAAAAAAAAAAAAAAAEBf/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJwEreAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//Z',
+  'base64',
+);
+
+/** What the picture is, against what the page gave it room to be. */
+const proportions = (image: Locator) =>
+  image.evaluate((el) => {
+    const img = el as unknown as { naturalWidth: number; naturalHeight: number };
+    const box = el.getBoundingClientRect();
+    return { drawn: box.width / box.height, natural: img.naturalWidth / img.naturalHeight };
+  });
 
 test.beforeEach(async ({ context, page }) => {
   await signUpFreshUser(context);
@@ -40,6 +56,35 @@ test('editor image upload renders on card; delete removes it', async ({ page }) 
   await dialog.getByRole('button', { name: 'Remove image' }).click();
   await expect(dialog.locator('img[src*="/api/attachments/"]')).toHaveCount(0);
   await page.keyboard.press('Escape');
+});
+
+test('a photo the camera turned keeps its own proportions, in the note and on the card', async ({
+  page,
+}) => {
+  await composeNote(page, { title: 'Sideways note', body: 'a photo taken upright' });
+  await cardByTitle(page, 'Sideways note').click();
+
+  const dialog = page.getByRole('dialog');
+  const chooser = page.waitForEvent('filechooser');
+  await dialog.getByRole('button', { name: 'Add image' }).click();
+  await (await chooser).setFiles({
+    name: 'photo.jpg',
+    mimeType: 'image/jpeg',
+    buffer: SIDEWAYS_JPEG,
+  });
+
+  // Upright, as taken — and given a box of that shape, not one stretched wide
+  // by the sideways numbers the file arrived with.
+  const image = dialog.locator('img[src*="/api/attachments/"]');
+  await expect.poll(async () => (await proportions(image)).natural).toBeCloseTo(80 / 120, 1);
+  const inNote = await proportions(image);
+  expect(inNote.drawn).toBeCloseTo(inNote.natural, 1);
+  await page.keyboard.press('Escape');
+
+  const thumb = cardRootByTitle(page, 'Sideways note').locator('img[src*="/thumb"]');
+  await expect.poll(async () => (await proportions(thumb)).natural).toBeCloseTo(80 / 120, 1);
+  const onCard = await proportions(thumb);
+  expect(onCard.drawn).toBeCloseTo(onCard.natural, 1);
 });
 
 test('several images tile into one collage row with the note text below', async ({ page }) => {

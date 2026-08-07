@@ -273,6 +273,16 @@ export async function uploadFile(
 }
 
 /**
+ * The size a browser will lay the stored file out at: a plain read, so an
+ * animated GIF answers with one frame rather than the whole strip, and the
+ * EXIF orientation of the original is already spent by the re-encode.
+ */
+async function storedSize(data: Buffer): Promise<{ width: number; height: number }> {
+  const meta = await sharp(data, { failOn: 'none' }).metadata();
+  return { width: meta.width ?? 0, height: meta.height ?? 0 };
+}
+
+/**
  * Upload pipeline: magic bytes decide the type (declared mime ignored, no
  * SVG), sharp re-encode strips EXIF and doubles as an integrity check.
  *
@@ -340,6 +350,12 @@ export async function uploadImage(
     .resize({ width: 512, withoutEnlargement: true })
     .webp({ quality: 78 })
     .toBuffer();
+  // Measured on the bytes we keep, not on the ones that arrived. A phone photo
+  // reaches sharp as landscape plus an EXIF orientation flag and leaves the
+  // re-encode upright, and an animated GIF reports its frames stacked into one
+  // tall strip; either way the arriving numbers describe a picture nobody will
+  // ever see, and the card would reserve a box the picture does not fit.
+  const shown = await storedSize(stored);
 
   const storageKey = storage.newKey(magic.ext);
   const thumbKey = storage.newKey('webp');
@@ -355,8 +371,8 @@ export async function uploadImage(
       thumbKey,
       mime: magic.mime,
       size: stored.length,
-      width,
-      height,
+      width: shown.width,
+      height: shown.height,
     })
     .returning();
   // Skipped on import: `notes.updatedAt` has `$onUpdate`, so touching the row
