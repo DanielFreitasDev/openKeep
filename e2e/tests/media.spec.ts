@@ -42,6 +42,40 @@ test('editor image upload renders on card; delete removes it', async ({ page }) 
   await page.keyboard.press('Escape');
 });
 
+test('several images tile into one collage row with the note text below', async ({ page }) => {
+  await composeNote(page, { title: 'Album note', body: 'three pictures' });
+  await cardByTitle(page, 'Album note').click();
+
+  const dialog = page.getByRole('dialog');
+  const images = dialog.locator('img[src*="/api/attachments/"]');
+  for (const n of [1, 2, 3]) {
+    const chooser = page.waitForEvent('filechooser');
+    await dialog.getByRole('button', { name: 'Add image' }).click();
+    await (await chooser).setFiles({ name: `dot${n}.png`, mimeType: 'image/png', buffer: PNG });
+    await expect(images).toHaveCount(n);
+  }
+
+  // Side by side on one row, not stacked: same top edge, left to right.
+  const boxes = await images.evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, bottom: r.bottom };
+    }),
+  );
+  expect(boxes.map((b) => Math.round(b.y))).toEqual([
+    Math.round(boxes[0]?.y ?? 0),
+    Math.round(boxes[0]?.y ?? 0),
+    Math.round(boxes[0]?.y ?? 0),
+  ]);
+  expect((boxes[1]?.x ?? 0) > (boxes[0]?.x ?? 0)).toBe(true);
+  expect((boxes[2]?.x ?? 0) > (boxes[1]?.x ?? 0)).toBe(true);
+
+  // And the note itself reads on below the pictures, no scrolling needed.
+  const title = await dialog.getByRole('textbox', { name: 'Title' }).boundingBox();
+  expect(title?.y ?? 0).toBeGreaterThanOrEqual(boxes[0]?.bottom ?? 0);
+  await page.keyboard.press('Escape');
+});
+
 test('editor file attachment becomes a download chip on the card', async ({ page }) => {
   await composeNote(page, { title: 'Contract note', body: 'has a document' });
   await cardByTitle(page, 'Contract note').click();

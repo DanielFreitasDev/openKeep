@@ -1002,75 +1002,82 @@ function EditorBody({
             />
           )}
 
-          <div className="max-h-[38vh] flex-none overflow-y-auto">
+          {/* Images, title and body scroll as one, so the note grows to show
+              the picture and reads on below it (Keep) instead of peering at it
+              through a fixed window. */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <NoteImages note={note} editable={canEdit} />
-          </div>
 
-          <div className="flex flex-none items-start">
-            <textarea
-              ref={titleRef}
-              defaultValue={note.title}
-              placeholder={t('titlePlaceholder')}
-              aria-label={t('titlePlaceholder')}
-              rows={1}
-              maxLength={999}
-              readOnly={!canEdit}
-              onChange={(e) => {
-                autosave.markDirty('title', e.target.value);
-                lastSurfaceRef.current = 'fields';
-                history.record({ title: e.target.value, items: readFields().items }, 'title');
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              onBlur={() => autosave.flush()}
-              data-find-current={titleIsCurrent ? 'true' : undefined}
-              className={`w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant ${
-                titleHits > 0
-                  ? titleIsCurrent
-                    ? 'find-field find-field-current'
-                    : 'find-field'
-                  : ''
-              }`}
-            />
-            {!trashed && (
-              <div className="pt-2.5 pr-2 max-md:hidden">
-                <IconButton
-                  svg={note.pinned ? pinFilledSvg : pinSvg}
-                  label={note.pinned ? t('notes:unpinNote') : t('notes:pinNote')}
-                  size={40}
-                  iconSize={22}
-                  className="text-on-surface-variant"
-                  onClick={() => m.togglePin(note)}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: tapping the empty area below the text focuses the body (mobile) */}
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: pointer affordance only — keyboard users are already inside the editor */}
-          <div
-            className="min-h-[46px] flex-1 overflow-y-auto px-4 pb-3"
-            onClickCapture={interceptNoteLink}
-            onClick={(e) => {
-              if (!isList && canEdit && e.target === e.currentTarget) editor?.commands.focus('end');
-            }}
-          >
-            {isList ? (
-              <ChecklistEditor
-                note={note}
+            <div className="flex flex-none items-start">
+              <textarea
+                ref={titleRef}
+                defaultValue={note.title}
+                placeholder={t('titlePlaceholder')}
+                aria-label={t('titlePlaceholder')}
+                rows={1}
+                maxLength={999}
                 readOnly={!canEdit}
-                moveCheckedToBottom={settings?.moveCheckedToBottom ?? true}
-                addItemsToBottom={settings?.addItemsToBottom ?? true}
-                handleRef={checklistRef}
-                find={find.open ? checklistFind : undefined}
-                onStep={(items, groupKey) => {
+                onChange={(e) => {
+                  autosave.markDirty('title', e.target.value);
                   lastSurfaceRef.current = 'fields';
-                  history.record({ title: titleRef.current?.value ?? note.title, items }, groupKey);
+                  history.record({ title: e.target.value, items: readFields().items }, 'title');
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
+                onBlur={() => autosave.flush()}
+                data-find-current={titleIsCurrent ? 'true' : undefined}
+                className={`w-full resize-none bg-transparent px-4 pt-4 pb-2 font-semibold text-[1.625rem] text-on-surface leading-9 outline-none placeholder:text-on-surface-variant ${
+                  titleHits > 0
+                    ? titleIsCurrent
+                      ? 'find-field find-field-current'
+                      : 'find-field'
+                    : ''
+                }`}
               />
-            ) : (
-              <EditorContent editor={editor} className="note-editor" />
-            )}
+              {!trashed && (
+                <div className="pt-2.5 pr-2 max-md:hidden">
+                  <IconButton
+                    svg={note.pinned ? pinFilledSvg : pinSvg}
+                    label={note.pinned ? t('notes:unpinNote') : t('notes:pinNote')}
+                    size={40}
+                    iconSize={22}
+                    className="text-on-surface-variant"
+                    onClick={() => m.togglePin(note)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: tapping the empty area below the text focuses the body (mobile) */}
+            {/* biome-ignore lint/a11y/useKeyWithClickEvents: pointer affordance only — keyboard users are already inside the editor */}
+            <div
+              className="min-h-[46px] flex-1 px-4 pb-3"
+              onClickCapture={interceptNoteLink}
+              onClick={(e) => {
+                if (!isList && canEdit && e.target === e.currentTarget)
+                  editor?.commands.focus('end');
+              }}
+            >
+              {isList ? (
+                <ChecklistEditor
+                  note={note}
+                  readOnly={!canEdit}
+                  moveCheckedToBottom={settings?.moveCheckedToBottom ?? true}
+                  addItemsToBottom={settings?.addItemsToBottom ?? true}
+                  handleRef={checklistRef}
+                  find={find.open ? checklistFind : undefined}
+                  onStep={(items, groupKey) => {
+                    lastSurfaceRef.current = 'fields';
+                    history.record(
+                      { title: titleRef.current?.value ?? note.title, items },
+                      groupKey,
+                    );
+                  }}
+                />
+              ) : (
+                <EditorContent editor={editor} className="note-editor" />
+              )}
+            </div>
           </div>
 
           <NoteFileChips note={note} editable={canEdit && !trashed} />

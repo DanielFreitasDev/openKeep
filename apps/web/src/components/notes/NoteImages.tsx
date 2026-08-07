@@ -9,9 +9,27 @@ import { selectImageStack } from '../../lib/note-selectors.js';
 import { IconButton } from '../IconButton.js';
 
 /**
+ * Keep's collage rows: three across, then two when only four are left, and
+ * never a lone image stranded on a row of its own.
+ */
+function collageRows(images: Attachment[]): Attachment[][] {
+  const rows: Attachment[][] = [];
+  for (let i = 0; i < images.length; ) {
+    const take = images.length - i === 4 ? 2 : Math.min(3, images.length - i);
+    rows.push(images.slice(i, i + take));
+    i += take;
+  }
+  return rows;
+}
+
+/**
  * Attachment stack above the title (Keep) — images and drawings. Cards use
  * thumbs; the editor uses originals, offers per-image delete, and tapping a
  * drawing reopens the drawing editor. Audio renders a player.
+ *
+ * One image shows whole, at its own proportions; several tile into a collage
+ * of equal-height rows, because stacking them full-width turns a note with
+ * three photos into a scroll of its own.
  */
 export function NoteImages({ note, editable = false }: { note: FullNote; editable?: boolean }) {
   const { t } = useTranslation('notes');
@@ -36,6 +54,8 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
       resetScroll: false,
     });
 
+  const tiled = images.length > 1;
+
   const picture = (att: Attachment) => (
     <img
       // updatedAt busts the immutable URL cache when a drawing is re-saved.
@@ -48,60 +68,76 @@ export function NoteImages({ note, editable = false }: { note: FullNote; editabl
       width={att.width ?? undefined}
       height={att.height ?? undefined}
       loading="lazy"
-      className="block h-auto w-full"
-      style={att.width && att.height ? { aspectRatio: `${att.width} / ${att.height}` } : undefined}
+      className={tiled ? 'block h-full w-full object-cover' : 'block h-auto w-full'}
+      style={
+        !tiled && att.width && att.height
+          ? { aspectRatio: `${att.width} / ${att.height}` }
+          : undefined
+      }
     />
+  );
+
+  const tile = (att: Attachment) => (
+    <div key={att.id} className={`group/img relative ${tiled ? 'min-w-0 flex-1' : ''}`}>
+      {editable && att.kind === 'drawing' ? (
+        <button
+          type="button"
+          aria-label={t('drawing:editDrawing')}
+          className={`block w-full outline-none focus-visible:ring-2 focus-visible:ring-(--primary) ${
+            tiled ? 'h-full' : ''
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            editDrawing(att);
+          }}
+        >
+          {picture(att)}
+        </button>
+      ) : (
+        picture(att)
+      )}
+      {editable && (
+        <div className="absolute right-1 bottom-1 flex gap-1 opacity-0 transition-opacity group-hover/img:opacity-100">
+          {att.kind === 'image' && (
+            <IconButton
+              svg={drawSvg}
+              label={t('drawing:drawOnImage')}
+              size={32}
+              iconSize={16}
+              className="bg-(--scrim) text-white hover:bg-black/70"
+              onClick={(e) => {
+                e.stopPropagation();
+                drawOnImage(att);
+              }}
+            />
+          )}
+          <IconButton
+            svg={closeSvg}
+            label={t('removeImage')}
+            size={32}
+            iconSize={16}
+            className="bg-(--scrim) text-white hover:bg-black/70"
+            onClick={(e) => {
+              e.stopPropagation();
+              m.remove.mutate({ noteId: note.id, attachmentId: att.id });
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 
   return (
     <div className="overflow-hidden rounded-t-lg">
-      {images.map((att) => (
-        <div key={att.id} className="group/img relative">
-          {editable && att.kind === 'drawing' ? (
-            <button
-              type="button"
-              aria-label={t('drawing:editDrawing')}
-              className="block w-full outline-none focus-visible:ring-2 focus-visible:ring-(--primary)"
-              onClick={(e) => {
-                e.stopPropagation();
-                editDrawing(att);
-              }}
-            >
-              {picture(att)}
-            </button>
-          ) : (
-            picture(att)
-          )}
-          {editable && (
-            <div className="absolute right-1 bottom-1 flex gap-1 opacity-0 transition-opacity group-hover/img:opacity-100">
-              {att.kind === 'image' && (
-                <IconButton
-                  svg={drawSvg}
-                  label={t('drawing:drawOnImage')}
-                  size={32}
-                  iconSize={16}
-                  className="bg-(--scrim) text-white hover:bg-black/70"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    drawOnImage(att);
-                  }}
-                />
-              )}
-              <IconButton
-                svg={closeSvg}
-                label={t('removeImage')}
-                size={32}
-                iconSize={16}
-                className="bg-(--scrim) text-white hover:bg-black/70"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  m.remove.mutate({ noteId: note.id, attachmentId: att.id });
-                }}
-              />
+      {tiled
+        ? collageRows(images).map((row) => (
+            // Every row is the same height whatever it holds, so the collage
+            // reads as a block rather than a ladder.
+            <div key={row[0]?.id} className="flex aspect-[12/5] gap-px mt-px first:mt-0">
+              {row.map(tile)}
             </div>
-          )}
-        </div>
-      ))}
+          ))
+        : images.map(tile)}
       {audios.map((att) => (
         <div key={att.id} className="flex items-center gap-1 px-2">
           {/* biome-ignore lint/a11y/useMediaCaption: user-recorded audio notes have no caption track */}
